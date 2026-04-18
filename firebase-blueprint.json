@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "ChildProfile": {
+      "title": "Child Profile",
+      "description": "Basic information about the child including birth date and gestational age.",
+      "type": "object",
+      "properties": {
+        "birthDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The child's date of birth."
+        },
+        "sex": {
+          "type": "string",
+          "enum": ["male", "female"],
+          "description": "The biological sex of the child."
+        },
+        "gestationalWeeks": {
+          "type": "integer",
+          "description": "Gestational weeks at birth (for premature correction)."
+        },
+        "gestationalDays": {
+          "type": "integer",
+          "description": "Gestational days at birth (for premature correction)."
+        }
+      },
+      "required": ["birthDate", "sex", "gestationalWeeks", "gestationalDays"]
+    },
+    "Measurement": {
+      "title": "Growth Measurement",
+      "description": "A single measurement record for height and weight at a specific date.",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the measurement was taken."
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in centimeters."
+        },
+        "weight": {
+          "type": "number",
+          "description": "Weight in kilograms."
+        },
+        "age": {
+          "type": "number",
+          "description": "Decimal age in years at the time of measurement."
+        },
+        "correctedAge": {
+          "type": "number",
+          "description": "Corrected decimal age in years for premature infants."
+        },
+        "heightSDS": {
+          "type": "number",
+          "description": "Standard Deviation Score (Z-score) for height."
+        },
+        "weightSDS": {
+          "type": "number",
+          "description": "Standard Deviation Score (Z-score) for weight."
+        },
+        "bmi": {
+          "type": "number",
+          "description": "Body Mass Index (kg/m^2)."
+        },
+        "obesityIndex": {
+          "type": "number",
+          "description": "Obesity index (%) based on height-specific standard weight."
+        }
+      },
+      "required": ["date", "age"]
+    }
+  },
+  "firestore": {
+    "/children/{childId}": {
+      "schema": "ChildProfile",
+      "description": "Collection of child profiles."
+    },
+    "/children/{childId}/measurements/{measurementId}": {
+      "schema": "Measurement",
+      "description": "Sub-collection of measurements for each child."
+    }
+  }
+}

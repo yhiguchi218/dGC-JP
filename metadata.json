@@ -1,0 +1,5 @@
+{
+  "name": "dGC-JP: 日本版デジタル成長曲線",
+  "description": "日本人の成長基準（2016年版）に基づく成長指標算出・可視化プラットフォーム",
+  "requestFramePermissions": []
+}

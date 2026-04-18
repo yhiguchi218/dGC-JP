@@ -1,0 +1,371 @@
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, parse, isValid } from 'date-fns';
+import { CalendarIcon, PlusCircle, Trash2, Save, FileUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+export interface MeasurementEntry {
+  id: string;
+  date: Date;
+  height?: number;
+  weight?: number;
+}
+
+interface GrowthFormProps {
+  initialData?: {
+    childId: string;
+    birthDate: Date;
+    sex: 'male' | 'female';
+    gestationalWeeks: number;
+    gestationalDays: number;
+    measurements: MeasurementEntry[];
+  };
+  onDataChange: (data: {
+    childId: string;
+    birthDate: Date;
+    sex: 'male' | 'female';
+    gestationalWeeks: number;
+    gestationalDays: number;
+    measurements: MeasurementEntry[];
+  }) => void;
+}
+
+const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) => {
+  const [childId, setChildId] = useState(initialData?.childId || '001');
+  const [birthDate, setBirthDate] = useState<Date>(initialData?.birthDate || new Date(2020, 0, 1));
+  const [sex, setSex] = useState<'male' | 'female'>(initialData?.sex || 'male');
+  const [gestationalWeeks, setGestationalWeeks] = useState(initialData?.gestationalWeeks || 40);
+  const [gestationalDays, setGestationalDays] = useState(initialData?.gestationalDays || 0);
+  const [measurements, setMeasurements] = useState<MeasurementEntry[]>(initialData?.measurements || [
+    { id: '1', date: new Date(), height: 100, weight: 15 }
+  ]);
+
+  const handleAddMeasurement = () => {
+    const newId = Math.random().toString(36).substr(2, 9);
+    const newMeasurements = [
+      ...measurements,
+      { id: newId, date: new Date(), height: undefined, weight: undefined }
+    ];
+    setMeasurements(newMeasurements);
+    // Trigger focus on the new date input after render
+    setTimeout(() => {
+      const el = document.getElementById(`date-${newId}`);
+      if (el) el.focus();
+    }, 10);
+  };
+
+  const handleRemoveMeasurement = (id: string) => {
+    setMeasurements(measurements.filter(m => m.id !== id));
+  };
+
+  const updateMeasurement = (id: string, field: keyof MeasurementEntry, value: any) => {
+    const newMeasurements = measurements.map(m => 
+      m.id === id ? { ...m, [field]: value } : m
+    );
+    setMeasurements(newMeasurements);
+    onDataChange({ childId, birthDate, sex, gestationalWeeks, gestationalDays, measurements: newMeasurements });
+  };
+
+  const triggerChange = (updates: any) => {
+    const final = { childId, birthDate, sex, gestationalWeeks, gestationalDays, measurements, ...updates };
+    onDataChange(final);
+  };
+
+  const handleSaveJSON = () => {
+    const data = {
+      childId,
+      birthDate: format(birthDate, "yyyy/MM/dd"),
+      sex,
+      gestationalWeeks,
+      gestationalDays,
+      measurements: measurements.map(m => ({
+        ...m,
+        date: format(m.date, "yyyy/MM/dd")
+      }))
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${childId} growth chart.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleLoadJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        
+        // Try parsing different formats for robustness
+        const parseDate = (dateStr: string) => {
+          // Try YYYY/MM/DD
+          let d = parse(dateStr, "yyyy/MM/dd", new Date());
+          if (isValid(d)) return d;
+          // Try YYYY-MM-DD (ISO)
+          d = new Date(dateStr);
+          if (isValid(d)) return d;
+          return new Date();
+        };
+
+        const loadedBirthDate = parseDate(data.birthDate);
+        const loadedMeasurements = data.measurements.map((m: any) => ({
+          ...m,
+          date: parseDate(m.date)
+        }));
+
+        setChildId(data.childId);
+        setBirthDate(loadedBirthDate);
+        setSex(data.sex);
+        setGestationalWeeks(data.gestationalWeeks);
+        setGestationalDays(data.gestationalDays);
+        setMeasurements(loadedMeasurements);
+
+        onDataChange({
+          childId: data.childId,
+          birthDate: loadedBirthDate,
+          sex: data.sex,
+          gestationalWeeks: data.gestationalWeeks,
+          gestationalDays: data.gestationalDays,
+          measurements: loadedMeasurements
+        });
+      } catch (err) {
+        console.error("Failed to parse JSON", err);
+        alert("ファイルの読み込みに失敗しました。正しい形式のJSONファイルを選択してください。");
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-xl font-semibold">基本情報</CardTitle>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSaveJSON}>
+              <Save className="mr-2 h-4 w-4" />
+              保存
+            </Button>
+            <div className="relative">
+              <label 
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer")}
+              >
+                <FileUp className="mr-2 h-4 w-4" />
+                読込
+                <input type="file" accept=".json" className="hidden" onChange={handleLoadJSON} />
+              </label>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-6">
+          <div className="space-y-2">
+            <Label htmlFor="childId">管理ID</Label>
+            <Input
+              id="childId"
+              value={childId}
+              onChange={(e) => {
+                setChildId(e.target.value);
+                triggerChange({ childId: e.target.value });
+              }}
+              placeholder="例: 001"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="birthDate">生年月日</Label>
+            <Input
+              id="birthDate"
+              key={`birth-${birthDate.getTime()}`}
+              type="text"
+              placeholder="YYYY/MM/DD"
+              defaultValue={birthDate ? format(birthDate, "yyyy/MM/dd") : ""}
+              onBlur={(e) => {
+                const val = e.target.value;
+                const date = parse(val, "yyyy/MM/dd", new Date());
+                if (isValid(date)) {
+                  setBirthDate(date);
+                  triggerChange({ birthDate: date });
+                } else {
+                  // Revert to current birthDate if invalid
+                  e.target.value = birthDate ? format(birthDate, "yyyy/MM/dd") : "";
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sex">性別</Label>
+            <Select value={sex} onValueChange={(v: 'male' | 'female') => {
+              setSex(v);
+              triggerChange({ sex: v });
+            }}>
+              <SelectTrigger id="sex">
+                <SelectValue placeholder="性別を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">男子</SelectItem>
+                <SelectItem value="female">女子</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gestationalWeeks">在胎期間 (週)</Label>
+            <Input 
+              id="gestationalWeeks"
+              type="number" 
+              value={gestationalWeeks} 
+              onChange={(e) => {
+                const v = parseInt(e.target.value);
+                setGestationalWeeks(v);
+                triggerChange({ gestationalWeeks: v });
+              }} 
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gestationalDays">在胎期間 (日)</Label>
+            <Input 
+              id="gestationalDays"
+              type="number" 
+              value={gestationalDays} 
+              onChange={(e) => {
+                const v = parseInt(e.target.value);
+                setGestationalDays(v);
+                triggerChange({ gestationalDays: v });
+              }} 
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-xl font-semibold">測定データ</CardTitle>
+          <Button variant="outline" size="sm" onClick={handleAddMeasurement}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            追加
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {measurements.map((m, index) => (
+              <div key={m.id} className="grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white shadow-sm">
+                <div className="space-y-2">
+                  <Label htmlFor={`date-${m.id}`} className="text-sm font-medium text-gray-500">測定日</Label>
+                  <Input
+                    id={`date-${m.id}`}
+                    key={`date-${m.id}-${m.date.getTime()}`}
+                    type="text"
+                    placeholder="YYYY/MM/DD"
+                    defaultValue={m.date ? format(m.date, "yyyy/MM/dd") : ""}
+                    onBlur={(e) => {
+                      const val = e.target.value;
+                      const date = parse(val, "yyyy/MM/dd", new Date());
+                      if (isValid(date)) {
+                        updateMeasurement(m.id, 'date', date);
+                      } else {
+                        // Revert to current date if invalid
+                        e.target.value = m.date ? format(m.date, "yyyy/MM/dd") : "";
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                        const nextEl = document.getElementById(`height-${m.id}`);
+                        if (nextEl) nextEl.focus();
+                      }
+                    }}
+                    className="h-12 md:h-16 text-lg bg-gray-50 border-gray-200"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor={`height-${m.id}`} className="text-lg md:text-xl font-bold text-blue-700">身長 (cm)</Label>
+                  <div className="relative">
+                    <Input 
+                      id={`height-${m.id}`}
+                      type="number" 
+                      step="0.1" 
+                      value={m.height || ''} 
+                      onChange={(e) => updateMeasurement(m.id, 'height', parseFloat(e.target.value))} 
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const nextEl = document.getElementById(`weight-${m.id}`);
+                          if (nextEl) nextEl.focus();
+                        }
+                      }}
+                      className="h-20 md:h-32 text-4xl md:text-6xl font-black bg-blue-50/30 border-blue-200 focus:border-blue-500 focus:ring-blue-500 text-center"
+                      placeholder="000.0"
+                    />
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-blue-300 font-bold text-xl md:text-2xl">
+                      cm
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <Label htmlFor={`weight-${m.id}`} className="text-lg md:text-xl font-bold text-pink-700">体重 (kg)</Label>
+                  <div className="relative">
+                    <Input 
+                      id={`weight-${m.id}`}
+                      type="number" 
+                      step="0.01" 
+                      value={m.weight || ''} 
+                      onChange={(e) => updateMeasurement(m.id, 'weight', parseFloat(e.target.value))} 
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (index === measurements.length - 1) {
+                            handleAddMeasurement();
+                          } else {
+                            const nextId = measurements[index + 1].id;
+                            const nextEl = document.getElementById(`date-${nextId}`);
+                            if (nextEl) nextEl.focus();
+                          }
+                        }
+                      }}
+                      className="h-20 md:h-32 text-4xl md:text-6xl font-black bg-pink-50/30 border-pink-200 focus:border-pink-500 focus:ring-pink-500 text-center"
+                      placeholder="00.00"
+                    />
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-pink-300 font-bold text-xl md:text-2xl">
+                      kg
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-12 w-12 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-full"
+                    onClick={() => handleRemoveMeasurement(m.id)}
+                  >
+                    <Trash2 className="h-6 w-6" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default GrowthForm;
