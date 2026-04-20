@@ -78,6 +78,14 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     onDataChange(final);
   };
 
+  const isMale = sex === 'male';
+  const primaryColorClass = isMale ? 'blue' : 'red';
+  const primaryTextClass = isMale ? 'text-blue-700' : 'text-red-700';
+  const primaryBgClass = isMale ? 'bg-blue-50/30' : 'bg-red-50/30';
+  const primaryBorderClass = isMale ? 'border-blue-200' : 'border-red-200';
+  const primaryFocusClass = isMale ? 'focus:border-blue-500 focus:ring-blue-500' : 'focus:border-red-500 focus:ring-red-500';
+  const primaryUnitClass = isMale ? 'text-blue-300' : 'text-red-300';
+
   const handleSaveJSON = () => {
     const data = {
       childId,
@@ -299,7 +307,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                   />
                 </div>
                 <div className="space-y-3">
-                  <Label htmlFor={`height-${m.id}`} className="text-lg md:text-xl font-bold text-blue-700">身長 (cm)</Label>
+                  <Label htmlFor={`height-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>身長 (cm)</Label>
                   <div className="relative">
                     <Input 
                       id={`height-${m.id}`}
@@ -313,16 +321,16 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                           if (nextEl) nextEl.focus();
                         }
                       }}
-                      className="h-20 md:h-32 text-4xl md:text-6xl font-black bg-blue-50/30 border-blue-200 focus:border-blue-500 focus:ring-blue-500 text-center"
+                      className={cn("h-20 md:h-32 text-4xl md:text-6xl font-black text-center", primaryBgClass, primaryBorderClass, primaryFocusClass)}
                       placeholder="000.0"
                     />
-                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-blue-300 font-bold text-xl md:text-2xl">
+                    <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
                       cm
                     </div>
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <Label htmlFor={`weight-${m.id}`} className="text-lg md:text-xl font-bold text-pink-700">体重 (kg)</Label>
+                  <Label htmlFor={`weight-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>体重 (kg)</Label>
                   <div className="relative">
                     <Input 
                       id={`weight-${m.id}`}
@@ -341,10 +349,10 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                           }
                         }
                       }}
-                      className="h-20 md:h-32 text-4xl md:text-6xl font-black bg-pink-50/30 border-pink-200 focus:border-pink-500 focus:ring-pink-500 text-center"
+                      className={cn("h-20 md:h-32 text-4xl md:text-6xl font-black text-center", primaryBgClass, primaryBorderClass, primaryFocusClass)}
                       placeholder="00.00"
                     />
-                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-pink-300 font-bold text-xl md:text-2xl">
+                    <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
                       kg
                     </div>
                   </div>

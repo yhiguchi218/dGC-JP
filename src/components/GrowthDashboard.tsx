@@ -268,7 +268,10 @@ const GrowthDashboard: React.FC = () => {
                       <th className="px-4 py-3">BMI</th>
                       <th className="px-4 py-3">
                         肥満度
-                        <span className="ml-1 text-[8px] normal-case bg-blue-100 text-blue-700 px-1 rounded">
+                        <span className={cn(
+                          "ml-1 text-[8px] normal-case px-1 rounded",
+                          formData.sex === 'male' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
+                        )}>
                           {obesityMode === 'height' ? '身長値ベース' : '年齢別表1ベース'}
                         </span>
                       </th>
@@ -332,25 +335,25 @@ const GrowthDashboard: React.FC = () => {
           </Card>
 
           {heightVelocity.length > 0 && (
-            <Card className="border-blue-100 bg-blue-50/30">
+            <Card className={cn("border-opacity-50", formData.sex === 'male' ? "border-blue-100 bg-blue-50/30" : "border-red-100 bg-red-50/30")}>
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <Info className="h-5 w-5 text-blue-500" />
+                  <Info className={cn("h-5 w-5", formData.sex === 'male' ? "text-blue-500" : "text-red-500")} />
                   身長速度 (Height Velocity)
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {heightVelocity.map((hv, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-white rounded-lg border border-blue-100 shadow-sm">
+                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === 'male' ? "border-blue-100" : "border-red-100")}>
                       <div>
                         <div className="text-sm text-gray-500">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
-                        <div className="text-2xl font-bold text-blue-600 flex items-baseline gap-2">
+                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === 'male' ? "text-blue-600" : "text-red-600")}>
                           HV: {hv.value.toFixed(2)} cm/年
                           {hv.hvSDS !== null && (
                             <span className={cn(
                               "text-sm",
-                              Math.abs(hv.hvSDS) > 2 ? "text-red-500 font-bold" : "text-blue-500 font-medium"
+                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === 'male' ? "text-blue-500 font-medium" : "text-red-500 font-medium")
                             )}>
                               (SDS: {hv.hvSDS.toFixed(2)})
                             </span>
