@@ -20,11 +20,15 @@ export interface ChildData {
 /**
  * Calculates decimal age in years.
  * (Measurement Date - Birth Date) / 365.25
+ * Validates that age is between 0 and 18 years.
  */
 export function calculateDecimalAge(birthDate: Date, measurementDate: Date): number {
   const days = differenceInDays(measurementDate, birthDate);
+  if (days < 0) return -1; // Indicator for measurement before birth
+  
   // Use 4 decimal places for age as requested
-  return Number((days / 365.25).toFixed(4));
+  const age = Number((days / 365.25).toFixed(4));
+  return age;
 }
 
 /**
@@ -32,11 +36,15 @@ export function calculateDecimalAge(birthDate: Date, measurementDate: Date): num
  * Only applicable up to 3 years old.
  */
 export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number {
+  const age = calculateDecimalAge(birthDate, measurementDate);
+  if (age < 0 || age > 3) return age; // Do not apply correction if child is over 3y or age is invalid
+
   const totalGestationalDays = gestationalWeeks * 7 + gestationalDays;
   const fullTermDays = 40 * 7; // Standard full term is 40 weeks
   const deficitDays = fullTermDays - totalGestationalDays;
 
-  if (deficitDays <= 0) return calculateDecimalAge(birthDate, measurementDate);
+  // Only correct if born before 37 weeks (preterm)
+  if (gestationalWeeks >= 37 || deficitDays <= 0) return age;
 
   const correctedBirthDate = addDays(birthDate, deficitDays);
   return calculateDecimalAge(correctedBirthDate, measurementDate);
@@ -68,12 +76,19 @@ export function calculateMeasurementFromZ(z: number, lms: LMSPoint): number {
  * Cubic Spline Interpolation for LMS values
  */
 export function interpolateLMS(age: number, table: LMSPoint[]): LMSPoint {
-  if (age <= table[0].age) return table[0];
-  if (age >= table[table.length - 1].age) return table[table.length - 1];
+  // Clamp age to table range for calculation
+  const calcAge = Math.max(table[0].age, Math.min(table[table.length - 1].age, age));
+  
+  if (calcAge === table[0].age) {
+    return { ...table[0], age }; // Return requested age but values from table[0]
+  }
+  if (calcAge === table[table.length - 1].age) {
+    return { ...table[table.length - 1], age }; // Return requested age but values from last entry
+  }
 
   // Find the interval [p1, p2]
   let i = 0;
-  while (i < table.length - 2 && age > table[i + 1].age) {
+  while (i < table.length - 2 && calcAge > table[i + 1].age) {
     i++;
   }
 

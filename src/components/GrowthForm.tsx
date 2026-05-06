@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, parse, isValid } from 'date-fns';
-import { CalendarIcon, PlusCircle, Trash2, Save, FileUp } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { calculateDecimalAge } from '../lib/growth-utils';
 
 export interface MeasurementEntry {
   id: string;
@@ -276,9 +277,27 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {measurements.map((m, index) => (
-              <div key={m.id} className="grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white shadow-sm">
-                <div className="space-y-2">
+            {measurements.map((m, index) => {
+              const age = calculateDecimalAge(birthDate, m.date);
+              
+              return (
+                <div key={m.id} className={cn(
+                  "grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white shadow-sm transition-colors",
+                  age < 0 ? "border-red-500 bg-red-50/10" : 
+                  age > 18 ? "border-amber-400 bg-amber-50/10" : 
+                  "border-gray-100"
+                )}>
+                  {age < 0 && (
+                    <div className="col-span-full text-red-500 text-xs font-bold flex items-center gap-1">
+                      <Info className="h-3 w-3" /> 測定日が生年月日より前です
+                    </div>
+                  )}
+                  {age > 18 && (
+                    <div className="col-span-full text-amber-600 text-xs font-bold flex items-center gap-1">
+                      <Info className="h-3 w-3" /> 18歳を超えています（17.5歳のデータを参照します）
+                    </div>
+                  )}
+                  <div className="space-y-2">
                   <Label htmlFor={`date-${m.id}`} className="text-sm font-medium text-gray-500">測定日</Label>
                   <Input
                     id={`date-${m.id}`}
@@ -367,8 +386,9 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                     <Trash2 className="h-6 w-6" />
                   </Button>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

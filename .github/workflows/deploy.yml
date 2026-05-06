@@ -27,11 +27,11 @@ jobs:
           node-version: 20
           cache: 'npm'
       - name: Install dependencies
-        run: npm install
+        run: npm ci || npm install
+      - name: Run tests
+        run: npm test
       - name: Build
         run: npm run build
-      - name: Run tests
-        run: npx vitest run
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
