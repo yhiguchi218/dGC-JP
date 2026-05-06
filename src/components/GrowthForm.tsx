@@ -248,7 +248,18 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 setGestationalWeeks(v);
                 triggerChange({ gestationalWeeks: v });
               }} 
+              className={cn((gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-500 bg-amber-50")}
             />
+            {gestationalWeeks < 22 && (
+              <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                <Info className="h-3 w-3" /> 22週未満は22週0日として計算されます
+              </p>
+            )}
+            {gestationalWeeks >= 44 && (
+              <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                <Info className="h-3 w-3" /> 44週以降は44週0日として計算されます
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

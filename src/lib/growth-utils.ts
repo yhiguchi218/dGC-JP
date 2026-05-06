@@ -39,12 +39,24 @@ export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, ge
   const age = calculateDecimalAge(birthDate, measurementDate);
   if (age < 0 || age > 3) return age; // Do not apply correction if child is over 3y or age is invalid
 
-  const totalGestationalDays = gestationalWeeks * 7 + gestationalDays;
+  // Clamp gestational age to [22w0d, 44w0d] as requested
+  let weeks = gestationalWeeks;
+  let days = gestationalDays;
+  
+  if (weeks < 22) {
+    weeks = 22;
+    days = 0;
+  } else if (weeks >= 44) {
+    weeks = 44;
+    days = 0;
+  }
+
+  const totalGestationalDays = weeks * 7 + days;
   const fullTermDays = 40 * 7; // Standard full term is 40 weeks
   const deficitDays = fullTermDays - totalGestationalDays;
 
   // Only correct if born before 37 weeks (preterm)
-  if (gestationalWeeks >= 37 || deficitDays <= 0) return age;
+  if (weeks >= 37 || deficitDays <= 0) return age;
 
   const correctedBirthDate = addDays(birthDate, deficitDays);
   return calculateDecimalAge(correctedBirthDate, measurementDate);
