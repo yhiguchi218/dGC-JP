@@ -84,7 +84,7 @@ input[type=number] {
 
     /* Shrink the chart slightly for printing */
     #printable-chart-area-wrapper {
-      max-height: 60vh !important;
+      max-height: 55vh !important;
     }
   }
 }

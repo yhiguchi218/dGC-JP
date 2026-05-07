@@ -282,8 +282,9 @@ const GrowthDashboard: React.FC = () => {
                   <tbody>
                     {processedData.map((d, i) => {
                       const currentObesity = obesityMode === 'height' ? d.obesityIndex : d.obesityIndexAge;
+                      const isLast = i === processedData.length - 1;
                       return (
-                        <tr key={i} className="border-b hover:bg-gray-50 print:border-gray-200">
+                        <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-gray-200", !isLast && "print:hidden")}>
                           <td className="px-4 py-3 font-medium print:px-1 print:py-1">{format(d.date, 'yyyy/MM/dd')}</td>
                           <td className="px-4 py-3 print:px-1 print:py-1">
                             {d.age.toFixed(4)}歳
@@ -337,7 +338,7 @@ const GrowthDashboard: React.FC = () => {
           </Card>
 
           {heightVelocity.length > 0 && (
-            <Card className={cn("border-opacity-50", formData.sex === 'male' ? "border-blue-100 bg-blue-50/30" : "border-red-100 bg-red-50/30")}>
+            <Card className={cn("border-opacity-50 print:hidden", formData.sex === 'male' ? "border-blue-100 bg-blue-50/30" : "border-red-100 bg-red-50/30")}>
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center gap-2">
                   <Info className={cn("h-5 w-5", formData.sex === 'male' ? "text-blue-500" : "text-red-500")} />

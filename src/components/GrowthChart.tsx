@@ -109,9 +109,10 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       for (const entry of entries) {
         const { width } = entry.contentRect;
         if (width > 0) {
+          const isPrinting = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: width * 1.6
+            height: isPrinting ? width * 1.2 : width * 1.4
           });
         }
       }
@@ -374,7 +375,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         </div>
       </div>
 
-      <h3 className="hidden print:block text-2xl font-bold mb-6 text-center">
+      <h3 className="hidden print:block text-lg font-bold mb-2 text-center text-gray-900 border-b pb-2">
         {sex === 'male' ? '男子' : '女子'} 成長曲線 ({preset.name})
       </h3>
 
@@ -383,7 +384,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           <svg ref={svgRef} width={width} height={height} className="w-full h-auto" />
         </div>
         
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:mt-2">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:hidden">
           <div className="flex items-center gap-2">
             <span className={`w-3 md:w-4 h-0.5 ${sex === 'male' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
             <span>身長 中央値 (0SD)</span>
