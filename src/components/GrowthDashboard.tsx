@@ -179,8 +179,8 @@ const GrowthDashboard: React.FC = () => {
   }, [processedData]);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">dGC-JP</h1>
           <p className="text-gray-500">日本版デジタル成長曲線プラットフォーム</p>
@@ -190,15 +190,15 @@ const GrowthDashboard: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start print:block">
         {/* Left Column: Input Forms */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-8">
+        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-8 print:hidden">
           <GrowthForm onDataChange={setFormData} initialData={formData} />
         </div>
 
         {/* Right Column: Chart and Results */}
-        <div className="lg:col-span-8 space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4">
+        <div className="lg:col-span-8 space-y-8 print:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4 print:hidden">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <span className="text-sm font-medium text-gray-700">表示範囲:</span>
               <Select 
@@ -223,19 +223,21 @@ const GrowthDashboard: React.FC = () => {
             </div>
           </div>
 
-          <GrowthChart 
-            sex={formData.sex} 
-            heightLmsTable={heightTable} 
-            weightLmsTable={weightTable} 
-            heightPoints={heightPoints} 
-            weightPoints={weightPoints} 
-            preset={selectedPreset}
-          />
+          <div className="print:break-after-page">
+            <GrowthChart 
+              sex={formData.sex} 
+              heightLmsTable={heightTable} 
+              weightLmsTable={weightTable} 
+              heightPoints={heightPoints} 
+              weightPoints={weightPoints} 
+              preset={selectedPreset}
+            />
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <Card className="print:shadow-none print:border-none">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 print:pb-2">
               <CardTitle className="text-xl font-semibold">評価結果</CardTitle>
-              <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs">
+              <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
                   className={cn(
@@ -370,7 +372,7 @@ const GrowthDashboard: React.FC = () => {
             </Card>
           )}
 
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm">
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm print:hidden">
             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
             <div className="text-xs text-amber-800 space-y-2">
               <div>

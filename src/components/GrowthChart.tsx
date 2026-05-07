@@ -73,10 +73,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   const [isExporting, setIsExporting] = useState(false);
 
   const handlePrint = () => {
+    // Focus and print - in some iframe environments, this is the most reliable way
     window.focus();
-    setTimeout(() => {
-      window.print();
-    }, 200);
+    window.print();
   };
 
   const handleExportTIFF = async () => {
@@ -316,10 +315,10 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('y', yScaleHeight(d.value))
         .attr('text-anchor', 'middle')
         .attr('alignment-baseline', 'middle')
-        .style('font-size', isOutlier ? `${Math.max(35, width * 0.055)}px` : `${Math.max(25, width * 0.045)}px`)
+        .style('font-size', isOutlier ? `${Math.max(18, width * 0.028)}px` : `${Math.max(12, width * 0.02)}px`)
         .style('fill', color)
         .style('stroke', 'white')
-        .style('stroke-width', '0.5px')
+        .style('stroke-width', '1px')
         .style('font-weight', 'bold')
         .text(marker);
     });
@@ -335,10 +334,10 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('y', yScaleWeight(d.value))
         .attr('text-anchor', 'middle')
         .attr('alignment-baseline', 'middle')
-        .style('font-size', isOutlier ? `${Math.max(35, width * 0.055)}px` : `${Math.max(25, width * 0.045)}px`)
+        .style('font-size', isOutlier ? `${Math.max(18, width * 0.028)}px` : `${Math.max(12, width * 0.02)}px`)
         .style('fill', color)
         .style('stroke', 'white')
-        .style('stroke-width', '0.5px')
+        .style('stroke-width', '1px')
         .style('font-weight', 'bold')
         .text(marker);
     });
