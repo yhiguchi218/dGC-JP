@@ -235,7 +235,7 @@ const GrowthDashboard: React.FC = () => {
           </div>
 
           <Card className="print:shadow-none print:border-none print:m-0 print:p-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 print:pb-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
               <CardTitle className="text-xl font-semibold print:text-base">評価結果</CardTitle>
               <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
@@ -261,14 +261,14 @@ const GrowthDashboard: React.FC = () => {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50 print:bg-transparent">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50 print:bg-transparent print:border-b">
                     <tr>
-                      <th className="px-4 py-3 print:px-1 print:py-1">測定日</th>
-                      <th className="px-4 py-3 print:px-1 print:py-1">年齢</th>
-                      <th className="px-4 py-3 print:px-1 print:py-1">身長 (SDS)</th>
-                      <th className="px-4 py-3 print:px-1 print:py-1">体重 (SDS)</th>
-                      <th className="px-4 py-3 print:px-1 print:py-1">BMI</th>
-                      <th className="px-4 py-3 print:px-1 print:py-1">
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">測定日</th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">年齢</th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">身長 (SDS)</th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">体重 (SDS)</th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">BMI</th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">
                         肥満度
                         <span className={cn(
                           "ml-1 text-[8px] normal-case px-1 rounded",
@@ -284,40 +284,40 @@ const GrowthDashboard: React.FC = () => {
                       const currentObesity = obesityMode === 'height' ? d.obesityIndex : d.obesityIndexAge;
                       const isLast = i === processedData.length - 1;
                       return (
-                        <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-gray-200", !isLast && "print:hidden")}>
-                          <td className="px-4 py-3 font-medium print:px-1 print:py-1">{format(d.date, 'yyyy/MM/dd')}</td>
-                          <td className="px-4 py-3 print:px-1 print:py-1">
+                        <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-b-0", !isLast && "print:hidden")}>
+                          <td className="px-4 py-3 font-medium print:px-1 print:py-0.5 print:text-[8pt]">{format(d.date, 'yyyy/MM/dd')}</td>
+                          <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.age.toFixed(4)}歳
                             {d.showCorrected && (
-                              <div className="text-[10px] text-emerald-600">
+                              <div className="text-[10px] text-emerald-600 print:text-[6pt]">
                                 (修正: {d.correctedAge.toFixed(4)}歳)
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 print:px-1 print:py-1">
+                          <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.height ? `${d.height}cm` : '-'}
                             {d.heightSDS !== undefined && (
                               <span className={cn(
-                                "ml-2 text-xs print:ml-1 print:text-[8pt]",
+                                "ml-2 text-xs print:ml-1 print:text-[7pt]",
                                 Math.abs(d.heightSDS) > 2 ? "text-red-500 font-bold" : "text-gray-500"
                               )}>
                                 ({d.heightSDS.toFixed(2)}SD)
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 print:px-1 print:py-1">
+                          <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.weight ? `${d.weight}kg` : '-'}
                             {d.weightSDS !== undefined && (
                               <span className={cn(
-                                "ml-2 text-xs print:ml-1 print:text-[8pt]",
+                                "ml-2 text-xs print:ml-1 print:text-[7pt]",
                                 Math.abs(d.weightSDS) > 2 ? "text-red-500 font-bold" : "text-gray-500"
                               )}>
                                 ({d.weightSDS.toFixed(2)}SD)
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 print:px-1 print:py-1">{d.bmi?.toFixed(1) || '-'}</td>
-                          <td className="px-4 py-3 text-center print:px-1 print:py-1">
+                          <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">{d.bmi?.toFixed(1) || '-'}</td>
+                          <td className="px-4 py-3 text-center print:px-1 print:py-0.5 print:text-[8pt]">
                             {currentObesity !== null ? (
                               <span className={cn(
                                 currentObesity > 20 ? "text-orange-500 font-bold" : currentObesity < -20 ? "text-blue-500 font-bold" : ""
@@ -325,7 +325,7 @@ const GrowthDashboard: React.FC = () => {
                                 {currentObesity.toFixed(1)}%
                               </span>
                             ) : (
-                              <span className="text-gray-300 text-[10px]">算出不可</span>
+                              <span className="text-gray-300 text-[10px] print:text-[6pt]">算出不可</span>
                             )}
                           </td>
                         </tr>

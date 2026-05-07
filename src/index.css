@@ -42,14 +42,6 @@ input[type=number] {
       size: A4 portrait;
     }
     
-    /* Global print reduction */
-    .print-tight {
-      padding: 0 !important;
-      margin: 0 !important;
-      border: none !important;
-      box-shadow: none !important;
-    }
-
     .print-hide {
       display: none !important;
     }
@@ -58,11 +50,11 @@ input[type=number] {
     table {
       page-break-inside: avoid;
       font-size: 8pt !important;
+      width: 100% !important;
     }
 
     tr {
       page-break-inside: avoid;
-      page-break-after: auto;
     }
 
     /* Adjust Card for print */
@@ -70,7 +62,7 @@ input[type=number] {
       border: none !important;
       box-shadow: none !important;
       padding: 0 !important;
-      margin-bottom: 5mm !important;
+      margin: 0 !important;
     }
 
     [class*="CardContent"] {
@@ -82,9 +74,15 @@ input[type=number] {
       margin-bottom: 2mm !important;
     }
 
-    /* Shrink the chart slightly for printing */
     #printable-chart-area-wrapper {
-      max-height: 55vh !important;
+      max-height: none !important;
+      page-break-inside: avoid;
+      margin-bottom: 5mm !important;
+    }
+    
+    /* Ensure no layout shifts in print */
+    .print-no-break {
+      page-break-inside: avoid;
     }
   }
 }
