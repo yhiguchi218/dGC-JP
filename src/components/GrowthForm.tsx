@@ -167,14 +167,14 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleSaveJSON}>
               <Save className="mr-2 h-4 w-4" />
-              保存
+              データ保存
             </Button>
             <div className="relative">
               <label 
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer")}
               >
                 <FileUp className="mr-2 h-4 w-4" />
-                読込
+                データ読込
                 <input type="file" accept=".json" className="hidden" onChange={handleLoadJSON} />
               </label>
             </div>

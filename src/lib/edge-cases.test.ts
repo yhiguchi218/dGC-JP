@@ -59,4 +59,23 @@ describe('Edge Case Analysis', () => {
       console.log('LMS for age 20 (M):', lms.M);
     });
   });
+
+  describe('Birthday Accuracy', () => {
+    it('should return exactly 6.0000 years for 2020-01-01 to 2026-01-01', () => {
+      const birth = new Date('2020-01-01');
+      const measure = new Date('2026-01-01');
+      const age = calculateDecimalAge(birth, measure);
+      expect(age).toBe(6.0000);
+      console.log('Age result for 2020-01-01 to 2026-01-01:', age);
+    });
+
+    it('should calculate age correctly for 2020-01-01 to 2020-01-02', () => {
+      const birth = new Date('2020-01-01');
+      const measure = new Date('2020-01-02');
+      const age = calculateDecimalAge(birth, measure);
+      // 2020 is a leap year, 2020-01-01 to 2021-01-01 is 366 days
+      expect(age).toBe(Number((1 / 366).toFixed(4)));
+      console.log('Age result for 1 day after birth in leap year:', age);
+    });
+  });
 });

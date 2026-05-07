@@ -272,7 +272,7 @@ const GrowthDashboard: React.FC = () => {
                           "ml-1 text-[8px] normal-case px-1 rounded",
                           formData.sex === 'male' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                         )}>
-                          {obesityMode === 'height' ? '身長値ベース' : '年齢別表1ベース'}
+                          {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
                         </span>
                       </th>
                     </tr>
@@ -379,13 +379,13 @@ const GrowthDashboard: React.FC = () => {
                   <li>本ツールは教育・研究用であり、確定診断には使用しないでください。</li>
                   <li>計算結果の最終的な判断は、必ず主治医の責任において行ってください。</li>
                   <li><strong>プライバシー保護:</strong> 入力された患者データはブラウザ内でのみ一時的に処理され、外部サーバーへ送信・蓄積されることはありません。</li>
-                  <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
+                  <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
                 </ul>
               </div>
               
               <div className="pt-2 border-t border-amber-200/50">
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「△」で表示されます。</p>
-                <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別・表1）は5-17歳の学童期用です。</p>
+                <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
               </div>
 
               <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80">

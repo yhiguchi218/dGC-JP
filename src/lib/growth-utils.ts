@@ -1,4 +1,4 @@
-import { differenceInDays, addDays, format } from 'date-fns';
+import { differenceInDays, differenceInYears, addYears, addDays, format } from 'date-fns';
 import { HVReferencePoint } from '../data/suwa-hv-data';
 
 export interface LMSPoint {
@@ -19,15 +19,33 @@ export interface ChildData {
 
 /**
  * Calculates decimal age in years.
- * (Measurement Date - Birth Date) / 365.25
+ * Logic: Completed Years + (Days since last birthday / Total days in that age year)
+ * This ensures that a child's birthday results in an exact integer age.
  * Validates that age is between 0 and 18 years.
  */
 export function calculateDecimalAge(birthDate: Date, measurementDate: Date): number {
-  const days = differenceInDays(measurementDate, birthDate);
-  if (days < 0) return -1; // Indicator for measurement before birth
+  if (measurementDate < birthDate) return -1; // Indicator for measurement before birth
+  
+  // 1. Calculate completed years
+  const years = differenceInYears(measurementDate, birthDate);
+  
+  // 2. Calculate the birthday of this age year (last birthday)
+  const lastBirthday = addYears(birthDate, years);
+  
+  // 3. Calculate the birthday of next age year (next birthday)
+  const nextBirthday = addYears(birthDate, years + 1);
+  
+  // 4. Calculate total days in this specific age's year (handles leap years)
+  const daysInYear = differenceInDays(nextBirthday, lastBirthday);
+  
+  // 5. Calculate remaining days since last birthday
+  const remainingDays = differenceInDays(measurementDate, lastBirthday);
+  
+  // 6. Calculate decimal part
+  const decimalPart = remainingDays / daysInYear;
   
   // Use 4 decimal places for age as requested
-  const age = Number((days / 365.25).toFixed(4));
+  const age = Number((years + decimalPart).toFixed(4));
   return age;
 }
 
