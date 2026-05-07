@@ -197,7 +197,7 @@ const GrowthDashboard: React.FC = () => {
         </div>
 
         {/* Right Column: Chart and Results */}
-        <div className="lg:col-span-8 space-y-8 print:space-y-4">
+        <div className="lg:col-span-8 space-y-8 print:space-y-2 print:m-0 print:p-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4 print:hidden">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <span className="text-sm font-medium text-gray-700">表示範囲:</span>
@@ -223,7 +223,7 @@ const GrowthDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="print:break-after-page">
+          <div className="print:m-0 print:p-0">
             <GrowthChart 
               sex={formData.sex} 
               heightLmsTable={heightTable} 
@@ -234,9 +234,9 @@ const GrowthDashboard: React.FC = () => {
             />
           </div>
 
-          <Card className="print:shadow-none print:border-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 print:pb-2">
-              <CardTitle className="text-xl font-semibold">評価結果</CardTitle>
+          <Card className="print:shadow-none print:border-none print:m-0 print:p-0">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 print:pb-1">
+              <CardTitle className="text-xl font-semibold print:text-base">評価結果</CardTitle>
               <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
@@ -261,14 +261,14 @@ const GrowthDashboard: React.FC = () => {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50 print:bg-transparent">
                     <tr>
-                      <th className="px-4 py-3">測定日</th>
-                      <th className="px-4 py-3">年齢</th>
-                      <th className="px-4 py-3">身長 (SDS)</th>
-                      <th className="px-4 py-3">体重 (SDS)</th>
-                      <th className="px-4 py-3">BMI</th>
-                      <th className="px-4 py-3">
+                      <th className="px-4 py-3 print:px-1 print:py-1">測定日</th>
+                      <th className="px-4 py-3 print:px-1 print:py-1">年齢</th>
+                      <th className="px-4 py-3 print:px-1 print:py-1">身長 (SDS)</th>
+                      <th className="px-4 py-3 print:px-1 print:py-1">体重 (SDS)</th>
+                      <th className="px-4 py-3 print:px-1 print:py-1">BMI</th>
+                      <th className="px-4 py-3 print:px-1 print:py-1">
                         肥満度
                         <span className={cn(
                           "ml-1 text-[8px] normal-case px-1 rounded",
@@ -283,9 +283,9 @@ const GrowthDashboard: React.FC = () => {
                     {processedData.map((d, i) => {
                       const currentObesity = obesityMode === 'height' ? d.obesityIndex : d.obesityIndexAge;
                       return (
-                        <tr key={i} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{format(d.date, 'yyyy/MM/dd')}</td>
-                          <td className="px-4 py-3">
+                        <tr key={i} className="border-b hover:bg-gray-50 print:border-gray-200">
+                          <td className="px-4 py-3 font-medium print:px-1 print:py-1">{format(d.date, 'yyyy/MM/dd')}</td>
+                          <td className="px-4 py-3 print:px-1 print:py-1">
                             {d.age.toFixed(4)}歳
                             {d.showCorrected && (
                               <div className="text-[10px] text-emerald-600">
@@ -293,30 +293,30 @@ const GrowthDashboard: React.FC = () => {
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 print:px-1 print:py-1">
                             {d.height ? `${d.height}cm` : '-'}
                             {d.heightSDS !== undefined && (
                               <span className={cn(
-                                "ml-2 text-xs",
+                                "ml-2 text-xs print:ml-1 print:text-[8pt]",
                                 Math.abs(d.heightSDS) > 2 ? "text-red-500 font-bold" : "text-gray-500"
                               )}>
                                 ({d.heightSDS.toFixed(2)}SD)
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 print:px-1 print:py-1">
                             {d.weight ? `${d.weight}kg` : '-'}
                             {d.weightSDS !== undefined && (
                               <span className={cn(
-                                "ml-2 text-xs",
+                                "ml-2 text-xs print:ml-1 print:text-[8pt]",
                                 Math.abs(d.weightSDS) > 2 ? "text-red-500 font-bold" : "text-gray-500"
                               )}>
                                 ({d.weightSDS.toFixed(2)}SD)
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3">{d.bmi?.toFixed(1) || '-'}</td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-4 py-3 print:px-1 print:py-1">{d.bmi?.toFixed(1) || '-'}</td>
+                          <td className="px-4 py-3 text-center print:px-1 print:py-1">
                             {currentObesity !== null ? (
                               <span className={cn(
                                 currentObesity > 20 ? "text-orange-500 font-bold" : currentObesity < -20 ? "text-blue-500 font-bold" : ""

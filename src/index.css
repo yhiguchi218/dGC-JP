@@ -33,19 +33,58 @@ input[type=number] {
   @media print {
     body {
       background-color: white !important;
-    }
-    
-    * {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }
 
-    /* Ensure specific containers take full width on print */
-    .print-full-width {
-      width: 100% !important;
-      max-width: none !important;
-      margin: 0 !important;
+    @page {
+      margin: 10mm !important;
+      size: A4 portrait;
+    }
+    
+    /* Global print reduction */
+    .print-tight {
       padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    .print-hide {
+      display: none !important;
+    }
+
+    /* Force table to fit */
+    table {
+      page-break-inside: avoid;
+      font-size: 8pt !important;
+    }
+
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+
+    /* Adjust Card for print */
+    [class*="Card"] {
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin-bottom: 5mm !important;
+    }
+
+    [class*="CardContent"] {
+      padding: 0 !important;
+    }
+    
+    h1, h2, h3, h4 {
+      margin-top: 0 !important;
+      margin-bottom: 2mm !important;
+    }
+
+    /* Shrink the chart slightly for printing */
+    #printable-chart-area-wrapper {
+      max-height: 60vh !important;
     }
   }
 }
