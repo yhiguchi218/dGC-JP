@@ -38,7 +38,7 @@ input[type=number] {
     }
 
     @page {
-      margin: 10mm !important;
+      margin: 15mm !important;
       size: A4 portrait;
     }
     
@@ -46,11 +46,21 @@ input[type=number] {
       display: none !important;
     }
 
-    /* Force table to fit */
+    /* Force predictable flow */
+    #printable-chart-area-wrapper {
+      display: block !important;
+      width: 100% !important;
+      max-height: none !important;
+      page-break-inside: avoid;
+      margin-bottom: 10mm !important;
+    }
+
     table {
       page-break-inside: avoid;
       font-size: 8pt !important;
       width: 100% !important;
+      border-collapse: collapse;
+      margin-top: 2mm !important;
     }
 
     tr {
@@ -63,6 +73,8 @@ input[type=number] {
       box-shadow: none !important;
       padding: 0 !important;
       margin: 0 !important;
+      position: relative !important;
+      display: block !important;
     }
 
     [class*="CardContent"] {
@@ -72,12 +84,6 @@ input[type=number] {
     h1, h2, h3, h4 {
       margin-top: 0 !important;
       margin-bottom: 2mm !important;
-    }
-
-    #printable-chart-area-wrapper {
-      max-height: none !important;
-      page-break-inside: avoid;
-      margin-bottom: 5mm !important;
     }
     
     /* Ensure no layout shifts in print */
