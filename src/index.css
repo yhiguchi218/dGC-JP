@@ -35,10 +35,11 @@ input[type=number] {
       background-color: white !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+      padding: 10mm !important;
     }
 
     @page {
-      margin: 5mm !important;
+      margin: 0 !important;
       size: A4 portrait;
     }
     
