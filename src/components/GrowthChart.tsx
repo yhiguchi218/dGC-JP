@@ -15,30 +15,30 @@ export interface ChartPreset {
 
 export const CHART_PRESETS: ChartPreset[] = [
   {
-    id: '0-24m',
-    name: '0-24ヶ月',
+    id: '0〜24ヶ月',
+    name: '0〜24ヶ月',
     xRange: [0, 2],
     yHeightRange: [30, 100],
     yWeightRange: [0, 70], // Aligned with height range (100-30=70)
   },
   {
-    id: '0-6y',
-    name: '0-6歳',
+    id: '0歳〜6歳',
+    name: '0歳〜6歳',
     xRange: [0, 6],
     yHeightRange: [30, 130],
     yWeightRange: [0, 100], // Aligned with height range (130-30=100)
   },
   {
-    id: '0-18y',
-    name: '0-18歳',
+    id: '0歳〜18歳',
+    name: '0歳〜18歳',
     xRange: [0, 18],
-    yHeightRange: [30, 200],
-    yWeightRange: [0, 170], // Aligned with height range (200-30=170), allows plotting up to 150kg
+    yHeightRange: [30, 190],
+    yWeightRange: [0, 160], // Aligned with height range (190-30=160)
   }
 ];
 
 interface GrowthChartProps {
-  sex: 'male' | 'female';
+  sex: '男子' | '女子';
   heightLmsTable: LMSPoint[];
   weightLmsTable: LMSPoint[];
   heightPoints: Array<{
@@ -88,11 +88,8 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         pixelRatio: 2,
       });
       
-      // Create a link to download as PNG (TIFF is not natively supported by browsers for easy export without heavy libs)
-      // Note: User specifically asked for TIFF, but since canvas-to-tiff failed to install, 
-      // we provide PNG as a high-quality alternative and explain.
       const link = document.createElement('a');
-      link.download = `growth-chart-${sex}-${preset.id}.png`;
+      link.download = `成長曲線-${sex}-${preset.name}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -112,7 +109,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           const isPrinting = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: isPrinting ? width * 0.55 : width * 1.4
+            height: isPrinting ? width * 0.45 : width * 1.4
           });
         }
       }
@@ -124,8 +121,8 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
   const { width, height } = dimensions;
 
-  const genderColor = sex === 'male' ? '#2563eb' : '#dc2626';
-  const genderLightColor = sex === 'male' ? '#bfdbfe' : '#fecaca';
+  const genderColor = sex === '男子' ? '#2563eb' : '#dc2626';
+  const genderLightColor = sex === '男子' ? '#bfdbfe' : '#fecaca';
 
   const margin = { 
     top: height * 0.03, 
@@ -170,7 +167,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .attr('height', innerHeight)
       .attr('fill', '#ffffff');
 
-    const xTicks = d3.range(preset.xRange[0], preset.xRange[1] + (preset.id === '0-24m' ? 0.25 : 1), preset.id === '0-24m' ? 0.25 : 1);
+    const xTicks = d3.range(preset.xRange[0], preset.xRange[1] + (preset.id === '0〜24ヶ月' ? 0.25 : 1), preset.id === '0〜24ヶ月' ? 0.25 : 1);
     
     g.append('g')
       .attr('class', 'grid')
@@ -194,7 +191,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .call(d3.axisBottom(xScale)
         .tickValues(xTicks)
         .tickFormat(d => {
-          if (preset.id === '0-24m') {
+          if (preset.id === '0〜24ヶ月') {
             return Math.round(Number(d) * 12).toString();
           }
           return Math.round(Number(d)).toString();
@@ -218,7 +215,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
     const weightAxis = g.append('g')
       .attr('transform', `translate(${innerWidth}, 0)`)
       .call(d3.axisRight(yScaleWeight)
-        .tickValues(d3.range(preset.yWeightRange[0], preset.yWeightRange[1] + 10, 10).filter(v => v <= 90))
+        .tickValues(d3.range(preset.yWeightRange[0], preset.yWeightRange[1] + 10, 10))
       )
       .style('color', genderColor);
     
@@ -232,7 +229,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .attr('text-anchor', 'middle')
       .style('font-size', `${Math.max(12, width * 0.018)}px`)
       .style('font-weight', '600')
-      .text(preset.id === '0-24m' ? '月齢 (ヶ月)' : '年齢 (歳)');
+      .text(preset.id === '0〜24ヶ月' ? '月齢 (ヶ月)' : '年齢 (歳)');
 
     g.append('text')
       .attr('transform', 'rotate(-90)')
@@ -345,10 +342,10 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   }, [preset, heightLmsTable, weightLmsTable, heightPoints, weightPoints, xScale, yScaleHeight, yScaleWeight, innerHeight, innerWidth, margin, width, height]);
 
   return (
-    <div id="printable-chart-area-wrapper" className="bg-white p-3 md:p-6 rounded-xl shadow-md border border-gray-100 overflow-hidden print:shadow-none print:border-none print:p-0">
+    <div id="printable-chart-area-wrapper" className="bg-white p-3 md:p-6 rounded-xl shadow-md border border-gray-100 overflow-hidden print:shadow-none print:border-none print:p-0 print:m-0">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 print:hidden">
         <h3 className="text-lg md:text-xl font-bold text-gray-900">
-          {sex === 'male' ? '男子' : '女子'} 成長曲線 ({preset.name})
+          {sex} 成長曲線 ({preset.name})
         </h3>
         <div className="flex gap-2">
           <Button 
@@ -382,11 +379,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:hidden">
           <div className="flex items-center gap-2">
-            <span className={`w-3 md:w-4 h-0.5 ${sex === 'male' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
+            <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
             <span>身長 中央値 (0SD)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`w-3 md:w-4 h-0.5 ${sex === 'male' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
+            <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
             <span>体重 中央値 (0SD)</span>
           </div>
           <div className="flex items-center gap-2">
@@ -398,11 +395,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
             <span>身長 -2.5/-3.0SD (点線)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`${sex === 'male' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
+            <span className={`${sex === '男子' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
             <span>身長 測定点</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`${sex === 'male' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
+            <span className={`${sex === '男子' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
             <span>体重 測定点</span>
           </div>
           <div className="flex items-center gap-2">

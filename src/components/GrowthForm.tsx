@@ -23,7 +23,7 @@ interface GrowthFormProps {
   initialData?: {
     childId: string;
     birthDate: Date;
-    sex: 'male' | 'female';
+    sex: '男子' | '女子';
     gestationalWeeks: number;
     gestationalDays: number;
     measurements: MeasurementEntry[];
@@ -31,7 +31,7 @@ interface GrowthFormProps {
   onDataChange: (data: {
     childId: string;
     birthDate: Date;
-    sex: 'male' | 'female';
+    sex: '男子' | '女子';
     gestationalWeeks: number;
     gestationalDays: number;
     measurements: MeasurementEntry[];
@@ -41,7 +41,7 @@ interface GrowthFormProps {
 const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) => {
   const [childId, setChildId] = useState(initialData?.childId || '001');
   const [birthDate, setBirthDate] = useState<Date>(initialData?.birthDate || new Date(2020, 0, 1));
-  const [sex, setSex] = useState<'male' | 'female'>(initialData?.sex || 'male');
+  const [sex, setSex] = useState<'男子' | '女子'>(initialData?.sex || '男子');
   const [gestationalWeeks, setGestationalWeeks] = useState(initialData?.gestationalWeeks || 40);
   const [gestationalDays, setGestationalDays] = useState(initialData?.gestationalDays || 0);
   const [measurements, setMeasurements] = useState<MeasurementEntry[]>(initialData?.measurements || [
@@ -79,7 +79,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     onDataChange(final);
   };
 
-  const isMale = sex === 'male';
+  const isMale = sex === '男子';
   const primaryColorClass = isMale ? 'blue' : 'red';
   const primaryTextClass = isMale ? 'text-blue-700' : 'text-red-700';
   const primaryBgClass = isMale ? 'bg-blue-50/30' : 'bg-red-50/30';
@@ -103,7 +103,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${childId} growth chart.json`;
+    link.download = `${childId}_成長データ.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -117,6 +117,11 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
       try {
         const data = JSON.parse(event.target?.result as string);
         
+        // Handle migration from old 'male'/'female' to Japanese if needed
+        let loadedSex = data.sex;
+        if (loadedSex === 'male') loadedSex = '男子';
+        if (loadedSex === 'female') loadedSex = '女子';
+
         // Try parsing different formats for robustness
         const parseDate = (dateStr: string) => {
           // Try YYYY/MM/DD
@@ -136,7 +141,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
 
         setChildId(data.childId);
         setBirthDate(loadedBirthDate);
-        setSex(data.sex);
+        setSex(loadedSex);
         setGestationalWeeks(data.gestationalWeeks);
         setGestationalDays(data.gestationalDays);
         setMeasurements(loadedMeasurements);
@@ -144,7 +149,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         onDataChange({
           childId: data.childId,
           birthDate: loadedBirthDate,
-          sex: data.sex,
+          sex: loadedSex,
           gestationalWeeks: data.gestationalWeeks,
           gestationalDays: data.gestationalDays,
           measurements: loadedMeasurements
@@ -223,7 +228,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
 
           <div className="space-y-2">
             <Label htmlFor="sex">性別</Label>
-            <Select value={sex} onValueChange={(v: 'male' | 'female') => {
+            <Select value={sex} onValueChange={(v: '男子' | '女子') => {
               setSex(v);
               triggerChange({ sex: v });
             }}>
@@ -231,8 +236,8 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 <SelectValue placeholder="性別を選択" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="male">男子</SelectItem>
-                <SelectItem value="female">女子</SelectItem>
+                <SelectItem value="男子">男子</SelectItem>
+                <SelectItem value="女子">女子</SelectItem>
               </SelectContent>
             </Select>
           </div>

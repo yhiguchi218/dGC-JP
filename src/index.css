@@ -38,7 +38,7 @@ input[type=number] {
     }
 
     @page {
-      margin: 8mm !important;
+      margin: 5mm !important;
       size: A4 portrait;
     }
     
@@ -46,10 +46,10 @@ input[type=number] {
       display: none !important;
     }
 
-    /* Force predictable flow and shrink graph */
+    /* Force predictable flow and shrink graph more */
     #printable-chart-area-wrapper {
       display: block !important;
-      width: 50% !important;
+      width: 65% !important;
       margin: 0 auto 0 auto !important;
       max-height: none !important;
       page-break-inside: avoid;
@@ -61,7 +61,7 @@ input[type=number] {
       font-size: 8pt !important;
       width: 100% !important;
       border-collapse: collapse;
-      margin-top: 0 !important;
+      margin-top: 2mm !important;
     }
 
     /* Adjust Card for print */

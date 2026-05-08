@@ -30,14 +30,14 @@ const GrowthDashboard: React.FC = () => {
   const [formData, setFormData] = useState<{
     childId: string;
     birthDate: Date;
-    sex: 'male' | 'female';
+    sex: '男子' | '女子';
     gestationalWeeks: number;
     gestationalDays: number;
     measurements: MeasurementEntry[];
   }>({
     childId: '001',
     birthDate: new Date(2020, 0, 1),
-    sex: 'male',
+    sex: '男子',
     gestationalWeeks: 40,
     gestationalDays: 0,
     measurements: [
@@ -45,9 +45,9 @@ const GrowthDashboard: React.FC = () => {
     ]
   });
 
-  const heightTable = formData.sex === 'male' ? HEIGHT_BOYS_LMS : HEIGHT_GIRLS_LMS;
-  const weightTable = formData.sex === 'male' ? WEIGHT_BOYS_LMS : WEIGHT_GIRLS_LMS;
-  const hvRefTable = formData.sex === 'male' ? SUWA_HV_BOYS : SUWA_HV_GIRLS;
+  const heightTable = formData.sex === '男子' ? HEIGHT_BOYS_LMS : HEIGHT_GIRLS_LMS;
+  const weightTable = formData.sex === '男子' ? WEIGHT_BOYS_LMS : WEIGHT_GIRLS_LMS;
+  const hvRefTable = formData.sex === '男子' ? SUWA_HV_BOYS : SUWA_HV_GIRLS;
 
   const processedData = useMemo(() => {
     const results = formData.measurements.map(m => {
@@ -70,12 +70,14 @@ const GrowthDashboard: React.FC = () => {
       let weightSDS = undefined;
       let obesityIndex = null;
       let obesityIndexAge = null;
+      // obesity index sex check
       if (m.weight) {
         const lms = interpolateLMS(age, weightTable);
         weightSDS = calculateZScore(m.weight, lms);
         if (m.height) {
-          obesityIndex = calculateObesityIndex(m.weight, m.height, age, formData.sex);
-          obesityIndexAge = calculateObesityIndexByAge(m.weight, m.height, age, formData.sex);
+          const lmsSex = formData.sex === '男子' ? 'male' : 'female';
+          obesityIndex = calculateObesityIndex(m.weight, m.height, age, lmsSex);
+          obesityIndexAge = calculateObesityIndexByAge(m.weight, m.height, age, lmsSex);
         }
       }
 
@@ -114,7 +116,8 @@ const GrowthDashboard: React.FC = () => {
           if (ageDiff >= 0.95) { // Approx 1 year
             const hv = (p2.height - p1.height) / ageDiff;
             const midAge = (p1.age + p2.age) / 2;
-            const hvSDS = calculateHVSDS(hv, midAge, formData.sex, hvRefTable);
+            const hvSex = formData.sex === '男子' ? 'male' : 'female';
+            const hvSDS = calculateHVSDS(hv, midAge, hvSex, hvRefTable);
             
             velocities.push({
               midAge,
@@ -186,7 +189,7 @@ const GrowthDashboard: React.FC = () => {
           <p className="text-gray-500">日本版デジタル成長曲線プラットフォーム</p>
         </div>
         <div className="flex gap-2">
-          <Badge variant="outline" className="px-3 py-1">Phase 1: Standalone</Badge>
+          <Badge variant="outline" className="px-3 py-1">フェーズ 1: スタンドアロン版</Badge>
         </div>
       </header>
 
@@ -208,8 +211,10 @@ const GrowthDashboard: React.FC = () => {
                   if (preset) setSelectedPreset(preset);
                 }}
               >
-                <SelectTrigger className="w-full sm:w-[240px]">
-                  <SelectValue placeholder="曲線を選択" />
+                <SelectTrigger className="w-full sm:w-[260px]">
+                  <SelectValue placeholder="表示範囲を選択">
+                    {selectedPreset.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CHART_PRESETS.map(p => (
@@ -237,7 +242,7 @@ const GrowthDashboard: React.FC = () => {
           <Card className="print:shadow-none print:border-none print:m-0 print:p-0">
             <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果 (最新)</div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
-              <CardTitle className="text-xl font-semibold print:text-base">評価結果</CardTitle>
+              <CardTitle className="text-xl font-semibold print:text-base">評価結果 (最新)</CardTitle>
               <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
@@ -273,7 +278,7 @@ const GrowthDashboard: React.FC = () => {
                         肥満度
                         <span className={cn(
                           "ml-1 text-[8px] normal-case px-1 rounded",
-                          formData.sex === 'male' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
+                          formData.sex === '男子' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                         )}>
                           {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
                         </span>
@@ -339,25 +344,25 @@ const GrowthDashboard: React.FC = () => {
           </Card>
 
           {heightVelocity.length > 0 && (
-            <Card className={cn("border-opacity-50 print:hidden", formData.sex === 'male' ? "border-blue-100 bg-blue-50/30" : "border-red-100 bg-red-50/30")}>
+            <Card className={cn("border-opacity-50 print:hidden", formData.sex === '男子' ? "border-blue-100 bg-blue-50/30" : "border-red-100 bg-red-50/30")}>
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <Info className={cn("h-5 w-5", formData.sex === 'male' ? "text-blue-500" : "text-red-500")} />
-                  身長速度 (Height Velocity)
+                  <Info className={cn("h-5 w-5", formData.sex === '男子' ? "text-blue-500" : "text-red-500")} />
+                  身長速度
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {heightVelocity.map((hv, i) => (
-                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === 'male' ? "border-blue-100" : "border-red-100")}>
+                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === '男子' ? "border-blue-100" : "border-red-100")}>
                       <div>
                         <div className="text-sm text-gray-500">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
-                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === 'male' ? "text-blue-600" : "text-red-600")}>
+                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === '男子' ? "text-blue-600" : "text-red-600")}>
                           HV: {hv.value.toFixed(2)} cm/年
                           {hv.hvSDS !== null && (
                             <span className={cn(
                               "text-sm",
-                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === 'male' ? "text-blue-500 font-medium" : "text-red-500 font-medium")
+                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === '男子' ? "text-blue-500 font-medium" : "text-red-500 font-medium")
                             )}>
                               (SDS: {hv.hvSDS.toFixed(2)})
                             </span>
