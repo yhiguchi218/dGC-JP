@@ -38,7 +38,7 @@ input[type=number] {
     }
 
     @page {
-      margin: 5mm !important;
+      margin: 8mm !important;
       size: A4 portrait;
     }
     
@@ -49,8 +49,8 @@ input[type=number] {
     /* Force predictable flow and shrink graph */
     #printable-chart-area-wrapper {
       display: block !important;
-      width: 75% !important;
-      margin: 0 auto 1mm auto !important;
+      width: 70% !important;
+      margin: 0 auto 0 auto !important;
       max-height: none !important;
       page-break-inside: avoid;
       padding: 0 !important;
@@ -58,10 +58,10 @@ input[type=number] {
 
     table {
       page-break-inside: avoid;
-      font-size: 7pt !important;
+      font-size: 8pt !important;
       width: 100% !important;
       border-collapse: collapse;
-      margin-top: 1mm !important;
+      margin-top: 0 !important;
     }
 
     /* Adjust Card for print */

@@ -112,7 +112,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           const isPrinting = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: isPrinting ? width * 0.7 : width * 1.4
+            height: isPrinting ? width * 0.65 : width * 1.4
           });
         }
       }
@@ -374,10 +374,6 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           </Button>
         </div>
       </div>
-
-      <h3 className="hidden print:block text-lg font-bold mb-2 text-center text-gray-900 border-b pb-2">
-        {sex === 'male' ? '男子' : '女子'} 成長曲線 ({preset.name})
-      </h3>
 
       <div ref={chartAreaRef} id="printable-chart-area" className="bg-white p-2">
         <div ref={containerRef} className="relative w-full bg-gray-50 rounded-lg p-1 md:p-4 print:bg-white print:p-0">
