@@ -348,6 +348,8 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       id={`height-${m.id}`}
                       type="number" 
                       step="0.1" 
+                      min="30"
+                      max="190"
                       value={m.height || ''} 
                       onChange={(e) => updateMeasurement(m.id, 'height', parseFloat(e.target.value))} 
                       onKeyDown={(e) => {
@@ -371,6 +373,8 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       id={`weight-${m.id}`}
                       type="number" 
                       step="0.01" 
+                      min="0.1"
+                      max="130"
                       value={m.weight || ''} 
                       onChange={(e) => updateMeasurement(m.id, 'weight', parseFloat(e.target.value))} 
                       onKeyDown={(e) => {

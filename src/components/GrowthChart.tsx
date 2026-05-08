@@ -304,16 +304,23 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
     heightPoints.forEach(d => {
       if (d.age < preset.xRange[0] || d.age > preset.xRange[1]) return;
-      if (d.value < preset.yHeightRange[0] || d.value > preset.yHeightRange[1]) return;
-      const isOutlier = Math.abs(d.zScore || 0) > 5;
+      
+      const isExtremeZ = Math.abs(d.zScore || 0) > 5;
+      const isOffChart = d.value < preset.yHeightRange[0] || d.value > preset.yHeightRange[1];
+      const isOutlier = isExtremeZ || isOffChart;
+      
+      // Clamp value for visual plotting if it's off chart
+      const plottedValue = Math.max(preset.yHeightRange[0], Math.min(preset.yHeightRange[1], d.value));
+      
       const marker = isOutlier ? '△' : '●';
-      const color = isOutlier ? '#ef4444' : (d.isCorrected ? '#10b981' : genderColor);
+      const color = isOutlier ? '#f97316' : (d.isCorrected ? '#10b981' : genderColor);
+      
       g.append('text')
         .attr('x', xScale(d.age))
-        .attr('y', yScaleHeight(d.value))
+        .attr('y', yScaleHeight(plottedValue))
         .attr('text-anchor', 'middle')
         .attr('alignment-baseline', 'middle')
-        .style('font-size', isOutlier ? `${Math.max(18, width * 0.028)}px` : `${Math.max(12, width * 0.02)}px`)
+        .style('font-size', isOutlier ? `${Math.max(16, width * 0.024)}px` : `${Math.max(12, width * 0.02)}px`)
         .style('fill', color)
         .style('stroke', 'white')
         .style('stroke-width', '1px')
@@ -323,16 +330,23 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
     weightPoints.forEach(d => {
       if (d.age < preset.xRange[0] || d.age > preset.xRange[1]) return;
-      if (d.value < preset.yWeightRange[0] || d.value > preset.yWeightRange[1]) return;
-      const isOutlier = Math.abs(d.zScore || 0) > 5;
+      
+      const isExtremeZ = Math.abs(d.zScore || 0) > 5;
+      const isOffChart = d.value < preset.yWeightRange[0] || d.value > preset.yWeightRange[1];
+      const isOutlier = isExtremeZ || isOffChart;
+
+      // Clamp value for visual plotting if it's off chart
+      const plottedValue = Math.max(preset.yWeightRange[0], Math.min(preset.yWeightRange[1], d.value));
+
       const marker = isOutlier ? '△' : '●';
-      const color = isOutlier ? '#ef4444' : (d.isCorrected ? '#10b981' : genderColor);
+      const color = isOutlier ? '#f97316' : (d.isCorrected ? '#10b981' : genderColor);
+      
       g.append('text')
         .attr('x', xScale(d.age))
-        .attr('y', yScaleWeight(d.value))
+        .attr('y', yScaleWeight(plottedValue))
         .attr('text-anchor', 'middle')
         .attr('alignment-baseline', 'middle')
-        .style('font-size', isOutlier ? `${Math.max(18, width * 0.028)}px` : `${Math.max(12, width * 0.02)}px`)
+        .style('font-size', isOutlier ? `${Math.max(16, width * 0.024)}px` : `${Math.max(12, width * 0.02)}px`)
         .style('fill', color)
         .style('stroke', 'white')
         .style('stroke-width', '1px')
@@ -396,11 +410,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className={`${sex === '男子' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
-            <span>身長 測定点</span>
+            <span>通常測定点 (身長/体重)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`${sex === '男子' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
-            <span>体重 測定点</span>
+            <span className="text-orange-500 font-bold">△</span>
+            <span>異常値 (±5SD超/範囲外)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-emerald-500 font-bold">●</span>
