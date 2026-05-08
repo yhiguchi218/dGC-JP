@@ -51,7 +51,7 @@ input[type=number] {
     #printable-chart-area-wrapper,
     #printable-chart-area {
       display: block !important;
-      width: 98% !important;
+      width: 93% !important;
       margin: 0 auto !important;
       max-height: none !important;
       page-break-after: always !important;
