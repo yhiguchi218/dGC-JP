@@ -153,6 +153,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .range([innerHeight, 0]);
   }, [innerHeight, preset.yWeightRange]);
 
+  const isSafari = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  }, []);
+
   useEffect(() => {
     if (!svgRef.current || innerWidth <= 0 || innerHeight <= 0) return;
 
@@ -320,7 +325,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('y', yScaleHeight(plottedValue))
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'central')
-        .style('font-size', isOutlier ? Math.max(22, width * 0.035) : Math.max(18, width * 0.028))
+        .style('font-size', isOutlier 
+          ? Math.max(22, width * 0.035) * (isSafari ? 1.5 : 1) 
+          : Math.max(18, width * 0.028) * (isSafari ? 1.5 : 1))
         .style('fill', color)
         .style('stroke', 'white')
         .style('stroke-width', '1px')
@@ -346,7 +353,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('y', yScaleWeight(plottedValue))
         .attr('text-anchor', 'middle')
         .attr('dominant-baseline', 'central')
-        .style('font-size', isOutlier ? Math.max(22, width * 0.035) : Math.max(18, width * 0.028))
+        .style('font-size', isOutlier 
+          ? Math.max(22, width * 0.035) * (isSafari ? 1.5 : 1) 
+          : Math.max(18, width * 0.028) * (isSafari ? 1.5 : 1))
         .style('fill', color)
         .style('stroke', 'white')
         .style('stroke-width', '1px')
