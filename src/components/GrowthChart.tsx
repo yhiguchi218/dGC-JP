@@ -109,7 +109,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           const isPrinting = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: isPrinting ? width * 1.35 : width * 1.4
+            height: isPrinting ? width * 1.32 : width * 1.4
           });
         }
       }
@@ -356,7 +356,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   }, [preset, heightLmsTable, weightLmsTable, heightPoints, weightPoints, xScale, yScaleHeight, yScaleWeight, innerHeight, innerWidth, margin, width, height]);
 
   return (
-    <div id="printable-chart-area-wrapper" className="bg-white p-3 md:p-6 rounded-xl shadow-md border border-gray-100 overflow-hidden print:shadow-none print:border-none print:p-0 print:m-0">
+    <div id="printable-chart-area-wrapper" className="bg-white p-3 md:p-6 rounded-xl shadow-md border border-gray-100 print:shadow-none print:border-none print:p-0 print:m-0 print:overflow-visible">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 print:hidden">
         <h3 className="text-lg md:text-xl font-bold text-gray-900">
           {sex} 成長曲線 ({preset.name})
@@ -387,8 +387,8 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       </div>
 
       <div ref={chartAreaRef} id="printable-chart-area" className="bg-white p-2">
-        <div ref={containerRef} className="relative w-full bg-gray-50 rounded-lg p-1 md:p-4 print:bg-white print:p-0">
-          <svg ref={svgRef} width={width} height={height} className="w-full h-auto" />
+        <div ref={containerRef} className="relative w-full bg-gray-50 rounded-lg p-1 md:p-4 print:bg-white print:p-0 print:break-inside-avoid">
+          <svg ref={svgRef} width={width} height={height} className="w-full h-auto block" />
         </div>
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:hidden">
