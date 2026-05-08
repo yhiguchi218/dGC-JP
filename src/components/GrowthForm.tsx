@@ -358,13 +358,24 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                           if (nextEl) nextEl.focus();
                         }
                       }}
-                      className={cn("h-20 md:h-32 text-4xl md:text-6xl font-black text-center", primaryBgClass, primaryBorderClass, primaryFocusClass)}
+                      className={cn(
+                        "h-20 md:h-32 text-4xl md:text-6xl font-black text-center", 
+                        primaryBgClass, 
+                        primaryBorderClass, 
+                        primaryFocusClass,
+                        (m.height || 0) < 0 && "border-red-500 bg-red-50"
+                      )}
                       placeholder="000.0"
                     />
                     <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
                       cm
                     </div>
                   </div>
+                  {(m.height || 0) < 0 && (
+                    <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
+                      <Info className="h-3 w-3" /> 身長に負の値は入力できません
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-3">
                   <Label htmlFor={`weight-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>体重 (kg)</Label>
@@ -388,13 +399,24 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                           }
                         }
                       }}
-                      className={cn("h-20 md:h-32 text-4xl md:text-6xl font-black text-center", primaryBgClass, primaryBorderClass, primaryFocusClass)}
+                      className={cn(
+                        "h-20 md:h-32 text-4xl md:text-6xl font-black text-center", 
+                        primaryBgClass, 
+                        primaryBorderClass, 
+                        primaryFocusClass,
+                        (m.weight || 0) < 0 && "border-red-500 bg-red-50"
+                      )}
                       placeholder="00.00"
                     />
                     <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
                       kg
                     </div>
                   </div>
+                  {(m.weight || 0) < 0 && (
+                    <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
+                      <Info className="h-3 w-3" /> 体重に負の値は入力できません
+                    </p>
+                  )}
                 </div>
                 <div className="flex justify-end pt-4">
                   <Button 
