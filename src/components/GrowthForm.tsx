@@ -15,9 +15,25 @@ import { calculateDecimalAge } from '../lib/growth-utils';
 export interface MeasurementEntry {
   id: string;
   date: Date;
-  height?: number;
-  weight?: number;
+  height?: number | string;
+  weight?: number | string;
 }
+
+const toHalfWidth = (str: string) => {
+  return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
+};
+
+const sanitizeNumericInput = (value: string, allowDecimal: boolean = true) => {
+  let sanitized = toHalfWidth(value);
+  if (allowDecimal) {
+    sanitized = sanitized.replace(/[^0-9.]/g, '');
+    const parts = sanitized.split('.');
+    if (parts.length > 2) sanitized = parts[0] + '.' + parts.slice(1).join('');
+  } else {
+    sanitized = sanitized.replace(/[^0-9]/g, '');
+  }
+  return sanitized;
+};
 
 interface GrowthFormProps {
   initialData?: {
@@ -246,10 +262,12 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
             <Label htmlFor="gestationalWeeks">在胎期間 (週)</Label>
             <Input 
               id="gestationalWeeks"
-              type="number" 
+              type="text" 
+              inputMode="numeric"
               value={gestationalWeeks} 
               onChange={(e) => {
-                const v = parseInt(e.target.value);
+                const sanitized = sanitizeNumericInput(e.target.value, false);
+                const v = parseInt(sanitized) || 0;
                 setGestationalWeeks(v);
                 triggerChange({ gestationalWeeks: v });
               }} 
@@ -271,10 +289,12 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
             <Label htmlFor="gestationalDays">在胎期間 (日)</Label>
             <Input 
               id="gestationalDays"
-              type="number" 
+              type="text" 
+              inputMode="numeric"
               value={gestationalDays} 
               onChange={(e) => {
-                const v = parseInt(e.target.value);
+                const sanitized = sanitizeNumericInput(e.target.value, false);
+                const v = parseInt(sanitized) || 0;
                 setGestationalDays(v);
                 triggerChange({ gestationalDays: v });
               }} 
@@ -346,12 +366,13 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                   <div className="relative">
                     <Input 
                       id={`height-${m.id}`}
-                      type="number" 
-                      step="0.1" 
-                      min="30"
-                      max="190"
-                      value={m.height || ''} 
-                      onChange={(e) => updateMeasurement(m.id, 'height', parseFloat(e.target.value))} 
+                      type="text" 
+                      inputMode="decimal"
+                      value={m.height ?? ''} 
+                      onChange={(e) => {
+                        const sanitized = sanitizeNumericInput(e.target.value);
+                        updateMeasurement(m.id, 'height', sanitized);
+                      }} 
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           const nextEl = document.getElementById(`weight-${m.id}`);
@@ -363,7 +384,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         primaryBgClass, 
                         primaryBorderClass, 
                         primaryFocusClass,
-                        (m.height || 0) < 0 && "border-red-500 bg-red-50"
+                        Number(m.height || 0) < 0 && "border-red-500 bg-red-50"
                       )}
                       placeholder="000.0"
                     />
@@ -371,7 +392,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       cm
                     </div>
                   </div>
-                  {(m.height || 0) < 0 && (
+                  {Number(m.height || 0) < 0 && (
                     <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
                       <Info className="h-3 w-3" /> 身長に負の値は入力できません
                     </p>
@@ -382,12 +403,13 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                   <div className="relative">
                     <Input 
                       id={`weight-${m.id}`}
-                      type="number" 
-                      step="0.01" 
-                      min="0.1"
-                      max="130"
-                      value={m.weight || ''} 
-                      onChange={(e) => updateMeasurement(m.id, 'weight', parseFloat(e.target.value))} 
+                      type="text" 
+                      inputMode="decimal"
+                      value={m.weight ?? ''} 
+                      onChange={(e) => {
+                        const sanitized = sanitizeNumericInput(e.target.value);
+                        updateMeasurement(m.id, 'weight', sanitized);
+                      }} 
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           if (index === measurements.length - 1) {
@@ -404,7 +426,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         primaryBgClass, 
                         primaryBorderClass, 
                         primaryFocusClass,
-                        (m.weight || 0) < 0 && "border-red-500 bg-red-50"
+                        Number(m.weight || 0) < 0 && "border-red-500 bg-red-50"
                       )}
                       placeholder="00.00"
                     />
@@ -412,7 +434,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       kg
                     </div>
                   </div>
-                  {(m.weight || 0) < 0 && (
+                  {Number(m.weight || 0) < 0 && (
                     <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
                       <Info className="h-3 w-3" /> 体重に負の値は入力できません
                     </p>

@@ -51,6 +51,9 @@ const GrowthDashboard: React.FC = () => {
 
   const processedData = useMemo(() => {
     const results = formData.measurements.map(m => {
+      const h = typeof m.height === 'string' ? parseFloat(m.height) : m.height;
+      const w = typeof m.weight === 'string' ? parseFloat(m.weight) : m.weight;
+      
       const age = calculateDecimalAge(formData.birthDate, m.date);
       const correctedAge = calculateCorrectedAge(
         formData.birthDate, 
@@ -61,9 +64,9 @@ const GrowthDashboard: React.FC = () => {
 
       // Height SDS
       let heightSDS = undefined;
-      if (m.height) {
+      if (h && !isNaN(h)) {
         const lms = interpolateLMS(age, heightTable);
-        heightSDS = calculateZScore(m.height, lms);
+        heightSDS = calculateZScore(h, lms);
       }
 
       // Weight SDS
@@ -71,24 +74,26 @@ const GrowthDashboard: React.FC = () => {
       let obesityIndex = null;
       let obesityIndexAge = null;
       // obesity index sex check
-      if (m.weight) {
+      if (w && !isNaN(w)) {
         const lms = interpolateLMS(age, weightTable);
-        weightSDS = calculateZScore(m.weight, lms);
-        if (m.height) {
+        weightSDS = calculateZScore(w, lms);
+        if (h && !isNaN(h)) {
           const lmsSex = formData.sex === '男子' ? 'male' : 'female';
-          obesityIndex = calculateObesityIndex(m.weight, m.height, age, lmsSex);
-          obesityIndexAge = calculateObesityIndexByAge(m.weight, m.height, age, lmsSex);
+          obesityIndex = calculateObesityIndex(w, h, age, lmsSex);
+          obesityIndexAge = calculateObesityIndexByAge(w, h, age, lmsSex);
         }
       }
 
       // BMI
       let bmi = undefined;
-      if (m.height && m.weight) {
-        bmi = m.weight / Math.pow(m.height / 100, 2);
+      if (h && w && !isNaN(h) && !isNaN(w)) {
+        bmi = w / Math.pow(h / 100, 2);
       }
 
       return {
         ...m,
+        height: h,
+        weight: w,
         age,
         correctedAge,
         heightSDS,
