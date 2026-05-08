@@ -240,9 +240,9 @@ const GrowthDashboard: React.FC = () => {
           </div>
 
           <Card className="print:shadow-none print:border-none print:m-0 print:p-0">
-            <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果 (最新)</div>
+            <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果</div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
-              <CardTitle className="text-xl font-semibold print:text-base">評価結果 (最新)</CardTitle>
+              <CardTitle className="text-xl font-semibold print:text-base">評価結果</CardTitle>
               <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
