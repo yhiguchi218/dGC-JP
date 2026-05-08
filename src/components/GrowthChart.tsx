@@ -112,7 +112,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           const isPrinting = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: isPrinting ? width * 0.8 : width * 1.4
+            height: isPrinting ? width * 0.7 : width * 1.4
           });
         }
       }

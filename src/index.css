@@ -46,19 +46,19 @@ input[type=number] {
       display: none !important;
     }
 
-    /* Force predictable flow */
+    /* Force predictable flow and shrink graph */
     #printable-chart-area-wrapper {
       display: block !important;
-      width: 100% !important;
+      width: 75% !important;
+      margin: 0 auto 1mm auto !important;
       max-height: none !important;
       page-break-inside: avoid;
-      margin-bottom: 2mm !important;
       padding: 0 !important;
     }
 
     table {
       page-break-inside: avoid;
-      font-size: 7.5pt !important;
+      font-size: 7pt !important;
       width: 100% !important;
       border-collapse: collapse;
       margin-top: 1mm !important;
