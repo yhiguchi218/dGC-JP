@@ -109,7 +109,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           const isPrinting = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: isPrinting ? width * 1.32 : width * 1.4
+            height: isPrinting ? width * 1.2 : width * 1.4
           });
         }
       }
@@ -127,7 +127,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   const margin = { 
     top: height * 0.03, 
     right: width * 0.12, 
-    bottom: height * 0.05, 
+    bottom: height * 0.1, 
     left: width * 0.1 
   };
   const innerWidth = width - margin.left - margin.right;
@@ -388,7 +388,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
       <div ref={chartAreaRef} id="printable-chart-area" className="bg-white p-2">
         <div ref={containerRef} className="relative w-full bg-gray-50 rounded-lg p-1 md:p-4 print:bg-white print:p-0 print:break-inside-avoid">
-          <svg ref={svgRef} width={width} height={height} className="w-full h-auto block" />
+          <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="w-full h-auto block" />
         </div>
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:hidden">

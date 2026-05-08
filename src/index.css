@@ -35,11 +35,11 @@ input[type=number] {
       background-color: white !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-      padding: 10mm !important;
+      padding: 0 !important;
     }
 
     @page {
-      margin: 0 !important;
+      margin: 10mm !important;
       size: A4 portrait;
     }
     
@@ -48,7 +48,8 @@ input[type=number] {
     }
 
     /* Force chart to occupy first page alone */
-    #printable-chart-area-wrapper {
+    #printable-chart-area-wrapper,
+    #printable-chart-area {
       display: block !important;
       width: 100% !important;
       margin: 0 !important;
