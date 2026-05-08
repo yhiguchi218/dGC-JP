@@ -49,7 +49,7 @@ input[type=number] {
     /* Force predictable flow and shrink graph */
     #printable-chart-area-wrapper {
       display: block !important;
-      width: 70% !important;
+      width: 50% !important;
       margin: 0 auto 0 auto !important;
       max-height: none !important;
       page-break-inside: avoid;
