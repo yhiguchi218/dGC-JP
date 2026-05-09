@@ -64,7 +64,8 @@ const GrowthDashboard: React.FC = () => {
 
       // Height SDS
       let heightSDS = undefined;
-      if (h && !isNaN(h)) {
+      // Safety guard: height must be significantly positive for meaningful SDS/BMI
+      if (h && !isNaN(h) && h > 0) {
         const lms = interpolateLMS(age, heightTable);
         heightSDS = calculateZScore(h, lms);
       }
@@ -74,10 +75,10 @@ const GrowthDashboard: React.FC = () => {
       let obesityIndex = null;
       let obesityIndexAge = null;
       // obesity index sex check
-      if (w && !isNaN(w)) {
+      if (w && !isNaN(w) && w > 0) {
         const lms = interpolateLMS(age, weightTable);
         weightSDS = calculateZScore(w, lms);
-        if (h && !isNaN(h)) {
+        if (h && !isNaN(h) && h > 0) {
           const lmsSex = formData.sex === '男子' ? 'male' : 'female';
           obesityIndex = calculateObesityIndex(w, h, age, lmsSex);
           obesityIndexAge = calculateObesityIndexByAge(w, h, age, lmsSex);
@@ -86,7 +87,7 @@ const GrowthDashboard: React.FC = () => {
 
       // BMI
       let bmi = undefined;
-      if (h && w && !isNaN(h) && !isNaN(w)) {
+      if (h && w && !isNaN(h) && !isNaN(w) && h > 0) {
         bmi = w / Math.pow(h / 100, 2);
       }
 
