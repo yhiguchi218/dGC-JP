@@ -19,7 +19,7 @@ export const CHART_PRESETS: ChartPreset[] = [
     name: '0〜24ヶ月',
     xRange: [0, 2],
     yHeightRange: [30, 100],
-    yWeightRange: [0, 70], // Aligned with height range (100-30=70)
+    yWeightRange: [0, 35], 
   },
   {
     id: '0歳〜6歳',
@@ -217,10 +217,14 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .style('font-size', `${Math.max(10, width * 0.015)}px`)
       .style('font-family', 'var(--font-mono)');
 
+    const weightTickStep = preset.id === '0〜24ヶ月' ? 5 : 10;
+    const maxWeightLabel = preset.id === '0〜24ヶ月' ? 20 : (preset.id === '0歳〜6歳' ? 60 : 120);
+    
     const weightAxis = g.append('g')
       .attr('transform', `translate(${innerWidth}, 0)`)
       .call(d3.axisRight(yScaleWeight)
-        .tickValues(d3.range(preset.yWeightRange[0], preset.yWeightRange[1] + 10, 10))
+        .tickValues(d3.range(preset.yWeightRange[0], preset.yWeightRange[1] + weightTickStep, weightTickStep))
+        .tickFormat((d) => (d as number) <= maxWeightLabel ? `${d}` : '')
       )
       .style('color', genderColor);
     
