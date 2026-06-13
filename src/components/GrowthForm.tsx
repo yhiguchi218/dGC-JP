@@ -96,12 +96,12 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   };
 
   const isMale = sex === '男子';
-  const primaryColorClass = isMale ? 'blue' : 'red';
-  const primaryTextClass = isMale ? 'text-blue-700' : 'text-red-700';
-  const primaryBgClass = isMale ? 'bg-blue-50/30' : 'bg-red-50/30';
-  const primaryBorderClass = isMale ? 'border-blue-200' : 'border-red-200';
-  const primaryFocusClass = isMale ? 'focus:border-blue-500 focus:ring-blue-500' : 'focus:border-red-500 focus:ring-red-500';
-  const primaryUnitClass = isMale ? 'text-blue-300' : 'text-red-300';
+  const primaryColorClass = isMale ? 'blue' : 'pink';
+  const primaryTextClass = isMale ? 'text-blue-700' : 'text-pink-700';
+  const primaryBgClass = isMale ? 'bg-blue-50/30' : 'bg-pink-50/30';
+  const primaryBorderClass = isMale ? 'border-blue-200' : 'border-pink-200';
+  const primaryFocusClass = isMale ? 'focus:border-blue-500 focus:ring-blue-500' : 'focus:border-pink-500 focus:ring-pink-500';
+  const primaryUnitClass = isMale ? 'text-blue-300' : 'text-pink-300';
 
   const handleSaveJSON = () => {
     const data = {

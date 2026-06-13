@@ -284,7 +284,7 @@ const GrowthDashboard: React.FC = () => {
                         肥満度
                         <span className={cn(
                           "ml-1 text-[8px] normal-case px-1 rounded",
-                          formData.sex === '男子' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
+                          formData.sex === '男子' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
                         )}>
                           {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
                         </span>
@@ -348,27 +348,27 @@ const GrowthDashboard: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-
+ 
           {heightVelocity.length > 0 && (
-            <Card className={cn("border-opacity-50 print:hidden", formData.sex === '男子' ? "border-blue-100 bg-blue-50/30" : "border-red-100 bg-red-50/30")}>
+            <Card className={cn("border-opacity-50 print:hidden", formData.sex === '男子' ? "border-blue-100 bg-blue-50/30" : "border-pink-100 bg-pink-50/30")}>
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <Info className={cn("h-5 w-5", formData.sex === '男子' ? "text-blue-500" : "text-red-500")} />
+                  <Info className={cn("h-5 w-5", formData.sex === '男子' ? "text-blue-500" : "text-pink-500")} />
                   身長速度
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {heightVelocity.map((hv, i) => (
-                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === '男子' ? "border-blue-100" : "border-red-100")}>
+                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === '男子' ? "border-blue-100" : "border-pink-100")}>
                       <div>
                         <div className="text-sm text-gray-500">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
-                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === '男子' ? "text-blue-600" : "text-red-600")}>
+                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === '男子' ? "text-blue-600" : "text-pink-600")}>
                           HV: {hv.value.toFixed(2)} cm/年
                           {hv.hvSDS !== null && (
                             <span className={cn(
                               "text-sm",
-                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === '男子' ? "text-blue-500 font-medium" : "text-red-500 font-medium")
+                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === '男子' ? "text-blue-500 font-medium" : "text-pink-500 font-medium")
                             )}>
                               (SDS: {hv.hvSDS.toFixed(2)})
                             </span>

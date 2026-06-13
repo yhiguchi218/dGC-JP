@@ -121,8 +121,8 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
   const { width, height } = dimensions;
 
-  const genderColor = sex === '男子' ? '#2563eb' : '#dc2626';
-  const genderLightColor = sex === '男子' ? '#bfdbfe' : '#fecaca';
+  const genderColor = sex === '男子' ? '#2563eb' : '#db2777';
+  const genderLightColor = sex === '男子' ? '#bfdbfe' : '#fbcfe8';
 
   const margin = { 
     top: height * 0.03, 
@@ -218,12 +218,17 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .style('font-family', 'var(--font-mono)');
 
     const weightTickStep = preset.id === '0〜24ヶ月' ? 5 : 10;
-    const maxWeightLabel = preset.id === '0〜24ヶ月' ? 20 : (preset.id === '0歳〜6歳' ? 60 : 120);
+    const maxWeightLabel = preset.id === '0〜24ヶ月' 
+      ? 20 
+      : (preset.id === '0歳〜6歳' 
+        ? 60 
+        : (sex === '女子' ? 100 : 120));
     
     const weightAxis = g.append('g')
       .attr('transform', `translate(${innerWidth}, 0)`)
       .call(d3.axisRight(yScaleWeight)
         .tickValues(d3.range(preset.yWeightRange[0], preset.yWeightRange[1] + weightTickStep, weightTickStep))
+        .tickPadding(6)
         .tickFormat((d) => (d as number) <= maxWeightLabel ? `${d}` : '')
       )
       .style('color', genderColor);
@@ -291,6 +296,27 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('stroke-opacity', sds === 0 ? 1 : 0.7)
         .attr('stroke-dasharray', isExtra ? '4,4' : null)
         .attr('d', line);
+
+      // Add label immediately beneath the line, contained inside the chart fields
+      const lastPoint = lineData[lineData.length - 1];
+      if (lastPoint && lastPoint.value >= preset.yHeightRange[0] && lastPoint.value <= preset.yHeightRange[1]) {
+        const isYoungPreset = preset.id === '0〜24ヶ月' || preset.id === '0歳〜6歳';
+        const yOffset = isYoungPreset ? 6 : 2;
+        const dyVal = isYoungPreset ? '1.05em' : '0.85em';
+
+        g.append('text')
+          .attr('x', xScale(lastPoint.age) - 4)
+          .attr('y', yScaleHeight(lastPoint.value) + yOffset)
+          .attr('dy', dyVal)
+          .attr('text-anchor', 'end')
+          .style('font-size', `${Math.max(8.5, width * 0.012)}px`)
+          .style('font-weight', '600')
+          .style('fill', '#374151')
+          .style('stroke', '#ffffff')
+          .style('stroke-width', '2px')
+          .style('paint-order', 'stroke fill')
+          .text(sds === 0 ? '平均' : `${sds > 0 ? '+' : ''}${sds.toFixed(1)}SD`);
+      }
     });
 
     sdsLevels.forEach(sds => {
@@ -309,6 +335,27 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('stroke-width', sds === 0 ? Math.max(1.5, width * 0.003) : Math.max(0.8, width * 0.0015))
         .attr('stroke-opacity', sds === 0 ? 1 : 0.7)
         .attr('d', line);
+
+      // Add label immediately beneath the line, contained inside the chart fields
+      const lastPoint = lineData[lineData.length - 1];
+      if (lastPoint && lastPoint.value >= preset.yWeightRange[0] && lastPoint.value <= preset.yWeightRange[1]) {
+        const isYoungPreset = preset.id === '0〜24ヶ月' || preset.id === '0歳〜6歳';
+        const yOffset = isYoungPreset ? 6 : 2;
+        const dyVal = isYoungPreset ? '1.05em' : '0.85em';
+
+        g.append('text')
+          .attr('x', xScale(lastPoint.age) - 4)
+          .attr('y', yScaleWeight(lastPoint.value) + yOffset)
+          .attr('dy', dyVal)
+          .attr('text-anchor', 'end')
+          .style('font-size', `${Math.max(8.5, width * 0.012)}px`)
+          .style('font-weight', '600')
+          .style('fill', '#374151')
+          .style('stroke', '#ffffff')
+          .style('stroke-width', '2px')
+          .style('paint-order', 'stroke fill')
+          .text(sds === 0 ? '平均' : `${sds > 0 ? '+' : ''}${sds.toFixed(1)}SD`);
+      }
     });
 
     heightPoints.forEach(d => {
@@ -406,11 +453,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:hidden">
           <div className="flex items-center gap-2">
-            <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
+            <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600' : 'bg-pink-600'}`}></span>
             <span>身長 中央値 (0SD)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600' : 'bg-red-600'}`}></span>
+            <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600' : 'bg-pink-600'}`}></span>
             <span>体重 中央値 (0SD)</span>
           </div>
           <div className="flex items-center gap-2">
@@ -422,7 +469,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
             <span>身長 -2.5/-3.0SD (点線)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`${sex === '男子' ? 'text-blue-600' : 'text-red-600'} font-bold`}>●</span>
+            <span className={`${sex === '男子' ? 'text-blue-600' : 'text-pink-600'} font-bold`}>●</span>
             <span>通常測定点 (身長/体重)</span>
           </div>
           <div className="flex items-center gap-2">
