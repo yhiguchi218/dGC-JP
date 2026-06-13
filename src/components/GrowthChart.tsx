@@ -122,7 +122,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   const { width, height } = dimensions;
 
   const genderColor = sex === '男子' ? '#2563eb' : '#db2777';
-  const genderLightColor = sex === '男子' ? '#bfdbfe' : '#fbcfe8';
+  const genderLightColor = sex === '男子' ? '#60a5fa' : '#f472b6';
 
   const margin = { 
     top: height * 0.03, 
@@ -293,7 +293,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('fill', 'none')
         .attr('stroke', sds === 0 ? genderColor : genderLightColor)
         .attr('stroke-width', sds === 0 ? Math.max(1.5, width * 0.003) : Math.max(0.8, width * 0.0015))
-        .attr('stroke-opacity', sds === 0 ? 1 : 0.7)
+        .attr('stroke-opacity', sds === 0 ? 1 : 0.85)
         .attr('stroke-dasharray', isExtra ? '4,4' : null)
         .attr('d', line);
 
@@ -333,7 +333,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .attr('fill', 'none')
         .attr('stroke', sds === 0 ? genderColor : genderLightColor)
         .attr('stroke-width', sds === 0 ? Math.max(1.5, width * 0.003) : Math.max(0.8, width * 0.0015))
-        .attr('stroke-opacity', sds === 0 ? 1 : 0.7)
+        .attr('stroke-opacity', sds === 0 ? 1 : 0.85)
         .attr('d', line);
 
       // Add label immediately beneath the line, contained inside the chart fields
