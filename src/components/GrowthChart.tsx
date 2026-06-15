@@ -368,7 +368,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       // Clamp value for visual plotting if it's off chart
       const plottedValue = Math.max(preset.yHeightRange[0], Math.min(preset.yHeightRange[1], d.value));
       
-      const marker = isOutlier ? '△' : '●';
+      const marker = isOutlier ? '▲' : '●';
       const color = isOutlier ? '#f97316' : (d.isCorrected ? '#10b981' : genderColor);
       
       g.append('text')
@@ -380,7 +380,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           ? Math.max(22, width * 0.035) * (isSafari ? 1.5 : 1) 
           : Math.max(18, width * 0.028) * (isSafari ? 1.5 : 1))
         .style('fill', color)
-        .style('stroke', 'white')
+        .style('stroke', isOutlier ? 'none' : 'white')
         .style('stroke-width', '1px')
         .style('font-weight', 'bold')
         .text(marker);
@@ -396,7 +396,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       // Clamp value for visual plotting if it's off chart
       const plottedValue = Math.max(preset.yWeightRange[0], Math.min(preset.yWeightRange[1], d.value));
 
-      const marker = isOutlier ? '△' : '●';
+      const marker = isOutlier ? '▲' : '●';
       const color = isOutlier ? '#f97316' : (d.isCorrected ? '#10b981' : genderColor);
       
       g.append('text')
@@ -408,7 +408,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           ? Math.max(22, width * 0.035) * (isSafari ? 1.5 : 1) 
           : Math.max(18, width * 0.028) * (isSafari ? 1.5 : 1))
         .style('fill', color)
-        .style('stroke', 'white')
+        .style('stroke', isOutlier ? 'none' : 'white')
         .style('stroke-width', '1px')
         .style('font-weight', 'bold')
         .text(marker);
@@ -473,7 +473,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
             <span>通常測定点 (身長/体重)</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-orange-500 font-bold">△</span>
+            <span className="text-orange-500 font-bold">▲</span>
             <span>異常値 (±5SD超/範囲外)</span>
           </div>
           <div className="flex items-center gap-2">
