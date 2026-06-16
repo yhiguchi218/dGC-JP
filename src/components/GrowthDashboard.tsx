@@ -110,14 +110,20 @@ const GrowthDashboard: React.FC = () => {
     return results;
   }, [formData, heightTable, weightTable]);
 
-  // Height Velocity Calculation
+  // Height Velocity Calculation (Chained, non-overlapping intervals)
   const heightVelocity = useMemo(() => {
     const velocities = [];
-    for (let i = 0; i < processedData.length - 1; i++) {
+    let i = 0;
+    while (i < processedData.length - 1) {
+      let found = false;
+      const p1 = processedData[i];
+      if (!p1.height) {
+        i++;
+        continue;
+      }
       for (let j = i + 1; j < processedData.length; j++) {
-        const p1 = processedData[i];
         const p2 = processedData[j];
-        if (p1.height && p2.height) {
+        if (p2.height) {
           const ageDiff = p2.age - p1.age;
           if (ageDiff >= 0.95) { // Approx 1 year
             const hv = (p2.height - p1.height) / ageDiff;
@@ -134,12 +140,18 @@ const GrowthDashboard: React.FC = () => {
               ageDiffDays: Math.round(ageDiff * 365.25),
               heightDiff: p2.height - p1.height
             });
+            i = j; // Advance pointer to the end of the current interval
+            found = true;
+            break;
           }
         }
       }
+      if (!found) {
+        i++;
+      }
     }
     return velocities;
-  }, [processedData]);
+  }, [processedData, formData.sex, hvRefTable]);
 
   const heightPoints = useMemo(() => {
     const points: any[] = [];
