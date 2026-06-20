@@ -1,4 +1,4 @@
-import { differenceInDays, differenceInYears, addYears, addDays, format } from 'date-fns';
+import { differenceInDays, differenceInYears, differenceInMonths, addYears, addDays, format } from 'date-fns';
 import { HVReferencePoint } from '../data/suwa-hv-data';
 
 export interface LMSPoint {
@@ -307,4 +307,49 @@ export function calculateHVSDS(velocity: number, age: number, sex: 'male' | 'fem
   const ref = interpolateHV(age, table);
   if (ref.sd === 0) return null;
   return (velocity - ref.mean) / ref.sd;
+}
+
+/**
+ * Calculates a beautiful string for Japanese 満月齢 (Completed months of age)
+ */
+export function calculateFullMonthsAge(birthDate: Date, measurementDate: Date): string {
+  if (measurementDate < birthDate) return "生誕前";
+  
+  const totalMonths = differenceInMonths(measurementDate, birthDate);
+  const years = Math.floor(totalMonths / 12);
+  const remainingMonths = totalMonths % 12;
+
+  if (totalMonths === 0) {
+    return `満0ヶ月`;
+  }
+
+  if (years === 0) {
+    return `満${remainingMonths}ヶ月`;
+  } else {
+    return `満${years}歳${remainingMonths}ヶ月`;
+  }
+}
+
+/**
+ * Returns the corrected birth date based on gestational age
+ */
+export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: number, gestationalDays: number = 0): Date {
+  let weeks = gestationalWeeks;
+  let days = gestationalDays;
+  
+  if (weeks < 22) {
+    weeks = 22;
+    days = 0;
+  } else if (weeks >= 44) {
+    weeks = 44;
+    days = 0;
+  }
+
+  const totalGestationalDays = weeks * 7 + days;
+  const fullTermDays = 40 * 7;
+  const deficitDays = fullTermDays - totalGestationalDays;
+
+  if (weeks >= 37 || deficitDays <= 0) return birthDate;
+
+  return addDays(birthDate, deficitDays);
 }

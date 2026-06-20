@@ -8,7 +8,9 @@ import {
   interpolateLMS,
   calculateObesityIndex,
   calculateObesityIndexByAge,
-  calculateHVSDS
+  calculateHVSDS,
+  calculateFullMonthsAge,
+  getCorrectedBirthDate
 } from '../lib/growth-utils';
 import { 
   HEIGHT_BOYS_LMS, 
@@ -16,12 +18,13 @@ import {
   WEIGHT_BOYS_LMS, 
   WEIGHT_GIRLS_LMS 
 } from '../data/growth-data';
+import { FUHYO_BOYS_HEIGHT, FUHYO_GIRLS_HEIGHT } from '../data/fuhyo-growth-data';
 import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Info } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const GrowthDashboard: React.FC = () => {
@@ -66,8 +69,16 @@ const GrowthDashboard: React.FC = () => {
       let heightSDS = undefined;
       // Safety guard: height must be significantly positive for meaningful SDS/BMI
       if (h && !isNaN(h) && h > 0) {
-        const lms = interpolateLMS(age, heightTable);
-        heightSDS = calculateZScore(h, lms);
+        const useCorrected = formData.gestationalWeeks < 37 && correctedAge <= 3;
+        const refBirthDate = useCorrected
+          ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
+          : formData.birthDate;
+
+        const months = differenceInMonths(m.date, refBirthDate);
+        const clampedMonths = Math.max(0, Math.min(210, months));
+        const table = formData.sex === '男子' ? FUHYO_BOYS_HEIGHT : FUHYO_GIRLS_HEIGHT;
+        const [mean, sd] = table[clampedMonths];
+        heightSDS = (h - mean) / sd;
       }
 
       // Weight SDS
@@ -311,10 +322,19 @@ const GrowthDashboard: React.FC = () => {
                         <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-b-0", !isLast && "print:hidden")}>
                           <td className="px-4 py-3 font-medium print:px-1 print:py-0.5 print:text-[8pt]">{format(d.date, 'yyyy/MM/dd')}</td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
-                            {d.age.toFixed(4)}歳
+                            <div className="font-semibold">{d.age.toFixed(4)}歳</div>
+                            <div className="text-[11px] text-gray-500 font-normal mt-0.5 leading-tight print:text-[6.5pt]">
+                              {calculateFullMonthsAge(formData.birthDate, d.date)}
+                            </div>
                             {d.showCorrected && (
-                              <div className="text-[10px] text-emerald-600 print:text-[6pt]">
-                                (修正: {d.correctedAge.toFixed(4)}歳)
+                              <div className="text-[10px] text-emerald-600 font-semibold print:text-[6pt] mt-1.5 pt-1.5 border-t border-emerald-100/30">
+                                <div>修正: {d.correctedAge.toFixed(4)}歳</div>
+                                <div className="text-[9px] text-emerald-500 font-normal mt-0.5 print:text-[5.5pt]">
+                                  {calculateFullMonthsAge(
+                                    getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays),
+                                    d.date
+                                  )}
+                                </div>
                               </div>
                             )}
                           </td>
@@ -418,6 +438,7 @@ const GrowthDashboard: React.FC = () => {
               <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80">
                 <p className="font-semibold mb-1">参考文献・出典:</p>
                 <ul className="list-disc list-inside space-y-0.5">
+                  <li>身長SDS（満月齢基準）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">日本小児内分泌学会 附表１（平均体重／標準偏差 2000 年）</a></li>
                   <li>成長曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
                   <li>肥満度計算: Clin Pediatr Endocrinol 25:77-82, 2016</li>
                   <li>体重SDS計算: Clin Pediatr Endocrinol 25:71-76, 2016</li>
