@@ -124,14 +124,15 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   const genderColor = sex === '男子' ? '#2563eb' : '#db2777';
   const genderLightColor = sex === '男子' ? '#60a5fa' : '#f472b6';
 
-  const margin = { 
+  const margin = useMemo(() => ({ 
     top: height * 0.03, 
     right: width * 0.12, 
     bottom: height * 0.1, 
     left: width * 0.1 
-  };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
+  }), [width, height]);
+
+  const innerWidth = useMemo(() => width - margin.left - margin.right, [width, margin]);
+  const innerHeight = useMemo(() => height - margin.top - margin.bottom, [height, margin]);
 
   const sdsLevels = [-2, -1, 0, 1, 2];
 
@@ -413,7 +414,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .style('font-weight', 'bold')
         .text(marker);
     });
-  }, [preset, heightLmsTable, weightLmsTable, heightPoints, weightPoints, xScale, yScaleHeight, yScaleWeight, innerHeight, innerWidth, margin, width, height]);
+  }, [preset, heightLmsTable, weightLmsTable, heightPoints, weightPoints, xScale, yScaleHeight, yScaleWeight, innerHeight, innerWidth, margin, width, height, genderColor, genderLightColor, isSafari]);
 
   return (
     <div id="printable-chart-area-wrapper" className="bg-white p-3 md:p-6 rounded-xl shadow-md border border-gray-100 print:shadow-none print:border-none print:p-0 print:m-0 print:overflow-visible">
@@ -428,9 +429,11 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
             size="sm" 
             onClick={handlePrint}
             className="flex items-center gap-2"
+            aria-label="成長曲線を印刷する"
+            title="Ctrl+P でも印刷できます"
           >
-            <Printer className="w-4 h-4" />
-            印刷
+            <Printer className="w-4 h-4" aria-hidden="true" />
+            <span>印刷</span>
           </Button>
           <Button 
             type="button"
@@ -439,16 +442,34 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
             onClick={handleExportTIFF}
             disabled={isExporting}
             className="flex items-center gap-2"
+            aria-label="成長曲線をPNG画像としてダウンロードする"
+            aria-busy={isExporting}
           >
-            <Download className="w-4 h-4" />
-            {isExporting ? '出力中...' : '画像出力'}
+            <Download className="w-4 h-4" aria-hidden="true" />
+            <span>{isExporting ? '出力中...' : '画像出力'}</span>
           </Button>
         </div>
       </div>
 
       <div ref={chartAreaRef} id="printable-chart-area" className="bg-white p-2">
         <div ref={containerRef} className="relative w-full bg-gray-50 rounded-lg p-1 md:p-4 print:bg-white print:p-0 print:break-inside-avoid">
-          <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="w-full h-auto block" />
+          <div id="chart-description" className="sr-only">
+            <h4>成長曲線データの詳細</h4>
+            <p>このグラフは、日本人の標準成長曲線（{preset.name}）を表示しています。</p>
+            <p>青色（男子）またはピンク色（女子）の実線は中央値（0SD）、他の実線は基準偏差の範囲を示しています。</p>
+            <p>通常測定点は丸記号、在胎週数補正後の測定値は緑色の丸記号、標準偏差から極端に離れた異常値はオレンジ色の三角記号でプロットされます。</p>
+            <p>測定データ点数: 身長 {heightPoints.length} 件, 体重 {weightPoints.length} 件。</p>
+          </div>
+          <svg 
+            ref={svgRef} 
+            width={width} 
+            height={height} 
+            viewBox={`0 0 ${width} ${height}`} 
+            className="w-full h-auto block"
+            role="img"
+            aria-label={`${sex}の成長曲線（${preset.name}）。標準成長曲線基準線、および入力された測定データのプロットを表示しています。`}
+            aria-describedby="chart-description"
+          />
         </div>
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 border-t pt-4 print:hidden">
@@ -481,6 +502,58 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
             <span>修正年齢</span>
           </div>
         </div>
+
+        {/* Screen Reader Alternative: Data Tables list */}
+        <details className="mt-6 border border-gray-200 rounded-lg p-3 bg-gray-50/50 print:hidden transition-all">
+          <summary className="cursor-pointer font-semibold text-gray-700 text-sm hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1 inline-block select-none">
+            測定データをテーブル形式で表示（代替テキスト・音声読み上げ用）
+          </summary>
+          <div className="mt-4 overflow-x-auto rounded border border-gray-200 bg-white" role="region" aria-label="測定データ代替テーブル">
+            <table className="min-w-full border-collapse text-xs">
+              <caption className="sr-only">測定点（年齢、身長、体重）の一覧</caption>
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                  <th className="border-r border-gray-200 p-2 text-center" scope="col">年齢</th>
+                  <th className="border-r border-gray-200 p-2 text-center" scope="col">身長 (cm)</th>
+                  <th className="p-2 text-center" scope="col">体重 (kg)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {heightPoints.length === 0 && weightPoints.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-4 text-center text-gray-400">測定データが登録されていません。</td>
+                  </tr>
+                ) : (
+                  <>
+                    {heightPoints.map((point, idx) => {
+                      const matchingWeight = weightPoints.find(w => Math.abs(w.age - point.age) < 0.001 && w.isCorrected === point.isCorrected);
+                      return (
+                        <tr key={`h-${idx}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="border-r border-gray-200 p-2 font-medium text-center">
+                            {point.age.toFixed(4)}歳
+                            {point.isCorrected && <span className="ml-1 text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded">修正年齢</span>}
+                          </td>
+                          <td className="border-r border-gray-200 p-2 text-center">{point.value !== null ? `${point.value.toFixed(1)} cm` : '-'}</td>
+                          <td className="p-2 text-center">{matchingWeight ? `${matchingWeight.value.toFixed(2)} kg` : '-'}</td>
+                        </tr>
+                      );
+                    })}
+                    {weightPoints.filter(w => !heightPoints.some(h => Math.abs(h.age - w.age) < 0.001 && h.isCorrected === w.isCorrected)).map((point, idx) => (
+                      <tr key={`w-${idx}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="border-r border-gray-200 p-2 font-medium text-center">
+                          {point.age.toFixed(4)}歳
+                          {point.isCorrected && <span className="ml-1 text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded">修正年齢</span>}
+                        </td>
+                        <td className="border-r border-gray-200 p-2 text-center">-</td>
+                        <td className="p-2 text-center">{point.value.toFixed(2)} kg</td>
+                      </tr>
+                    ))}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </div>
     </div>
   );

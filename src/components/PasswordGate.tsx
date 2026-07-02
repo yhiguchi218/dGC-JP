@@ -61,11 +61,26 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
                 placeholder="メールアドレスを入力"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                aria-invalid={!!error}
+                aria-describedby={error ? "login-error-msg" : undefined}
                 className={error ? "border-red-500" : ""}
               />
-              {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+              {error && (
+                <div 
+                  id="login-error-msg"
+                  role="alert" 
+                  aria-live="assertive"
+                  className="text-xs text-red-900 font-bold bg-red-50 p-2 rounded border-l-4 border-red-600 flex items-center gap-1"
+                >
+                  {error}
+                </div>
+              )}
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              aria-label="パスワードを入力してアプリケーションにアクセス"
+            >
               ログイン
             </Button>
             <p className="text-[10px] text-gray-400 text-center mt-4">

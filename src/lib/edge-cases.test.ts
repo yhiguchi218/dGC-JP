@@ -25,13 +25,13 @@ describe('Edge Case Analysis', () => {
     });
   });
 
-  describe('Negative Age', () => {
-    it('should return a negative decimal age if measurement is before birth', () => {
+  describe('Negative/Invalid Age', () => {
+    it('should return null if measurement is before birth', () => {
       const birth = new Date('2020-01-01');
       const measurement = new Date('2019-01-01');
       const age = calculateDecimalAge(birth, measurement);
-      expect(age).toBeLessThan(0);
-      console.log('Negative age result:', age);
+      expect(age).toBeNull();
+      console.log('Measurement before birth age result:', age);
     });
 
     it('should fall back to birth LMS if age is negative in interpolation', () => {

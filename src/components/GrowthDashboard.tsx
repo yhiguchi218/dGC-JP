@@ -69,7 +69,7 @@ const GrowthDashboard: React.FC = () => {
       let heightSDS = undefined;
       // Safety guard: height must be significantly positive for meaningful SDS/BMI
       if (h && !isNaN(h) && h > 0) {
-        const useCorrected = formData.gestationalWeeks < 37 && correctedAge <= 3;
+        const useCorrected = formData.gestationalWeeks < 37 && correctedAge !== null && correctedAge <= 3;
         const refBirthDate = useCorrected
           ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
           : formData.birthDate;
@@ -86,7 +86,7 @@ const GrowthDashboard: React.FC = () => {
       let obesityIndex = null;
       let obesityIndexAge = null;
       // obesity index sex check
-      if (w && !isNaN(w) && w > 0) {
+      if (w && !isNaN(w) && w > 0 && age !== null) {
         const lms = interpolateLMS(age, weightTable);
         weightSDS = calculateZScore(w, lms);
         if (h && !isNaN(h) && h > 0) {
@@ -114,9 +114,14 @@ const GrowthDashboard: React.FC = () => {
         obesityIndex,
         obesityIndexAge,
         isPremature: formData.gestationalWeeks < 37,
-        showCorrected: formData.gestationalWeeks < 37 && correctedAge <= 3
+        showCorrected: formData.gestationalWeeks < 37 && correctedAge !== null && correctedAge <= 3
       };
-    }).sort((a, b) => a.age - b.age);
+    }).sort((a, b) => {
+      if (a.age === null && b.age === null) return 0;
+      if (a.age === null) return 1;
+      if (b.age === null) return -1;
+      return a.age - b.age;
+    });
 
     return results;
   }, [formData, heightTable, weightTable]);
@@ -135,6 +140,7 @@ const GrowthDashboard: React.FC = () => {
       for (let j = i + 1; j < processedData.length; j++) {
         const p2 = processedData[j];
         if (p2.height) {
+          if (p1.age === null || p2.age === null) continue;
           const ageDiff = p2.age - p1.age;
           if (ageDiff >= 0.95) { // Approx 1 year
             const hv = (p2.height - p1.height) / ageDiff;
@@ -167,14 +173,14 @@ const GrowthDashboard: React.FC = () => {
   const heightPoints = useMemo(() => {
     const points: any[] = [];
     processedData.forEach(d => {
-      if (d.height) {
+      if (d.height && d.age !== null) {
         points.push({
           age: d.age,
           value: d.height,
           zScore: d.heightSDS,
           isCorrected: false
         });
-        if (d.showCorrected) {
+        if (d.showCorrected && d.correctedAge !== null) {
           points.push({
             age: d.correctedAge,
             value: d.height,
@@ -190,14 +196,14 @@ const GrowthDashboard: React.FC = () => {
   const weightPoints = useMemo(() => {
     const points: any[] = [];
     processedData.forEach(d => {
-      if (d.weight) {
+      if (d.weight && d.age !== null) {
         points.push({
           age: d.age,
           value: d.weight,
           zScore: d.weightSDS,
           isCorrected: false
         });
-        if (d.showCorrected) {
+        if (d.showCorrected && d.correctedAge !== null) {
           points.push({
             age: d.correctedAge,
             value: d.weight,
@@ -211,7 +217,7 @@ const GrowthDashboard: React.FC = () => {
   }, [processedData]);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none print:overflow-visible">
+    <main id="main-content" tabIndex={-1} className="focus:outline-none max-w-7xl mx-auto p-4 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none print:overflow-visible">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">dGC-JP</h1>
@@ -294,16 +300,31 @@ const GrowthDashboard: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div role="region" aria-labelledby="results-title" className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
+                  <caption className="sr-only" id="results-title">
+                    お子さんの成長データ評価結果。各行は測定日ごとの測定値、年齢、身長SDS、体重SDS、BMI、肥満度を表示しています。
+                  </caption>
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50 print:bg-transparent print:border-b">
                     <tr>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">測定日</th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">年齢</th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">身長 (SDS)</th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">体重 (SDS)</th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">BMI</th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]">
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">測定日</th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
+                        年齢
+                        <span className="sr-only">満年齢および満月齢表記。</span>
+                      </th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
+                        身長 (SDS)
+                        <span className="sr-only">標準偏差値。</span>
+                      </th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
+                        体重 (SDS)
+                        <span className="sr-only">標準偏差値。</span>
+                      </th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
+                        BMI
+                        <span className="sr-only">ボディマス指数。</span>
+                      </th>
+                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
                         肥満度
                         <span className={cn(
                           "ml-1 text-[8px] normal-case px-1 rounded",
@@ -311,6 +332,7 @@ const GrowthDashboard: React.FC = () => {
                         )}>
                           {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
                         </span>
+                        <span className="sr-only">パーセント。</span>
                       </th>
                     </tr>
                   </thead>
@@ -449,7 +471,25 @@ const GrowthDashboard: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Screen Reader Announcements for Dynamic Data Updates */}
+      <div 
+        aria-live="polite" 
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {processedData.length > 0 && (
+          <p>
+            データが更新されました。現在 {processedData.length} 件の測定データがあります。最新の測定データ（測定日: {format(processedData[processedData.length - 1].date, 'yyyy年MM月dd日')}）は、
+            {processedData[processedData.length - 1].height ? `身長 ${processedData[processedData.length - 1].height}センチメートル` : ''}
+            {processedData[processedData.length - 1].heightSDS !== undefined ? ` (標準偏差SDS: ${processedData[processedData.length - 1].heightSDS.toFixed(2)})` : ''}、
+            {processedData[processedData.length - 1].weight ? `体重 ${processedData[processedData.length - 1].weight}キログラム` : ''}
+            {processedData[processedData.length - 1].weightSDS !== undefined ? ` (標準偏差SDS: ${processedData[processedData.length - 1].weightSDS.toFixed(2)})` : ''}
+            です。
+          </p>
+        )}
+      </div>
+    </main>
   );
 };
 

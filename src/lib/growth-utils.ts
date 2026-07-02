@@ -6,6 +6,7 @@ export interface LMSPoint {
   L: number;
   M: number;
   S: number;
+  clampedAge?: number;
 }
 
 export interface ChildData {
@@ -23,8 +24,8 @@ export interface ChildData {
  * This ensures that a child's birthday results in an exact integer age.
  * Validates that age is between 0 and 18 years.
  */
-export function calculateDecimalAge(birthDate: Date, measurementDate: Date): number {
-  if (measurementDate < birthDate) return -1; // Indicator for measurement before birth
+export function calculateDecimalAge(birthDate: Date, measurementDate: Date): number | null {
+  if (measurementDate < birthDate) return null; // Indicator for measurement before birth
   
   // 1. Calculate completed years
   const years = differenceInYears(measurementDate, birthDate);
@@ -53,9 +54,9 @@ export function calculateDecimalAge(birthDate: Date, measurementDate: Date): num
  * Calculates corrected age for premature infants.
  * Only applicable up to 3 years old.
  */
-export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number {
+export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number | null {
   const age = calculateDecimalAge(birthDate, measurementDate);
-  if (age < 0 || age > 3) return age; // Do not apply correction if child is over 3y or age is invalid
+  if (age === null || age > 3) return age; // Do not apply correction if child is over 3y or age is invalid
 
   // Clamp gestational age to [22w0d, 44w0d] as requested
   let weeks = gestationalWeeks;
@@ -108,12 +109,13 @@ export function calculateMeasurementFromZ(z: number, lms: LMSPoint): number {
 export function interpolateLMS(age: number, table: LMSPoint[]): LMSPoint {
   // Clamp age to table range for calculation
   const calcAge = Math.max(table[0].age, Math.min(table[table.length - 1].age, age));
+  const isClamped = calcAge !== age;
   
   if (calcAge === table[0].age) {
-    return { ...table[0], age }; // Return requested age but values from table[0]
+    return { ...table[0], age, clampedAge: isClamped ? calcAge : undefined }; // Return requested age but values from table[0]
   }
   if (calcAge === table[table.length - 1].age) {
-    return { ...table[table.length - 1], age }; // Return requested age but values from last entry
+    return { ...table[table.length - 1], age, clampedAge: isClamped ? calcAge : undefined }; // Return requested age but values from last entry
   }
 
   // Find the interval [p1, p2]
@@ -127,10 +129,11 @@ export function interpolateLMS(age: number, table: LMSPoint[]): LMSPoint {
   const p2 = table[i + 1];
   const p3 = table[Math.min(table.length - 1, i + 2)];
 
-  const t = (age - p1.age) / (p2.age - p1.age);
+  const t = (calcAge - p1.age) / (p2.age - p1.age);
   
   return {
     age,
+    clampedAge: isClamped ? calcAge : undefined,
     L: cubicInterpolate(t, p0.L, p1.L, p2.L, p3.L),
     M: cubicInterpolate(t, p0.M, p1.M, p2.M, p3.M),
     S: cubicInterpolate(t, p0.S, p1.S, p2.S, p3.S),

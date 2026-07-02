@@ -12,6 +12,13 @@ import { CalendarIcon, PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-rea
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge } from '../lib/growth-utils';
 
+const generateUniqueId = () => {
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return 'id_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+};
+
 export interface MeasurementEntry {
   id: string;
   date: Date;
@@ -65,7 +72,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   ]);
 
   const handleAddMeasurement = () => {
-    const newId = Math.random().toString(36).substr(2, 9);
+    const newId = generateUniqueId();
     const newMeasurements = [
       ...measurements,
       { id: newId, date: new Date(), height: undefined, weight: undefined }
@@ -128,15 +135,34 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Limit file size to 2MB for protection against memory exhaustion
+    const MAX_FILE_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      alert("ファイルサイズが大きすぎます。2MB以下のJSONファイルを選択してください。");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
         
+        // Robustness: basic schema validation
+        if (!data || typeof data !== 'object') {
+          throw new Error("データが正しいJSONオブジェクトではありません。");
+        }
+        if (typeof data.childId !== 'string' || !data.birthDate || !Array.isArray(data.measurements)) {
+          throw new Error("必要な項目（管理ID、生年月日、測定データ）が見つかりません。");
+        }
+
         // Handle migration from old 'male'/'female' to Japanese if needed
         let loadedSex = data.sex;
         if (loadedSex === 'male') loadedSex = '男子';
         if (loadedSex === 'female') loadedSex = '女子';
+
+        if (loadedSex !== '男子' && loadedSex !== '女子') {
+          loadedSex = '男子'; // Fallback
+        }
 
         // Try parsing different formats for robustness
         const parseDate = (dateStr: string) => {
@@ -151,28 +177,30 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
 
         const loadedBirthDate = parseDate(data.birthDate);
         const loadedMeasurements = data.measurements.map((m: any) => ({
-          ...m,
-          date: parseDate(m.date)
+          id: m.id || generateUniqueId(),
+          date: parseDate(m.date),
+          height: m.height,
+          weight: m.weight
         }));
 
         setChildId(data.childId);
         setBirthDate(loadedBirthDate);
         setSex(loadedSex);
-        setGestationalWeeks(data.gestationalWeeks);
-        setGestationalDays(data.gestationalDays);
+        setGestationalWeeks(data.gestationalWeeks ?? 40);
+        setGestationalDays(data.gestationalDays ?? 0);
         setMeasurements(loadedMeasurements);
 
         onDataChange({
           childId: data.childId,
           birthDate: loadedBirthDate,
           sex: loadedSex,
-          gestationalWeeks: data.gestationalWeeks,
-          gestationalDays: data.gestationalDays,
+          gestationalWeeks: data.gestationalWeeks ?? 40,
+          gestationalDays: data.gestationalDays ?? 0,
           measurements: loadedMeasurements
         });
       } catch (err) {
         console.error("Failed to parse JSON", err);
-        alert("ファイルの読み込みに失敗しました。正しい形式のJSONファイルを選択してください。");
+        alert(`ファイルの読み込みに失敗しました: ${err instanceof Error ? err.message : '正しい形式のJSONファイルを選択してください。'}`);
       }
     };
     reader.readAsText(file);
@@ -186,17 +214,39 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-xl font-semibold">基本情報</CardTitle>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleSaveJSON}>
-              <Save className="mr-2 h-4 w-4" />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleSaveJSON}
+              aria-label="現在の入力データをJSONファイル形式でパソコンにダウンロード保存します"
+            >
+              <Save className="mr-2 h-4 w-4" aria-hidden="true" />
               データ保存
             </Button>
             <div className="relative">
               <label 
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer")}
+                htmlFor="load-json-file"
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer inline-flex")}
+                aria-label="JSON形式のデータファイルをアップロードしてお子さんの成長データを読み込みます"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    document.getElementById('load-json-file')?.click();
+                  }
+                }}
               >
-                <FileUp className="mr-2 h-4 w-4" />
-                データ読込
-                <input type="file" accept=".json" className="hidden" onChange={handleLoadJSON} />
+                <FileUp className="mr-2 h-4 w-4" aria-hidden="true" />
+                <span>データ読込</span>
+                <input 
+                  id="load-json-file" 
+                  type="file" 
+                  accept=".json" 
+                  className="hidden" 
+                  onChange={handleLoadJSON} 
+                  aria-label="成長データJSONファイルを選択"
+                />
               </label>
             </div>
           </div>
@@ -271,17 +321,37 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 setGestationalWeeks(v);
                 triggerChange({ gestationalWeeks: v });
               }} 
-              className={cn((gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-500 bg-amber-50")}
+              aria-invalid={gestationalWeeks < 22 || gestationalWeeks >= 44}
+              aria-describedby={
+                gestationalWeeks < 22 ? 'weeks-warning-low' : 
+                gestationalWeeks >= 44 ? 'weeks-warning-high' : 
+                undefined
+              }
+              className={cn((gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-600 bg-amber-50")}
             />
             {gestationalWeeks < 22 && (
-              <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                <Info className="h-3 w-3" /> 22週未満は22週0日として計算されます
-              </p>
+              <div 
+                id="weeks-warning-low"
+                role="alert"
+                aria-live="polite"
+                aria-atomic="true"
+                className="text-xs text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 mt-1"
+              >
+                <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 
+                <span>22週未満は22週0日として計算されます</span>
+              </div>
             )}
             {gestationalWeeks >= 44 && (
-              <p className="text-xs text-amber-600 font-medium flex items-center gap-1">
-                <Info className="h-3 w-3" /> 44週以降は44週0日として計算されます
-              </p>
+              <div 
+                id="weeks-warning-high"
+                role="alert"
+                aria-live="polite"
+                aria-atomic="true"
+                className="text-xs text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 mt-1"
+              >
+                <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 
+                <span>44週以降は44週0日として計算されます</span>
+              </div>
             )}
           </div>
 
@@ -319,18 +389,28 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
               return (
                 <div key={m.id} className={cn(
                   "grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white shadow-sm transition-colors",
-                  age < 0 ? "border-red-500 bg-red-50/10" : 
+                  age === null ? "border-red-500 bg-red-50/10" : 
                   age > 18 ? "border-amber-400 bg-amber-50/10" : 
                   "border-gray-100"
                 )}>
-                  {age < 0 && (
-                    <div className="col-span-full text-red-500 text-xs font-bold flex items-center gap-1">
-                      <Info className="h-3 w-3" /> 測定日が生年月日より前です
+                  {age === null && (
+                    <div 
+                      role="alert"
+                      aria-live="assertive"
+                      aria-atomic="true"
+                      className="col-span-full text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 text-xs"
+                    >
+                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 測定日が生年月日より前です
                     </div>
                   )}
-                  {age > 18 && (
-                    <div className="col-span-full text-amber-600 text-xs font-bold flex items-center gap-1">
-                      <Info className="h-3 w-3" /> 18歳を超えています（17.5歳のデータを参照します）
+                  {age !== null && age > 18 && (
+                    <div 
+                      role="alert"
+                      aria-live="polite"
+                      aria-atomic="true"
+                      className="col-span-full text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 text-xs"
+                    >
+                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 18歳を超えています（17.5歳のデータを参照します）
                     </div>
                   )}
                   <div className="space-y-2">
@@ -358,6 +438,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         if (nextEl) nextEl.focus();
                       }
                     }}
+                    aria-label={`測定日を入力（YYYY/MM/DD形式）`}
                     className="h-12 md:h-16 text-lg bg-gray-50 border-gray-200"
                   />
                 </div>
@@ -379,6 +460,8 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                           if (nextEl) nextEl.focus();
                         }
                       }}
+                      aria-invalid={Number(m.height || 0) < 0}
+                      aria-describedby={Number(m.height || 0) < 0 ? `height-error-${m.id}` : undefined}
                       className={cn(
                         "h-20 md:h-32 text-4xl md:text-6xl font-black text-center", 
                         primaryBgClass, 
@@ -393,9 +476,15 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                     </div>
                   </div>
                   {Number(m.height || 0) < 0 && (
-                    <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
-                      <Info className="h-3 w-3" /> 身長に負の値は入力できません
-                    </p>
+                    <div 
+                      id={`height-error-${m.id}`}
+                      role="alert"
+                      aria-live="assertive"
+                      aria-atomic="true"
+                      className="text-xs text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
+                    >
+                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 身長に負の値は入力できません。0以上の値を入力してください。
+                    </div>
                   )}
                 </div>
                 <div className="space-y-3">
@@ -421,6 +510,8 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                           }
                         }
                       }}
+                      aria-invalid={Number(m.weight || 0) < 0}
+                      aria-describedby={Number(m.weight || 0) < 0 ? `weight-error-${m.id}` : undefined}
                       className={cn(
                         "h-20 md:h-32 text-4xl md:text-6xl font-black text-center", 
                         primaryBgClass, 
@@ -435,9 +526,15 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                     </div>
                   </div>
                   {Number(m.weight || 0) < 0 && (
-                    <p className="text-xs text-red-500 font-medium flex items-center gap-1 mt-1">
-                      <Info className="h-3 w-3" /> 体重に負の値は入力できません
-                    </p>
+                    <div 
+                      id={`weight-error-${m.id}`}
+                      role="alert"
+                      aria-live="assertive"
+                      aria-atomic="true"
+                      className="text-xs text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
+                    >
+                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 体重に負の値は入力できません。0以上の値を入力してください。
+                    </div>
                   )}
                 </div>
                 <div className="flex justify-end pt-4">
@@ -446,8 +543,9 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                     size="icon" 
                     className="h-12 w-12 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-full"
                     onClick={() => handleRemoveMeasurement(m.id)}
+                    aria-label={`${m.date ? format(m.date, "yyyy/MM/dd") : '未指定日'}の測定データを削除`}
                   >
-                    <Trash2 className="h-6 w-6" />
+                    <Trash2 className="h-6 w-6" aria-hidden="true" />
                   </Button>
                 </div>
                 </div>
