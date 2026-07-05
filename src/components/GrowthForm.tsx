@@ -350,7 +350,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 className="text-xs text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 mt-1"
               >
                 <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 
-                <span>44週以降は44週0日として計算されます</span>
+                <span>44週以上は44週0日として計算されます</span>
               </div>
             )}
           </div>
@@ -483,7 +483,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       aria-atomic="true"
                       className="text-xs text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
                     >
-                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 身長に負の値は入力できません。0以上の値を入力してください。
+                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 身長は正の値を入力してください（推奨範囲: 50～200 cm）。
                     </div>
                   )}
                 </div>
@@ -533,7 +533,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       aria-atomic="true"
                       className="text-xs text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
                     >
-                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 体重に負の値は入力できません。0以上の値を入力してください。
+                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 体重は正の値を入力してください（推奨範囲: 2～100 kg）。
                     </div>
                   )}
                 </div>
