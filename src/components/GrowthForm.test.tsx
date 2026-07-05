@@ -74,8 +74,8 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(heightInput).toHaveClass('border-red-500');
     expect(weightInput).toHaveClass('border-red-500');
 
-    expect(screen.getByText(/身長に負の値は入力できません/)).toBeInTheDocument();
-    expect(screen.getByText(/体重に負の値は入力できません/)).toBeInTheDocument();
+    expect(screen.getByText(/身長は正の値を入力してください/)).toBeInTheDocument();
+    expect(screen.getByText(/体重は正の値を入力してください/)).toBeInTheDocument();
   });
 
   it('can add a new measurement row interactively', async () => {
@@ -113,7 +113,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
       gestationalWeeks: 45
     };
     render(<GrowthForm initialData={dataWithPosttermWarning} onDataChange={handleDataChange} />);
-    expect(screen.getByText(/44週以降は44週0日として計算されます/)).toBeInTheDocument();
+    expect(screen.getByText(/44週以上は44週0日として計算されます/)).toBeInTheDocument();
   });
 
   it('displays warning when measurement date is before birth date', () => {

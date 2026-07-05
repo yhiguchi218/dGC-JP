@@ -344,11 +344,11 @@ const GrowthDashboard: React.FC = () => {
                         <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-b-0", !isLast && "print:hidden")}>
                           <td className="px-4 py-3 font-medium print:px-1 print:py-0.5 print:text-[8pt]">{format(d.date, 'yyyy/MM/dd')}</td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
-                            <div className="font-semibold">{d.age !== null ? d.age.toFixed(4) : '-'}歳</div>
+                            <div className="font-semibold">{d.age.toFixed(4)}歳</div>
                             <div className="text-[11px] text-gray-500 font-normal mt-0.5 leading-tight print:text-[6.5pt]">
-                              {d.age !== null ? calculateFullMonthsAge(formData.birthDate, d.date) : '-'}
+                              {calculateFullMonthsAge(formData.birthDate, d.date)}
                             </div>
-                            {d.showCorrected && d.correctedAge !== null && (
+                            {d.showCorrected && (
                               <div className="text-[10px] text-emerald-600 font-semibold print:text-[6pt] mt-1.5 pt-1.5 border-t border-emerald-100/30">
                                 <div>修正: {d.correctedAge.toFixed(4)}歳</div>
                                 <div className="text-[9px] text-emerald-500 font-normal mt-0.5 print:text-[5.5pt]">
@@ -448,7 +448,7 @@ const GrowthDashboard: React.FC = () => {
                   <li>本ツールは教育・研究用であり、確定診断には使用しないでください。</li>
                   <li>計算結果の最終的な判断は、必ず主治医の責任において行ってください。</li>
                   <li><strong>プライバシー保護:</strong> 入力された患者データはブラウザ内でのみ一時的に処理され、外部サーバーへ送信・蓄積されることはありません。</li>
-                  <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じてデータ保存機能をご使用ください。</li>
+                  <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
                 </ul>
               </div>
               
@@ -478,9 +478,9 @@ const GrowthDashboard: React.FC = () => {
         aria-atomic="true"
         className="sr-only"
       >
-        {processedData.length > 0 && processedData[processedData.length - 1].age !== null && (
+        {processedData.length > 0 && (
           <p>
-            データが更新されました。現在 {processedData.length} 件の測定データがあります。最新の測定データ（測定日: {format(processedData[processedData.length - 1].date, 'yyyy年MM月dd日')}）：
+            データが更新されました。現在 {processedData.length} 件の測定データがあります。最新の測定データ（測定日: {format(processedData[processedData.length - 1].date, 'yyyy年MM月dd日')}）は、
             {processedData[processedData.length - 1].height ? `身長 ${processedData[processedData.length - 1].height}センチメートル` : ''}
             {processedData[processedData.length - 1].heightSDS !== undefined ? ` (標準偏差SDS: ${processedData[processedData.length - 1].heightSDS.toFixed(2)})` : ''}、
             {processedData[processedData.length - 1].weight ? `体重 ${processedData[processedData.length - 1].weight}キログラム` : ''}
