@@ -71,6 +71,20 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 1280 });
   const [isExporting, setIsExporting] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  useEffect(() => {
+    const handleBeforePrint = () => setIsPrinting(true);
+    const handleAfterPrint = () => setIsPrinting(false);
+
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
 
   const handlePrint = () => {
     // Focus and print - in some iframe environments, this is the most reliable way
@@ -106,10 +120,10 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       for (const entry of entries) {
         const { width } = entry.contentRect;
         if (width > 0) {
-          const isPrinting = window.matchMedia('print').matches;
+          const isPrintMedia = window.matchMedia('print').matches;
           setDimensions({
             width,
-            height: isPrinting ? width * 1.2 : width * 1.4
+            height: (isPrintMedia || isPrinting) ? width * 1.15 : width * 1.4
           });
         }
       }
@@ -117,7 +131,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [isPrinting]);
 
   const { width, height } = dimensions;
 

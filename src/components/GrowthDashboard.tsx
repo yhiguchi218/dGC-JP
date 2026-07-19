@@ -22,8 +22,9 @@ import { FUHYO_BOYS_HEIGHT, FUHYO_GIRLS_HEIGHT } from '../data/fuhyo-growth-data
 import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, Info, Printer, FileDown } from 'lucide-react';
 import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -218,13 +219,27 @@ const GrowthDashboard: React.FC = () => {
 
   return (
     <main id="main-content" tabIndex={-1} className="focus:outline-none max-w-7xl mx-auto p-4 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none print:overflow-visible">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">dGC-JP</h1>
-          <p className="text-gray-500">日本版デジタル成長曲線プラットフォーム</p>
+          <p className="text-gray-500 text-sm mt-1">日本版デジタル成長曲線プラットフォーム</p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="px-3 py-1">フェーズ 1: スタンドアロン版</Badge>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="px-3 py-1 bg-gray-50 text-gray-700 border-gray-200">
+            フェーズ 1: スタンドアロン版
+          </Badge>
+          <Button
+            type="button"
+            onClick={() => {
+              window.focus();
+              window.print();
+            }}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs md:text-sm shadow-sm flex items-center gap-2 py-2 px-3 h-9 rounded-md transition-colors"
+            aria-label="A4サイズでPDF出力・印刷する"
+          >
+            <Printer className="w-4 h-4" />
+            <span>A4 PDF出力 / 印刷</span>
+          </Button>
         </div>
       </header>
 
@@ -235,7 +250,41 @@ const GrowthDashboard: React.FC = () => {
         </div>
 
         {/* Right Column: Chart and Results */}
-        <div className="lg:col-span-8 space-y-8 print:space-y-2 print:m-0 print:p-0">
+        <div className="lg:col-span-8 space-y-8 print:space-y-4 print:m-0 print:p-0">
+          {/* Print-only Demographic Header */}
+          <div className="hidden print:block border-b-2 border-gray-800 pb-3 mb-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">デジタル成長報告書 (dGC-JP)</h1>
+                <p className="text-[10px] text-gray-500">Digital Growth Chart for Japan</p>
+              </div>
+              <div className="text-right text-[10px] text-gray-500">
+                作成日時: {format(new Date(), 'yyyy/MM/dd HH:mm')}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2 mt-3 p-2 bg-gray-50 rounded border border-gray-200 text-xs">
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">対象児ID</span>
+                <span className="font-bold">{formData.childId || '-'}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">性別</span>
+                <span className="font-bold">{formData.sex}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">生年月日</span>
+                <span className="font-bold">{format(formData.birthDate, 'yyyy/MM/dd')}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">在胎期間</span>
+                <span className="font-bold">
+                  {formData.gestationalWeeks}週{formData.gestationalDays}日
+                  {formData.gestationalWeeks < 37 && <span className="text-emerald-600 ml-1 text-[9px]">(早産期修正)</span>}
+                </span>
+              </div>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4 print:hidden">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <span className="text-sm font-medium text-gray-700">表示範囲:</span>
@@ -339,9 +388,8 @@ const GrowthDashboard: React.FC = () => {
                   <tbody>
                     {processedData.map((d, i) => {
                       const currentObesity = obesityMode === 'height' ? d.obesityIndex : d.obesityIndexAge;
-                      const isLast = i === processedData.length - 1;
                       return (
-                        <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-b-0", !isLast && "print:hidden")}>
+                        <tr key={i} className="border-b hover:bg-gray-50 print:border-b print:border-gray-100">
                           <td className="px-4 py-3 font-medium print:px-1 print:py-0.5 print:text-[8pt]">{format(d.date, 'yyyy/MM/dd')}</td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             <div className="font-semibold">{d.age.toFixed(4)}歳</div>
@@ -404,24 +452,24 @@ const GrowthDashboard: React.FC = () => {
           </Card>
  
           {heightVelocity.length > 0 && (
-            <Card className={cn("border-opacity-50 print:hidden", formData.sex === '男子' ? "border-blue-100 bg-blue-50/30" : "border-pink-100 bg-pink-50/30")}>
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <Info className={cn("h-5 w-5", formData.sex === '男子' ? "text-blue-500" : "text-pink-500")} />
-                  身長速度
+            <Card className={cn("border-opacity-50 print:border print:border-gray-200 print:bg-white print:p-2", formData.sex === '男子' ? "border-blue-100 bg-blue-50/30" : "border-pink-100 bg-pink-50/30")}>
+              <CardHeader className="print:p-1">
+                <CardTitle className="text-xl font-semibold flex items-center gap-2 print:text-xs">
+                  <Info className={cn("h-5 w-5 print:h-3 print:w-3", formData.sex === '男子' ? "text-blue-500" : "text-pink-500")} />
+                  身長速度 (Height Velocity)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="print:p-1">
+                <div className="space-y-4 print:space-y-1">
                   {heightVelocity.map((hv, i) => (
-                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === '男子' ? "border-blue-100" : "border-pink-100")}>
+                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm print:p-2 print:shadow-none print:border-gray-100 text-xs", formData.sex === '男子' ? "border-blue-100" : "border-pink-100")}>
                       <div>
-                        <div className="text-sm text-gray-500">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
-                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === '男子' ? "text-blue-600" : "text-pink-600")}>
+                        <div className="text-sm text-gray-500 print:text-[8px]">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
+                        <div className={cn("text-2xl font-bold flex items-baseline gap-2 print:text-sm", formData.sex === '男子' ? "text-blue-600" : "text-pink-600")}>
                           HV: {hv.value.toFixed(2)} cm/年
                           {hv.hvSDS !== null && (
                             <span className={cn(
-                              "text-sm",
+                              "text-sm print:text-[9px]",
                               Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === '男子' ? "text-blue-500 font-medium" : "text-pink-500 font-medium")
                             )}>
                               (SDS: {hv.hvSDS.toFixed(2)})
@@ -429,7 +477,7 @@ const GrowthDashboard: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-gray-500">
+                      <div className="text-right text-xs text-gray-500 print:text-[8px]">
                         根拠: +{hv.heightDiff.toFixed(1)} cm / {hv.ageDiffDays}日
                       </div>
                     </div>
@@ -439,25 +487,25 @@ const GrowthDashboard: React.FC = () => {
             </Card>
           )}
 
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm print:hidden">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-            <div className="text-xs text-amber-800 space-y-2">
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm print:bg-white print:border-gray-200 print:text-[8px] print:shadow-none print:p-3 print:mt-4 print:text-gray-500">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 print:hidden" />
+            <div className="text-xs text-amber-800 space-y-2 print:text-gray-500 print:space-y-1">
               <div>
-                <p className="font-bold underline mb-1">重要：ご利用にあたっての免責事項</p>
-                <ul className="list-disc list-inside space-y-1">
+                <p className="font-bold underline mb-1 print:text-[9px]">重要：ご利用にあたっての免責事項</p>
+                <ul className="list-disc list-inside space-y-1 print:space-y-0.5">
                   <li>本ツールは教育・研究用であり、確定診断には使用しないでください。</li>
                   <li>計算結果の最終的な判断は、必ず主治医の責任において行ってください。</li>
                   <li><strong>プライバシー保護:</strong> 入力された患者データはブラウザ内でのみ一時的に処理され、外部サーバーへ送信・蓄積されることはありません。</li>
-                  <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
+                  <li className="print:hidden"><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
                 </ul>
               </div>
               
-              <div className="pt-2 border-t border-amber-200/50">
+              <div className="pt-2 border-t border-amber-200/50 print:border-gray-200 print:pt-1">
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
                 <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
               </div>
 
-              <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80">
+              <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80 print:border-gray-200 print:pt-1 print:text-gray-400 print:text-[7pt]">
                 <p className="font-semibold mb-1">参考文献・出典:</p>
                 <ul className="list-disc list-inside space-y-0.5">
                   <li>身長SDS（満月齢基準）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">日本小児内分泌学会 附表１（平均体重／標準偏差 2000 年）</a></li>
