@@ -487,25 +487,25 @@ const GrowthDashboard: React.FC = () => {
             </Card>
           )}
 
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm print:bg-white print:border-gray-200 print:text-[8px] print:shadow-none print:p-3 print:mt-4 print:text-gray-500">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 print:hidden" />
-            <div className="text-xs text-amber-800 space-y-2 print:text-gray-500 print:space-y-1">
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm print:hidden">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <div className="text-xs text-amber-800 space-y-2">
               <div>
-                <p className="font-bold underline mb-1 print:text-[9px]">重要：ご利用にあたっての免責事項</p>
-                <ul className="list-disc list-inside space-y-1 print:space-y-0.5">
+                <p className="font-bold underline mb-1">重要：ご利用にあたっての免責事項</p>
+                <ul className="list-disc list-inside space-y-1">
                   <li>本ツールは教育・研究用であり、確定診断には使用しないでください。</li>
                   <li>計算結果の最終的な判断は、必ず主治医の責任において行ってください。</li>
                   <li><strong>プライバシー保護:</strong> 入力された患者データはブラウザ内でのみ一時的に処理され、外部サーバーへ送信・蓄積されることはありません。</li>
-                  <li className="print:hidden"><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
+                  <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
                 </ul>
               </div>
               
-              <div className="pt-2 border-t border-amber-200/50 print:border-gray-200 print:pt-1">
+              <div className="pt-2 border-t border-amber-200/50">
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
                 <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
               </div>
 
-              <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80 print:border-gray-200 print:pt-1 print:text-gray-400 print:text-[7pt]">
+              <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80">
                 <p className="font-semibold mb-1">参考文献・出典:</p>
                 <ul className="list-disc list-inside space-y-0.5">
                   <li>身長SDS（満月齢基準）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">日本小児内分泌学会 附表１（平均体重／標準偏差 2000 年）</a></li>

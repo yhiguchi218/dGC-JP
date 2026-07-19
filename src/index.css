@@ -52,14 +52,15 @@ input[type=number] {
       display: none !important;
     }
 
-    /* Force chart to occupy first page alone */
+    /* Constrain chart size on print to fit on a single A4 page with other elements */
     #printable-chart-area-wrapper,
     #printable-chart-area {
       display: block !important;
-      width: 93% !important;
+      width: 100% !important;
+      max-width: 500px !important;
       margin: 0 auto !important;
       max-height: none !important;
-      page-break-after: always !important;
+      page-break-after: avoid !important;
       padding: 0 !important;
       overflow: visible !important;
     }
