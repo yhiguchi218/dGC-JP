@@ -228,18 +228,6 @@ const GrowthDashboard: React.FC = () => {
           <Badge variant="outline" className="px-3 py-1 bg-gray-50 text-gray-700 border-gray-200">
             フェーズ 1: スタンドアロン版
           </Badge>
-          <Button
-            type="button"
-            onClick={() => {
-              window.focus();
-              window.print();
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs md:text-sm shadow-sm flex items-center gap-2 py-2 px-3 h-9 rounded-md transition-colors"
-            aria-label="A4サイズでPDF出力・印刷する"
-          >
-            <Printer className="w-4 h-4" />
-            <span>A4 PDF出力 / 印刷</span>
-          </Button>
         </div>
       </header>
 
