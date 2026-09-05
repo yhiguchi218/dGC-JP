@@ -8,9 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, parse, isValid } from 'date-fns';
-import { CalendarIcon, PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
+import { CalendarIcon, PlusCircle, Trash2, Save, FileUp, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge } from '../lib/growth-utils';
+import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
+import { validateGrowthJSON, parseDateValue } from '../lib/validation-utils';
 
 const generateUniqueId = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
@@ -135,67 +137,72 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Limit file size to 2MB for protection against memory exhaustion
-    const MAX_FILE_SIZE = 2 * 1024 * 1024;
-    if (file.size > MAX_FILE_SIZE) {
-      alert("ファイルサイズが大きすぎます。2MB以下のJSONファイルを選択してください。");
+    if (file.size > FILE_LIMITS.MAX_JSON_SIZE_BYTES) {
+      alert(`ファイルサイズが大きすぎます。${FILE_LIMITS.MAX_JSON_SIZE_BYTES / (1024 * 1024)}MB以下のJSONファイルを選択してください。`);
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string);
-        
-        // Robustness: basic schema validation
-        if (!data || typeof data !== 'object') {
-          throw new Error("データが正しいJSONオブジェクトではありません。");
+        const rawText = event.target?.result as string;
+        let data: any;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error("ファイルの内容がJSON構文として解析できませんでした。");
         }
-        if (typeof data.childId !== 'string' || !data.birthDate || !Array.isArray(data.measurements)) {
-          throw new Error("必要な項目（管理ID、生年月日、測定データ）が見つかりません。");
+
+        // Detailed schema and clinical validation
+        const validation = validateGrowthJSON(data);
+        if (!validation.isValid) {
+          const errorSummary = validation.errors
+            .slice(0, 5)
+            .map(e => `・${e.message}`)
+            .join('\n');
+          const moreText = validation.errors.length > 5 ? `\n...他 ${validation.errors.length - 5} 件のエラー` : '';
+          alert(`ファイルの読み込みに失敗しました:\n\n${errorSummary}${moreText}`);
+          return;
+        }
+
+        // Show warnings if any
+        if (validation.warnings.length > 0) {
+          const warningSummary = validation.warnings
+            .slice(0, 3)
+            .map(w => `・${w.message}`)
+            .join('\n');
+          console.warn("JSON Import Warnings:\n" + warningSummary);
         }
 
         // Handle migration from old 'male'/'female' to Japanese if needed
         let loadedSex = data.sex;
         if (loadedSex === 'male') loadedSex = '男子';
         if (loadedSex === 'female') loadedSex = '女子';
-
         if (loadedSex !== '男子' && loadedSex !== '女子') {
           loadedSex = '男子'; // Fallback
         }
 
-        // Try parsing different formats for robustness
-        const parseDate = (dateStr: string) => {
-          // Try YYYY/MM/DD
-          let d = parse(dateStr, "yyyy/MM/dd", new Date());
-          if (isValid(d)) return d;
-          // Try YYYY-MM-DD (ISO)
-          d = new Date(dateStr);
-          if (isValid(d)) return d;
-          return new Date();
-        };
-
-        const loadedBirthDate = parseDate(data.birthDate);
+        const loadedBirthDate = parseDateValue(data.birthDate) || new Date(2020, 0, 1);
         const loadedMeasurements = data.measurements.map((m: any) => ({
           id: m.id || generateUniqueId(),
-          date: parseDate(m.date),
+          date: parseDateValue(m.date) || new Date(),
           height: m.height,
           weight: m.weight
         }));
 
-        setChildId(data.childId);
+        setChildId(data.childId || '001');
         setBirthDate(loadedBirthDate);
         setSex(loadedSex);
-        setGestationalWeeks(data.gestationalWeeks ?? 40);
-        setGestationalDays(data.gestationalDays ?? 0);
+        setGestationalWeeks(data.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT);
+        setGestationalDays(data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT);
         setMeasurements(loadedMeasurements);
 
         onDataChange({
-          childId: data.childId,
+          childId: data.childId || '001',
           birthDate: loadedBirthDate,
           sex: loadedSex,
-          gestationalWeeks: data.gestationalWeeks ?? 40,
-          gestationalDays: data.gestationalDays ?? 0,
+          gestationalWeeks: data.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT,
+          gestationalDays: data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT,
           measurements: loadedMeasurements
         });
       } catch (err) {
@@ -390,7 +397,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 <div key={m.id} className={cn(
                   "grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white shadow-sm transition-colors",
                   age === null ? "border-red-500 bg-red-50/10" : 
-                  age > 18 ? "border-amber-400 bg-amber-50/10" : 
+                  age > CLINICAL_LIMITS.AGE.MAX ? "border-amber-400 bg-amber-50/10" : 
                   "border-gray-100"
                 )}>
                   {age === null && (
@@ -403,7 +410,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 測定日が生年月日より前です
                     </div>
                   )}
-                  {age !== null && age > 18 && (
+                  {age !== null && age > CLINICAL_LIMITS.AGE.MAX && (
                     <div 
                       role="alert"
                       aria-live="polite"

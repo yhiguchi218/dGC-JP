@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertCircle, Info, Printer, FileDown } from 'lucide-react';
 import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { CLINICAL_LIMITS } from '../lib/constants';
 
 const GrowthDashboard: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<ChartPreset>(CHART_PRESETS[2]); // Default to 0-18y
@@ -70,7 +71,7 @@ const GrowthDashboard: React.FC = () => {
       let heightSDS = undefined;
       // Safety guard: height must be significantly positive for meaningful SDS/BMI
       if (h && !isNaN(h) && h > 0) {
-        const useCorrected = formData.gestationalWeeks < 37 && correctedAge !== null && correctedAge <= 3;
+        const useCorrected = formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD && correctedAge !== null && correctedAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
         const refBirthDate = useCorrected
           ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
           : formData.birthDate;
@@ -114,8 +115,8 @@ const GrowthDashboard: React.FC = () => {
         bmi,
         obesityIndex,
         obesityIndexAge,
-        isPremature: formData.gestationalWeeks < 37,
-        showCorrected: formData.gestationalWeeks < 37 && correctedAge !== null && correctedAge <= 3
+        isPremature: formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD,
+        showCorrected: formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD && correctedAge !== null && correctedAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS
       };
     }).sort((a, b) => {
       if (a.age === null && b.age === null) return 0;
@@ -143,7 +144,7 @@ const GrowthDashboard: React.FC = () => {
         if (p2.height) {
           if (p1.age === null || p2.age === null) continue;
           const ageDiff = p2.age - p1.age;
-          if (ageDiff >= 0.95) { // Approx 1 year
+          if (ageDiff >= CLINICAL_LIMITS.HV_MIN_INTERVAL_YEARS) { // Approx 1 year
             const hv = (p2.height - p1.height) / ageDiff;
             const midAge = (p1.age + p2.age) / 2;
             const hvSex = formData.sex === '男子' ? 'male' : 'female';

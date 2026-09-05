@@ -1,5 +1,6 @@
 import { differenceInDays, differenceInYears, differenceInMonths, addYears, addDays, format } from 'date-fns';
 import { HVReferencePoint } from '../data/suwa-hv-data';
+import { CLINICAL_LIMITS } from './constants';
 
 export interface LMSPoint {
   age: number; // in years
@@ -56,26 +57,26 @@ export function calculateDecimalAge(birthDate: Date, measurementDate: Date): num
  */
 export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number | null {
   const age = calculateDecimalAge(birthDate, measurementDate);
-  if (age === null || age > 3) return age; // Do not apply correction if child is over 3y or age is invalid
+  if (age === null || age > CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) return age; // Do not apply correction if child is over 3y or age is invalid
 
   // Clamp gestational age to [22w0d, 44w0d] as requested
   let weeks = gestationalWeeks;
   let days = gestationalDays;
   
-  if (weeks < 22) {
-    weeks = 22;
+  if (weeks < CLINICAL_LIMITS.GESTATION_WEEKS.MIN) {
+    weeks = CLINICAL_LIMITS.GESTATION_WEEKS.MIN;
     days = 0;
-  } else if (weeks >= 44) {
-    weeks = 44;
+  } else if (weeks >= CLINICAL_LIMITS.GESTATION_WEEKS.MAX) {
+    weeks = CLINICAL_LIMITS.GESTATION_WEEKS.MAX;
     days = 0;
   }
 
   const totalGestationalDays = weeks * 7 + days;
-  const fullTermDays = 40 * 7; // Standard full term is 40 weeks
+  const fullTermDays = CLINICAL_LIMITS.GESTATION_WEEKS.FULL_TERM * 7; // Standard full term is 40 weeks
   const deficitDays = fullTermDays - totalGestationalDays;
 
   // Only correct if born before 37 weeks (preterm)
-  if (weeks >= 37 || deficitDays <= 0) return age;
+  if (weeks >= CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD || deficitDays <= 0) return age;
 
   const correctedBirthDate = addDays(birthDate, deficitDays);
   return calculateDecimalAge(correctedBirthDate, measurementDate);
@@ -340,19 +341,19 @@ export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: number,
   let weeks = gestationalWeeks;
   let days = gestationalDays;
   
-  if (weeks < 22) {
-    weeks = 22;
+  if (weeks < CLINICAL_LIMITS.GESTATION_WEEKS.MIN) {
+    weeks = CLINICAL_LIMITS.GESTATION_WEEKS.MIN;
     days = 0;
-  } else if (weeks >= 44) {
-    weeks = 44;
+  } else if (weeks >= CLINICAL_LIMITS.GESTATION_WEEKS.MAX) {
+    weeks = CLINICAL_LIMITS.GESTATION_WEEKS.MAX;
     days = 0;
   }
 
   const totalGestationalDays = weeks * 7 + days;
-  const fullTermDays = 40 * 7;
+  const fullTermDays = CLINICAL_LIMITS.GESTATION_WEEKS.FULL_TERM * 7;
   const deficitDays = fullTermDays - totalGestationalDays;
 
-  if (weeks >= 37 || deficitDays <= 0) return birthDate;
+  if (weeks >= CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD || deficitDays <= 0) return birthDate;
 
   return addDays(birthDate, deficitDays);
 }

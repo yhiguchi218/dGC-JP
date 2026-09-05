@@ -4,12 +4,18 @@ import {
   calculateMeasurementFromZ, 
   calculateObesityIndex,
   calculateObesityIndexByAge,
+  calculateStandardWeight,
+  calculateStandardWeightByAge,
   calculateHeightVelocity,
   interpolateLMS,
+  interpolateHV,
+  calculateHVSDS,
   calculateDecimalAge,
   calculateCorrectedAge,
-  calculateFullMonthsAge
+  calculateFullMonthsAge,
+  getCorrectedBirthDate
 } from './growth-utils';
+import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 
 describe('Growth Utils Calculations', () => {
   describe('Z-Score (SDS) Calculations', () => {
@@ -21,6 +27,9 @@ describe('Growth Utils Calculations', () => {
       // Check L=0 case (log-normal)
       const lmsLog = { age: 5, L: 0, M: 110, S: 0.1 };
       expect(calculateZScore(110, lmsLog)).toBe(0);
+
+      // Check positive and negative Z-scores
+      expect(calculateZScore(141.75, lms)).toBeCloseTo(1, 2);
     });
 
     it('should calculate correct measurement from Z-score', () => {
@@ -29,29 +38,77 @@ describe('Growth Utils Calculations', () => {
       
       const lmsLog = { age: 5, L: 0, M: 110, S: 0.1 };
       expect(calculateMeasurementFromZ(0, lmsLog)).toBe(110);
+
+      expect(calculateMeasurementFromZ(1, lms)).toBeCloseTo(141.75, 2);
     });
   });
 
-  describe('Obesity Index', () => {
+  describe('Standard Weight and Obesity Index', () => {
+    it('should calculate standard weight for infant boys and girls (<6y)', () => {
+      const boyInfant = calculateStandardWeight(100, 4, 'male');
+      expect(boyInfant).not.toBeNull();
+      expect(boyInfant).toBeGreaterThan(10);
+      expect(boyInfant).toBeLessThan(25);
+
+      const girlInfant = calculateStandardWeight(100, 4, 'female');
+      expect(girlInfant).not.toBeNull();
+      expect(girlInfant).toBeGreaterThan(10);
+      expect(girlInfant).toBeLessThan(25);
+    });
+
+    it('should calculate standard weight for school-age boys and girls (6y+ across height ranges)', () => {
+      // Boy 120cm (101 <= X < 140)
+      const b1 = calculateStandardWeight(120, 7, 'male');
+      expect(b1).not.toBeNull();
+
+      // Boy 145cm (140 <= X < 149)
+      const b2 = calculateStandardWeight(145, 11, 'male');
+      expect(b2).not.toBeNull();
+
+      // Boy 160cm (149 <= X < 184)
+      const b3 = calculateStandardWeight(160, 14, 'male');
+      expect(b3).not.toBeNull();
+
+      // Girl 120cm (101 <= X < 140)
+      const g1 = calculateStandardWeight(120, 7, 'female');
+      expect(g1).not.toBeNull();
+
+      // Girl 145cm (140 <= X < 149)
+      const g2 = calculateStandardWeight(145, 11, 'female');
+      expect(g2).not.toBeNull();
+
+      // Girl 160cm (149 <= X < 171)
+      const g3 = calculateStandardWeight(160, 14, 'female');
+      expect(g3).not.toBeNull();
+
+      // Out of range height returns null
+      expect(calculateStandardWeight(200, 14, 'male')).toBeNull();
+    });
+
     it('should calculate obesity index for infants correctly', () => {
-      // Test for a 5yo male, height 110cm, weight 20kg
-      // Using standard weight formula for infants
       const result = calculateObesityIndex(20, 110, 5, 'male');
       expect(result).not.toBeNull();
       if (result) expect(result).toBeGreaterThan(-100);
+
+      // Returns null for invalid height range
+      expect(calculateObesityIndex(20, 60, 5, 'male')).toBeNull();
     });
 
     it('should calculate school-age obesity index correctly (Table 1)', () => {
-      // Test for a 10yo male, height 140cm, weight 40kg
       const result = calculateObesityIndexByAge(40, 140, 10, 'male');
-      // coeffs for 10y male: a=0.752, b=70.461
-      // stdWeight = 0.752 * 140 - 70.461 = 34.819
-      // index = (40 - 34.819) / 34.819 * 100 approx 14.88
       expect(result).toBeCloseTo(14.88, 1);
+
+      // Girls Table 1 test
+      const girlResult = calculateObesityIndexByAge(35, 140, 10, 'female');
+      expect(girlResult).not.toBeNull();
+
+      // Out of age range returns null (<5y or >17y)
+      expect(calculateStandardWeightByAge(140, 4, 'male')).toBeNull();
+      expect(calculateStandardWeightByAge(140, 18, 'male')).toBeNull();
     });
   });
 
-  describe('Height Velocity', () => {
+  describe('Height Velocity and HV SDS', () => {
     it('should calculate velocity correctly for 1 year interval', () => {
       const result = calculateHeightVelocity(130, 10, 136, 11);
       expect(result?.velocity).toBe(6);
@@ -61,6 +118,23 @@ describe('Growth Utils Calculations', () => {
     it('should return null if interval is less than 1 year', () => {
       const result = calculateHeightVelocity(130, 10, 133, 10.5);
       expect(result).toBeNull();
+    });
+
+    it('should interpolate Suwa HV reference values and calculate HV-SDS', () => {
+      const hvRef = interpolateHV(10.5, SUWA_HV_BOYS);
+      expect(hvRef.mean).toBeGreaterThan(0);
+      expect(hvRef.sd).toBeGreaterThan(0);
+
+      const sds = calculateHVSDS(6.0, 10.5, 'male', SUWA_HV_BOYS);
+      expect(sds).not.toBeNull();
+      expect(typeof sds).toBe('number');
+
+      // Edge cases for age below min or above max table
+      const underHV = interpolateHV(0, SUWA_HV_BOYS);
+      expect(underHV.mean).toBe(SUWA_HV_BOYS[0].mean);
+
+      const overHV = interpolateHV(20, SUWA_HV_BOYS);
+      expect(overHV.mean).toBe(SUWA_HV_BOYS[SUWA_HV_BOYS.length - 1].mean);
     });
   });
 
@@ -92,6 +166,12 @@ describe('Growth Utils Calculations', () => {
   });
 
   describe('calculateDecimalAge Additional Edge Cases', () => {
+    it('should return null if measurement is before birth date', () => {
+      const birth = new Date('2020-01-01');
+      const measure = new Date('2019-12-01');
+      expect(calculateDecimalAge(birth, measure)).toBeNull();
+    });
+
     it('should handle leap years correctly (e.g., 2020 has 366 days)', () => {
       const birth = new Date('2020-01-01');
       const measure = new Date('2021-01-01'); // exactly 1 year
@@ -138,6 +218,30 @@ describe('Growth Utils Calculations', () => {
       const corrected48 = calculateCorrectedAge(birth, measure, 48, 0);
       const uncorrected = calculateDecimalAge(birth, measure);
       expect(corrected48).toBe(uncorrected);
+    });
+
+    it('should not apply corrected age after 3 years old', () => {
+      const birth = new Date('2020-01-01');
+      const measure = new Date('2024-01-01'); // 4 years old
+      const uncorrected = calculateDecimalAge(birth, measure);
+      const corrected = calculateCorrectedAge(birth, measure, 32, 0);
+      expect(corrected).toBe(uncorrected);
+    });
+  });
+
+  describe('getCorrectedBirthDate', () => {
+    it('should return same birth date for term births', () => {
+      const birth = new Date('2020-01-01');
+      expect(getCorrectedBirthDate(birth, 40, 0)).toEqual(birth);
+      expect(getCorrectedBirthDate(birth, 37, 0)).toEqual(birth);
+    });
+
+    it('should return forward shifted birth date for preterm births', () => {
+      const birth = new Date('2020-01-01');
+      // 36 weeks -> 4 weeks = 28 days
+      const corrected = getCorrectedBirthDate(birth, 36, 0);
+      expect(corrected.getDate()).toBe(29);
+      expect(corrected.getMonth()).toBe(0); // January 29
     });
   });
 

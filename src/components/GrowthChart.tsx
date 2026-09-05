@@ -3,6 +3,7 @@ import * as d3 from 'd3';
 import { toPng } from 'html-to-image';
 import { Printer, Download } from 'lucide-react';
 import { LMSPoint, interpolateLMS, calculateMeasurementFromZ } from '../lib/growth-utils';
+import { calculatePointVisualMode } from '../lib/chart-utils';
 import { Button } from '@/components/ui/button';
 
 export interface ChartPreset {
@@ -378,15 +379,13 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
     heightPoints.forEach(d => {
       if (d.age < preset.xRange[0] || d.age > preset.xRange[1]) return;
       
-      const isExtremeZ = Math.abs(d.zScore || 0) > 5;
-      const isOffChart = d.value < preset.yHeightRange[0] || d.value > preset.yHeightRange[1];
-      const isOutlier = isExtremeZ || isOffChart;
-      
-      // Clamp value for visual plotting if it's off chart
-      const plottedValue = Math.max(preset.yHeightRange[0], Math.min(preset.yHeightRange[1], d.value));
-      
-      const marker = isOutlier ? '▲' : '●';
-      const color = isOutlier ? '#f97316' : (d.isCorrected ? '#10b981' : genderColor);
+      const { isOutlier, plottedValue, marker, color } = calculatePointVisualMode(
+        d.value,
+        d.zScore,
+        preset.yHeightRange,
+        d.isCorrected,
+        genderColor
+      );
       
       g.append('text')
         .attr('x', xScale(d.age))
@@ -406,15 +405,13 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
     weightPoints.forEach(d => {
       if (d.age < preset.xRange[0] || d.age > preset.xRange[1]) return;
       
-      const isExtremeZ = Math.abs(d.zScore || 0) > 5;
-      const isOffChart = d.value < preset.yWeightRange[0] || d.value > preset.yWeightRange[1];
-      const isOutlier = isExtremeZ || isOffChart;
-
-      // Clamp value for visual plotting if it's off chart
-      const plottedValue = Math.max(preset.yWeightRange[0], Math.min(preset.yWeightRange[1], d.value));
-
-      const marker = isOutlier ? '▲' : '●';
-      const color = isOutlier ? '#f97316' : (d.isCorrected ? '#10b981' : genderColor);
+      const { isOutlier, plottedValue, marker, color } = calculatePointVisualMode(
+        d.value,
+        d.zScore,
+        preset.yWeightRange,
+        d.isCorrected,
+        genderColor
+      );
       
       g.append('text')
         .attr('x', xScale(d.age))
