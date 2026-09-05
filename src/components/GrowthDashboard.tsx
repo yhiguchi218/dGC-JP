@@ -29,6 +29,16 @@ import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CLINICAL_LIMITS } from '../lib/constants';
 
+export function getSuwaHVSDSClass(sds: number, sex: '男子' | '女子'): string {
+  if (Math.abs(sds) > 2) {
+    return 'text-orange-500 dark:text-orange-400 font-bold';
+  }
+
+  return sex === '男子'
+    ? 'text-blue-500 dark:text-blue-400 font-medium'
+    : 'text-pink-500 dark:text-pink-400 font-medium';
+}
+
 const GrowthDashboard: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<ChartPreset>(CHART_PRESETS[2]); // Default to 0-18y
   const [obesityMode, setObesityMode] = useState<'height' | 'age'>('height');
@@ -456,7 +466,11 @@ const GrowthDashboard: React.FC = () => {
                           {hv.suwa ? (
                             <>
                               <div className={cn("text-2xl font-bold print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>HV: {hv.suwa.velocity.toFixed(2)} cm/年</div>
-                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: {hv.suwa.sds?.toFixed(2) ?? '—'}</div>
+                              {hv.suwa.sds !== null ? (
+                                <div className={cn("text-xs print:text-[8px]", getSuwaHVSDSClass(hv.suwa.sds, formData.sex))}>HV-SDS: {hv.suwa.sds.toFixed(2)}</div>
+                              ) : (
+                                <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
+                              )}
                               <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.suwa.heightDiff.toFixed(1)} cm / {hv.suwa.intervalDays}日</div>
                             </>
                           ) : (
