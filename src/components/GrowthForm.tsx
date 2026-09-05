@@ -4,11 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format, parse, isValid } from 'date-fns';
-import { CalendarIcon, PlusCircle, Trash2, Save, FileUp, Info, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge } from '../lib/growth-utils';
 import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
@@ -105,12 +102,11 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   };
 
   const isMale = sex === '男子';
-  const primaryColorClass = isMale ? 'blue' : 'pink';
-  const primaryTextClass = isMale ? 'text-blue-700' : 'text-pink-700';
-  const primaryBgClass = isMale ? 'bg-blue-50/30' : 'bg-pink-50/30';
-  const primaryBorderClass = isMale ? 'border-blue-200' : 'border-pink-200';
+  const primaryTextClass = isMale ? 'text-blue-700 dark:text-blue-400' : 'text-pink-700 dark:text-pink-400';
+  const primaryBgClass = isMale ? 'bg-blue-50/30 dark:bg-blue-950/20' : 'bg-pink-50/30 dark:bg-pink-950/20';
+  const primaryBorderClass = isMale ? 'border-blue-200 dark:border-blue-800' : 'border-pink-200 dark:border-pink-800';
   const primaryFocusClass = isMale ? 'focus:border-blue-500 focus:ring-blue-500' : 'focus:border-pink-500 focus:ring-pink-500';
-  const primaryUnitClass = isMale ? 'text-blue-300' : 'text-pink-300';
+  const primaryUnitClass = isMale ? 'text-blue-400 dark:text-blue-300' : 'text-pink-400 dark:text-pink-300';
 
   const handleSaveJSON = () => {
     const data = {
@@ -217,14 +213,15 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-semibold">基本情報</CardTitle>
+          <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100">基本情報</CardTitle>
           <div className="flex gap-2">
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleSaveJSON}
+              className="border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700"
               aria-label="現在の入力データをJSONファイル形式でパソコンにダウンロード保存します"
             >
               <Save className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -233,7 +230,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
             <div className="relative">
               <label 
                 htmlFor="load-json-file"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer inline-flex")}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700 cursor-pointer inline-flex")}
                 aria-label="JSON形式のデータファイルをアップロードしてお子さんの成長データを読み込みます"
                 role="button"
                 tabIndex={0}
@@ -260,7 +257,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="childId">管理ID</Label>
+            <Label htmlFor="childId" className="text-gray-700 dark:text-zinc-300">管理ID</Label>
             <Input
               id="childId"
               value={childId}
@@ -269,11 +266,12 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 triggerChange({ childId: e.target.value });
               }}
               placeholder="例: 001"
+              className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="birthDate">生年月日</Label>
+            <Label htmlFor="birthDate" className="text-gray-700 dark:text-zinc-300">生年月日</Label>
             <Input
               id="birthDate"
               key={`birth-${birthDate.getTime()}`}
@@ -296,27 +294,28 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                   (e.target as HTMLInputElement).blur();
                 }
               }}
+              className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="sex">性別</Label>
+            <Label htmlFor="sex" className="text-gray-700 dark:text-zinc-300">性別</Label>
             <Select value={sex} onValueChange={(v: '男子' | '女子') => {
               setSex(v);
               triggerChange({ sex: v });
             }}>
-              <SelectTrigger id="sex">
+              <SelectTrigger id="sex" className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100">
                 <SelectValue placeholder="性別を選択" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="男子">男子</SelectItem>
-                <SelectItem value="女子">女子</SelectItem>
+              <SelectContent className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700">
+                <SelectItem value="男子" className="text-gray-900 dark:text-zinc-100 focus:bg-gray-100 dark:focus:bg-zinc-700">男子</SelectItem>
+                <SelectItem value="女子" className="text-gray-900 dark:text-zinc-100 focus:bg-gray-100 dark:focus:bg-zinc-700">女子</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gestationalWeeks">在胎期間 (週)</Label>
+            <Label htmlFor="gestationalWeeks" className="text-gray-700 dark:text-zinc-300">在胎期間 (週)</Label>
             <Input 
               id="gestationalWeeks"
               type="text" 
@@ -334,7 +333,10 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 gestationalWeeks >= 44 ? 'weeks-warning-high' : 
                 undefined
               }
-              className={cn((gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-600 bg-amber-50")}
+              className={cn(
+                "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100",
+                (gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-600 bg-amber-50 dark:bg-amber-950/40"
+              )}
             />
             {gestationalWeeks < 22 && (
               <div 
@@ -342,7 +344,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 role="alert"
                 aria-live="polite"
                 aria-atomic="true"
-                className="text-xs text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 mt-1"
+                className="text-xs text-amber-900 dark:text-amber-200 font-bold bg-amber-100 dark:bg-amber-950/60 p-2 rounded border-l-4 border-amber-800 dark:border-amber-500 flex items-center gap-1 mt-1"
               >
                 <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 
                 <span>22週未満は22週0日として計算されます</span>
@@ -354,7 +356,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 role="alert"
                 aria-live="polite"
                 aria-atomic="true"
-                className="text-xs text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 mt-1"
+                className="text-xs text-amber-900 dark:text-amber-200 font-bold bg-amber-100 dark:bg-amber-950/60 p-2 rounded border-l-4 border-amber-800 dark:border-amber-500 flex items-center gap-1 mt-1"
               >
                 <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 
                 <span>44週以上は44週0日として計算されます</span>
@@ -363,7 +365,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gestationalDays">在胎期間 (日)</Label>
+            <Label htmlFor="gestationalDays" className="text-gray-700 dark:text-zinc-300">在胎期間 (日)</Label>
             <Input 
               id="gestationalDays"
               type="text" 
@@ -375,15 +377,21 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 setGestationalDays(v);
                 triggerChange({ gestationalDays: v });
               }} 
+              className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100"
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-colors">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-xl font-semibold">測定データ</CardTitle>
-          <Button variant="outline" size="sm" onClick={handleAddMeasurement}>
+          <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100">測定データ</CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleAddMeasurement}
+            className="border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-700 dark:text-zinc-200 hover:bg-gray-100 dark:hover:bg-zinc-700"
+          >
             <PlusCircle className="mr-2 h-4 w-4" />
             追加
           </Button>
@@ -395,17 +403,17 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
               
               return (
                 <div key={m.id} className={cn(
-                  "grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white shadow-sm transition-colors",
-                  age === null ? "border-red-500 bg-red-50/10" : 
-                  age > CLINICAL_LIMITS.AGE.MAX ? "border-amber-400 bg-amber-50/10" : 
-                  "border-gray-100"
+                  "grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white dark:bg-zinc-900 shadow-sm transition-colors",
+                  age === null ? "border-red-500 bg-red-50/10 dark:bg-red-950/20" : 
+                  age > CLINICAL_LIMITS.AGE.MAX ? "border-amber-400 bg-amber-50/10 dark:bg-amber-950/20" : 
+                  "border-gray-100 dark:border-zinc-800"
                 )}>
                   {age === null && (
                     <div 
                       role="alert"
                       aria-live="assertive"
                       aria-atomic="true"
-                      className="col-span-full text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 text-xs"
+                      className="col-span-full text-red-900 dark:text-red-200 font-bold bg-red-100 dark:bg-red-950/60 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 text-xs"
                     >
                       <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 測定日が生年月日より前です
                     </div>
@@ -415,146 +423,146 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       role="alert"
                       aria-live="polite"
                       aria-atomic="true"
-                      className="col-span-full text-amber-900 font-bold bg-amber-100 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 text-xs"
+                      className="col-span-full text-amber-900 dark:text-amber-200 font-bold bg-amber-100 dark:bg-amber-950/60 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 text-xs"
                     >
                       <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 18歳を超えています（17.5歳のデータを参照します）
                     </div>
                   )}
                   <div className="space-y-2">
-                  <Label htmlFor={`date-${m.id}`} className="text-sm font-medium text-gray-500">測定日</Label>
-                  <Input
-                    id={`date-${m.id}`}
-                    key={`date-${m.id}-${m.date.getTime()}`}
-                    type="text"
-                    placeholder="YYYY/MM/DD"
-                    defaultValue={m.date ? format(m.date, "yyyy/MM/dd") : ""}
-                    onBlur={(e) => {
-                      const val = e.target.value;
-                      const date = parse(val, "yyyy/MM/dd", new Date());
-                      if (isValid(date)) {
-                        updateMeasurement(m.id, 'date', date);
-                      } else {
-                        // Revert to current date if invalid
-                        e.target.value = m.date ? format(m.date, "yyyy/MM/dd") : "";
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        (e.target as HTMLInputElement).blur();
-                        const nextEl = document.getElementById(`height-${m.id}`);
-                        if (nextEl) nextEl.focus();
-                      }
-                    }}
-                    aria-label={`測定日を入力（YYYY/MM/DD形式）`}
-                    className="h-12 md:h-16 text-lg bg-gray-50 border-gray-200"
-                  />
-                </div>
-                <div className="space-y-3">
-                  <Label htmlFor={`height-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>身長 (cm)</Label>
-                  <div className="relative">
-                    <Input 
-                      id={`height-${m.id}`}
-                      type="text" 
-                      inputMode="decimal"
-                      value={m.height ?? ''} 
-                      onChange={(e) => {
-                        const sanitized = sanitizeNumericInput(e.target.value);
-                        updateMeasurement(m.id, 'height', sanitized);
-                      }} 
+                    <Label htmlFor={`date-${m.id}`} className="text-sm font-medium text-gray-500 dark:text-zinc-400">測定日</Label>
+                    <Input
+                      id={`date-${m.id}`}
+                      key={`date-${m.id}-${m.date.getTime()}`}
+                      type="text"
+                      placeholder="YYYY/MM/DD"
+                      defaultValue={m.date ? format(m.date, "yyyy/MM/dd") : ""}
+                      onBlur={(e) => {
+                        const val = e.target.value;
+                        const date = parse(val, "yyyy/MM/dd", new Date());
+                        if (isValid(date)) {
+                          updateMeasurement(m.id, 'date', date);
+                        } else {
+                          // Revert to current date if invalid
+                          e.target.value = m.date ? format(m.date, "yyyy/MM/dd") : "";
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          const nextEl = document.getElementById(`weight-${m.id}`);
+                          (e.target as HTMLInputElement).blur();
+                          const nextEl = document.getElementById(`height-${m.id}`);
                           if (nextEl) nextEl.focus();
                         }
                       }}
-                      aria-invalid={Number(m.height || 0) < 0}
-                      aria-describedby={Number(m.height || 0) < 0 ? `height-error-${m.id}` : undefined}
-                      className={cn(
-                        "h-20 md:h-32 text-4xl md:text-6xl font-black text-center", 
-                        primaryBgClass, 
-                        primaryBorderClass, 
-                        primaryFocusClass,
-                        Number(m.height || 0) < 0 && "border-red-500 bg-red-50"
-                      )}
-                      placeholder="000.0"
+                      aria-label={`測定日を入力（YYYY/MM/DD形式）`}
+                      className="h-12 md:h-16 text-lg bg-gray-50 dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100"
                     />
-                    <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
-                      cm
-                    </div>
                   </div>
-                  {Number(m.height || 0) < 0 && (
-                    <div 
-                      id={`height-error-${m.id}`}
-                      role="alert"
-                      aria-live="assertive"
-                      aria-atomic="true"
-                      className="text-xs text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
-                    >
-                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 身長は正の値を入力してください（推奨範囲: 50～200 cm）。
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  <Label htmlFor={`weight-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>体重 (kg)</Label>
-                  <div className="relative">
-                    <Input 
-                      id={`weight-${m.id}`}
-                      type="text" 
-                      inputMode="decimal"
-                      value={m.weight ?? ''} 
-                      onChange={(e) => {
-                        const sanitized = sanitizeNumericInput(e.target.value);
-                        updateMeasurement(m.id, 'weight', sanitized);
-                      }} 
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          if (index === measurements.length - 1) {
-                            handleAddMeasurement();
-                          } else {
-                            const nextId = measurements[index + 1].id;
-                            const nextEl = document.getElementById(`date-${nextId}`);
+                  <div className="space-y-3">
+                    <Label htmlFor={`height-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>身長 (cm)</Label>
+                    <div className="relative">
+                      <Input 
+                        id={`height-${m.id}`}
+                        type="text" 
+                        inputMode="decimal"
+                        value={m.height ?? ''} 
+                        onChange={(e) => {
+                          const sanitized = sanitizeNumericInput(e.target.value);
+                          updateMeasurement(m.id, 'height', sanitized);
+                        }} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const nextEl = document.getElementById(`weight-${m.id}`);
                             if (nextEl) nextEl.focus();
                           }
-                        }
-                      }}
-                      aria-invalid={Number(m.weight || 0) < 0}
-                      aria-describedby={Number(m.weight || 0) < 0 ? `weight-error-${m.id}` : undefined}
-                      className={cn(
-                        "h-20 md:h-32 text-4xl md:text-6xl font-black text-center", 
-                        primaryBgClass, 
-                        primaryBorderClass, 
-                        primaryFocusClass,
-                        Number(m.weight || 0) < 0 && "border-red-500 bg-red-50"
-                      )}
-                      placeholder="00.00"
-                    />
-                    <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
-                      kg
+                        }}
+                        aria-invalid={Number(m.height || 0) < 0}
+                        aria-describedby={Number(m.height || 0) < 0 ? `height-error-${m.id}` : undefined}
+                        className={cn(
+                          "h-20 md:h-32 text-4xl md:text-6xl font-black text-center text-gray-900 dark:text-zinc-100", 
+                          primaryBgClass, 
+                          primaryBorderClass, 
+                          primaryFocusClass,
+                          Number(m.height || 0) < 0 && "border-red-500 bg-red-50 dark:bg-red-950/40"
+                        )}
+                        placeholder="000.0"
+                      />
+                      <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
+                        cm
+                      </div>
                     </div>
+                    {Number(m.height || 0) < 0 && (
+                      <div 
+                        id={`height-error-${m.id}`}
+                        role="alert"
+                        aria-live="assertive"
+                        aria-atomic="true"
+                        className="text-xs text-red-900 dark:text-red-200 font-bold bg-red-100 dark:bg-red-950/60 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
+                      >
+                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 身長は正の値を入力してください（推奨範囲: 50～200 cm）。
+                      </div>
+                    )}
                   </div>
-                  {Number(m.weight || 0) < 0 && (
-                    <div 
-                      id={`weight-error-${m.id}`}
-                      role="alert"
-                      aria-live="assertive"
-                      aria-atomic="true"
-                      className="text-xs text-red-900 font-bold bg-red-100 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
-                    >
-                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 体重は正の値を入力してください（推奨範囲: 2～100 kg）。
+                  <div className="space-y-3">
+                    <Label htmlFor={`weight-${m.id}`} className={cn("text-lg md:text-xl font-bold", primaryTextClass)}>体重 (kg)</Label>
+                    <div className="relative">
+                      <Input 
+                        id={`weight-${m.id}`}
+                        type="text" 
+                        inputMode="decimal"
+                        value={m.weight ?? ''} 
+                        onChange={(e) => {
+                          const sanitized = sanitizeNumericInput(e.target.value);
+                          updateMeasurement(m.id, 'weight', sanitized);
+                        }} 
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (index === measurements.length - 1) {
+                              handleAddMeasurement();
+                            } else {
+                              const nextId = measurements[index + 1].id;
+                              const nextEl = document.getElementById(`date-${nextId}`);
+                              if (nextEl) nextEl.focus();
+                            }
+                          }
+                        }}
+                        aria-invalid={Number(m.weight || 0) < 0}
+                        aria-describedby={Number(m.weight || 0) < 0 ? `weight-error-${m.id}` : undefined}
+                        className={cn(
+                          "h-20 md:h-32 text-4xl md:text-6xl font-black text-center text-gray-900 dark:text-zinc-100", 
+                          primaryBgClass, 
+                          primaryBorderClass, 
+                          primaryFocusClass,
+                          Number(m.weight || 0) < 0 && "border-red-500 bg-red-50 dark:bg-red-950/40"
+                        )}
+                        placeholder="00.00"
+                      />
+                      <div className={cn("absolute inset-y-0 right-4 flex items-center pointer-events-none font-bold text-xl md:text-2xl", primaryUnitClass)}>
+                        kg
+                      </div>
                     </div>
-                  )}
-                </div>
-                <div className="flex justify-end pt-4">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-12 w-12 text-red-500 hover:bg-red-50 hover:text-red-600 rounded-full"
-                    onClick={() => handleRemoveMeasurement(m.id)}
-                    aria-label={`${m.date ? format(m.date, "yyyy/MM/dd") : '未指定日'}の測定データを削除`}
-                  >
-                    <Trash2 className="h-6 w-6" aria-hidden="true" />
-                  </Button>
-                </div>
+                    {Number(m.weight || 0) < 0 && (
+                      <div 
+                        id={`weight-error-${m.id}`}
+                        role="alert"
+                        aria-live="assertive"
+                        aria-atomic="true"
+                        className="text-xs text-red-900 dark:text-red-200 font-bold bg-red-100 dark:bg-red-950/60 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
+                      >
+                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 体重は正の値を入力してください（推奨範囲: 2～100 kg）。
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-end pt-4">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-12 w-12 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 rounded-full"
+                      onClick={() => handleRemoveMeasurement(m.id)}
+                      aria-label={`${m.date ? format(m.date, "yyyy/MM/dd") : '未指定日'}の測定データを削除`}
+                    >
+                      <Trash2 className="h-6 w-6" aria-hidden="true" />
+                    </Button>
+                  </div>
                 </div>
               );
             })}
