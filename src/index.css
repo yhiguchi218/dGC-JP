@@ -36,11 +36,25 @@ input[type=number] {
 
 @layer utilities {
   @media print {
-    body {
+    :root, .dark, body {
       background-color: white !important;
+      color: #111827 !important;
+      --background: oklch(1 0 0) !important;
+      --foreground: oklch(0.145 0 0) !important;
+      --card: oklch(1 0 0) !important;
+      --card-foreground: oklch(0.145 0 0) !important;
+      --popover: oklch(1 0 0) !important;
+      --popover-foreground: oklch(0.145 0 0) !important;
+      --muted: oklch(0.97 0 0) !important;
+      --muted-foreground: oklch(0.556 0 0) !important;
+      --border: oklch(0.922 0 0) !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
       padding: 0 !important;
+    }
+
+    * {
+      color-scheme: light !important;
     }
 
     @page {
@@ -52,14 +66,15 @@ input[type=number] {
       display: none !important;
     }
 
-    /* Force chart to occupy first page alone */
+    /* Constrain chart size on print to fit on a single A4 page with other elements */
     #printable-chart-area-wrapper,
     #printable-chart-area {
       display: block !important;
-      width: 93% !important;
+      width: 100% !important;
+      max-width: 500px !important;
       margin: 0 auto !important;
       max-height: none !important;
-      page-break-after: always !important;
+      page-break-after: avoid !important;
       padding: 0 !important;
       overflow: visible !important;
     }

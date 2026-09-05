@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import GrowthChart, { CHART_PRESETS, ChartPreset } from './GrowthChart';
 import GrowthForm, { MeasurementEntry } from './GrowthForm';
+import { ThemeToggle } from './ThemeToggle';
 import { 
   calculateDecimalAge, 
   calculateCorrectedAge, 
@@ -26,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertCircle, Info } from 'lucide-react';
 import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { CLINICAL_LIMITS } from '../lib/constants';
 
 const GrowthDashboard: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<ChartPreset>(CHART_PRESETS[2]); // Default to 0-18y
@@ -44,147 +46,151 @@ const GrowthDashboard: React.FC = () => {
     gestationalWeeks: 40,
     gestationalDays: 0,
     measurements: [
-      { id: '1', date: new Date(), height: 100, weight: 15 }
+      { id: '1', date: new Date(2020, 0, 1), height: 50.0, weight: 3.3 },
+      { id: '2', date: new Date(2021, 0, 1), height: 75.0, weight: 9.5 },
+      { id: '3', date: new Date(2022, 0, 1), height: 86.0, weight: 12.0 },
+      { id: '4', date: new Date(2023, 0, 1), height: 95.0, weight: 14.2 },
     ]
   });
 
+  const isPreterm = formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD;
+  const sexKey: 'male' | 'female' = formData.sex === '男子' ? 'male' : 'female';
+
+  // Selected gender tables
   const heightTable = formData.sex === '男子' ? HEIGHT_BOYS_LMS : HEIGHT_GIRLS_LMS;
   const weightTable = formData.sex === '男子' ? WEIGHT_BOYS_LMS : WEIGHT_GIRLS_LMS;
-  const hvRefTable = formData.sex === '男子' ? SUWA_HV_BOYS : SUWA_HV_GIRLS;
+  const fuhyoTable = formData.sex === '男子' ? FUHYO_BOYS_HEIGHT : FUHYO_GIRLS_HEIGHT;
+  const suwaTable = formData.sex === '男子' ? SUWA_HV_BOYS : SUWA_HV_GIRLS;
 
+  // Process data with standard calculations
   const processedData = useMemo(() => {
-    const results = formData.measurements.map(m => {
-      const h = typeof m.height === 'string' ? parseFloat(m.height) : m.height;
-      const w = typeof m.weight === 'string' ? parseFloat(m.weight) : m.weight;
-      
-      const age = calculateDecimalAge(formData.birthDate, m.date);
-      const correctedAge = calculateCorrectedAge(
-        formData.birthDate, 
-        m.date, 
-        formData.gestationalWeeks, 
-        formData.gestationalDays
-      );
+    return formData.measurements
+      .map(m => {
+        const age = calculateDecimalAge(formData.birthDate, m.date);
+        if (age === null) return null;
 
-      // Height SDS
-      let heightSDS = undefined;
-      // Safety guard: height must be significantly positive for meaningful SDS/BMI
-      if (h && !isNaN(h) && h > 0) {
-        const useCorrected = formData.gestationalWeeks < 37 && correctedAge !== null && correctedAge <= 3;
-        const refBirthDate = useCorrected
-          ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
-          : formData.birthDate;
+        const correctedAge = calculateCorrectedAge(formData.birthDate, m.date, formData.gestationalWeeks, formData.gestationalDays);
+        // Corrected age is clinically applied up to 3.0 years
+        const showCorrected = isPreterm && correctedAge !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
 
-        const months = differenceInMonths(m.date, refBirthDate);
-        const clampedMonths = Math.max(0, Math.min(210, months));
-        const table = formData.sex === '男子' ? FUHYO_BOYS_HEIGHT : FUHYO_GIRLS_HEIGHT;
-        const [mean, sd] = table[clampedMonths];
-        heightSDS = (h - mean) / sd;
-      }
+        const heightVal = typeof m.height === 'string' ? parseFloat(m.height) : m.height;
+        const weightVal = typeof m.weight === 'string' ? parseFloat(m.weight) : m.weight;
 
-      // Weight SDS
-      let weightSDS = undefined;
-      let obesityIndex = null;
-      let obesityIndexAge = null;
-      // obesity index sex check
-      if (w && !isNaN(w) && w > 0 && age !== null) {
-        const lms = interpolateLMS(age, weightTable);
-        weightSDS = calculateZScore(w, lms);
-        if (h && !isNaN(h) && h > 0) {
-          const lmsSex = formData.sex === '男子' ? 'male' : 'female';
-          obesityIndex = calculateObesityIndex(w, h, age, lmsSex);
-          obesityIndexAge = calculateObesityIndexByAge(w, h, age, lmsSex);
-        }
-      }
-
-      // BMI
-      let bmi = undefined;
-      if (h && w && !isNaN(h) && !isNaN(w) && h > 0) {
-        bmi = w / Math.pow(h / 100, 2);
-      }
-
-      return {
-        ...m,
-        height: h,
-        weight: w,
-        age,
-        correctedAge,
-        heightSDS,
-        weightSDS,
-        bmi,
-        obesityIndex,
-        obesityIndexAge,
-        isPremature: formData.gestationalWeeks < 37,
-        showCorrected: formData.gestationalWeeks < 37 && correctedAge !== null && correctedAge <= 3
-      };
-    }).sort((a, b) => {
-      if (a.age === null && b.age === null) return 0;
-      if (a.age === null) return 1;
-      if (b.age === null) return -1;
-      return a.age - b.age;
-    });
-
-    return results;
-  }, [formData, heightTable, weightTable]);
-
-  // Height Velocity Calculation (Chained, non-overlapping intervals)
-  const heightVelocity = useMemo(() => {
-    const velocities = [];
-    let i = 0;
-    while (i < processedData.length - 1) {
-      let found = false;
-      const p1 = processedData[i];
-      if (!p1.height) {
-        i++;
-        continue;
-      }
-      for (let j = i + 1; j < processedData.length; j++) {
-        const p2 = processedData[j];
-        if (p2.height) {
-          if (p1.age === null || p2.age === null) continue;
-          const ageDiff = p2.age - p1.age;
-          if (ageDiff >= 0.95) { // Approx 1 year
-            const hv = (p2.height - p1.height) / ageDiff;
-            const midAge = (p1.age + p2.age) / 2;
-            const hvSex = formData.sex === '男子' ? 'male' : 'female';
-            const hvSDS = calculateHVSDS(hv, midAge, hvSex, hvRefTable);
-            
-            velocities.push({
-              midAge,
-              value: hv,
-              hvSDS,
-              p1,
-              p2,
-              ageDiffDays: Math.round(ageDiff * 365.25),
-              heightDiff: p2.height - p1.height
-            });
-            i = j; // Advance pointer to the end of the current interval
-            found = true;
-            break;
+        // Calculate Height SDS (JSPE standard: use month-based table if under 3 years)
+        let heightSDS: number | undefined = undefined;
+        if (heightVal !== undefined && !isNaN(heightVal)) {
+          const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
+          if (effectiveAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) {
+            const months = differenceInMonths(m.date, formData.birthDate);
+            if (months >= 0 && months < fuhyoTable.length) {
+              const [mean, sd] = fuhyoTable[months];
+              heightSDS = (heightVal - mean) / sd;
+            }
+          }
+          if (heightSDS === undefined) {
+            const lms = interpolateLMS(effectiveAge, heightTable);
+            heightSDS = calculateZScore(heightVal, lms);
           }
         }
-      }
-      if (!found) {
-        i++;
+
+        // Calculate Weight SDS
+        let weightSDS: number | undefined = undefined;
+        if (weightVal !== undefined && !isNaN(weightVal)) {
+          const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
+          const lms = interpolateLMS(effectiveAge, weightTable);
+          weightSDS = calculateZScore(weightVal, lms);
+        }
+
+        // Calculate BMI
+        let bmi: number | undefined = undefined;
+        if (heightVal && weightVal && !isNaN(heightVal) && !isNaN(weightVal) && heightVal > 0) {
+          const hM = heightVal / 100;
+          bmi = weightVal / (hM * hM);
+        }
+
+        // Calculate Obesity Index
+        let obesityIndex: number | null = null;
+        let obesityIndexAge: number | null = null;
+        if (heightVal && weightVal && !isNaN(heightVal) && !isNaN(weightVal)) {
+          obesityIndex = calculateObesityIndex(weightVal, heightVal, age, sexKey);
+          obesityIndexAge = calculateObesityIndexByAge(weightVal, heightVal, age, sexKey);
+        }
+
+        return {
+          id: m.id,
+          date: m.date,
+          age,
+          correctedAge: correctedAge || age,
+          showCorrected,
+          height: heightVal,
+          weight: weightVal,
+          heightSDS,
+          weightSDS,
+          bmi,
+          obesityIndex,
+          obesityIndexAge
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [formData, heightTable, weightTable, fuhyoTable, isPreterm, sexKey]);
+
+  // Calculate Height Velocity (HV)
+  const heightVelocity = useMemo(() => {
+    const valid = processedData.filter(d => d.height !== undefined && !isNaN(d.height!));
+    const list: Array<{
+      startDate: Date;
+      endDate: Date;
+      midAge: number;
+      value: number;
+      ageDiffDays: number;
+      heightDiff: number;
+      hvSDS: number | null;
+    }> = [];
+
+    for (let i = 0; i < valid.length - 1; i++) {
+      const p1 = valid[i];
+      const p2 = valid[i + 1];
+      const ageDiff = p2.age - p1.age;
+      const heightDiff = p2.height! - p1.height!;
+
+      // Velocity is clinically meaningful if gap >= 180 days (0.5 years) or >= HV_MIN_INTERVAL_YEARS
+      if (ageDiff >= 0.5) {
+        const v = heightDiff / ageDiff;
+        const midAge = (p1.age + p2.age) / 2;
+        const diffDays = Math.round((p2.date.getTime() - p1.date.getTime()) / (1000 * 60 * 60 * 24));
+        const hvSDS = calculateHVSDS(v, midAge, sexKey, suwaTable);
+
+        list.push({
+          startDate: p1.date,
+          endDate: p2.date,
+          midAge,
+          value: v,
+          ageDiffDays: diffDays,
+          heightDiff,
+          hvSDS
+        });
       }
     }
-    return velocities;
-  }, [processedData, formData.sex, hvRefTable]);
+    return list;
+  }, [processedData, suwaTable, sexKey]);
 
+  // Points for D3 Chart
   const heightPoints = useMemo(() => {
-    const points: any[] = [];
+    const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (d.height && d.age !== null) {
+      if (d.height !== undefined && !isNaN(d.height)) {
         points.push({
           age: d.age,
           value: d.height,
           zScore: d.heightSDS,
           isCorrected: false
         });
-        if (d.showCorrected && d.correctedAge !== null) {
+        if (d.showCorrected) {
           points.push({
             age: d.correctedAge,
             value: d.height,
-            zScore: d.heightSDS, // Note: Z-score should ideally be recalculated for corrected age
+            zScore: d.heightSDS,
             isCorrected: true
           });
         }
@@ -194,16 +200,16 @@ const GrowthDashboard: React.FC = () => {
   }, [processedData]);
 
   const weightPoints = useMemo(() => {
-    const points: any[] = [];
+    const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (d.weight && d.age !== null) {
+      if (d.weight !== undefined && !isNaN(d.weight)) {
         points.push({
           age: d.age,
           value: d.weight,
           zScore: d.weightSDS,
           isCorrected: false
         });
-        if (d.showCorrected && d.correctedAge !== null) {
+        if (d.showCorrected) {
           points.push({
             age: d.correctedAge,
             value: d.weight,
@@ -218,13 +224,16 @@ const GrowthDashboard: React.FC = () => {
 
   return (
     <main id="main-content" tabIndex={-1} className="focus:outline-none max-w-7xl mx-auto p-4 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none print:overflow-visible">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-zinc-800 pb-4 print:hidden transition-colors">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">dGC-JP</h1>
-          <p className="text-gray-500">日本版デジタル成長曲線プラットフォーム</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-zinc-100 tracking-tight">dGC-JP</h1>
+          <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">日本版デジタル成長曲線プラットフォーム</p>
         </div>
-        <div className="flex gap-2">
-          <Badge variant="outline" className="px-3 py-1">フェーズ 1: スタンドアロン版</Badge>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge variant="outline" className="px-3 py-1 bg-gray-50 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 border-gray-200 dark:border-zinc-700">
+            フェーズ 1: スタンドアロン版
+          </Badge>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -235,10 +244,45 @@ const GrowthDashboard: React.FC = () => {
         </div>
 
         {/* Right Column: Chart and Results */}
-        <div className="lg:col-span-8 space-y-8 print:space-y-2 print:m-0 print:p-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-4 rounded-lg shadow-sm border border-gray-100 gap-4 print:hidden">
+        <div className="lg:col-span-8 space-y-8 print:space-y-4 print:m-0 print:p-0">
+          {/* Print-only Demographic Header */}
+          <div className="hidden print:block border-b-2 border-gray-800 pb-3 mb-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">デジタル成長報告書 (dGC-JP)</h1>
+                <p className="text-[10px] text-gray-500">Digital Growth Chart for Japan</p>
+              </div>
+              <div className="text-right text-[10px] text-gray-500">
+                作成日時: {format(new Date(), 'yyyy/MM/dd HH:mm')}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-2 mt-3 p-2 bg-gray-50 rounded border border-gray-200 text-xs">
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">対象児ID</span>
+                <span className="font-bold text-gray-950">{formData.childId || '-'}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">性別</span>
+                <span className="font-bold text-gray-950">{formData.sex}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">生年月日</span>
+                <span className="font-bold text-gray-950">{format(formData.birthDate, 'yyyy/MM/dd')}</span>
+              </div>
+              <div>
+                <span className="text-gray-500 block text-[9px] uppercase tracking-wider">在胎期間</span>
+                <span className="font-bold text-gray-950">
+                  {formData.gestationalWeeks}週{formData.gestationalDays}日
+                  {formData.gestationalWeeks < 37 && <span className="text-emerald-700 ml-1 text-[9px]">(早産期修正)</span>}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-zinc-800 gap-4 print:hidden transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="text-sm font-medium text-gray-700">表示範囲:</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">表示範囲:</span>
               <Select 
                 value={selectedPreset.id} 
                 onValueChange={(id) => {
@@ -246,19 +290,19 @@ const GrowthDashboard: React.FC = () => {
                   if (preset) setSelectedPreset(preset);
                 }}
               >
-                <SelectTrigger className="w-full sm:w-[260px]">
+                <SelectTrigger className="w-full sm:w-[260px] bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100">
                   <SelectValue placeholder="表示範囲を選択">
                     {selectedPreset.name}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700">
                   {CHART_PRESETS.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    <SelectItem key={p.id} value={p.id} className="text-gray-900 dark:text-zinc-100 focus:bg-gray-100 dark:focus:bg-zinc-700">{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="text-[10px] text-gray-400 sm:max-w-[300px] sm:text-right">
+            <div className="text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
               ※ 日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間を用いて算出しています。
             </div>
           </div>
@@ -274,16 +318,16 @@ const GrowthDashboard: React.FC = () => {
             />
           </div>
 
-          <Card className="print:shadow-none print:border-none print:m-0 print:p-0">
+          <Card className="border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:shadow-none print:border-none print:m-0 print:p-0 transition-colors">
             <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果</div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
-              <CardTitle className="text-xl font-semibold print:text-base">評価結果</CardTitle>
-              <div className="flex bg-gray-100 p-1 rounded-md text-[10px] md:text-xs print:hidden">
+              <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100 print:text-base">評価結果</CardTitle>
+              <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
                   className={cn(
                     "px-2 py-1 rounded transition-colors",
-                    obesityMode === 'height' ? "bg-white shadow-sm font-bold" : "text-gray-500 hover:bg-gray-200"
+                    obesityMode === 'height' ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 shadow-sm font-bold" : "text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-600"
                   )}
                 >
                   性別身長別
@@ -292,7 +336,7 @@ const GrowthDashboard: React.FC = () => {
                   onClick={() => setObesityMode('age')}
                   className={cn(
                     "px-2 py-1 rounded transition-colors",
-                    obesityMode === 'age' ? "bg-white shadow-sm font-bold" : "text-gray-500 hover:bg-gray-200"
+                    obesityMode === 'age' ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 shadow-sm font-bold" : "text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-600"
                   )}
                 >
                   性別年齢別
@@ -305,7 +349,7 @@ const GrowthDashboard: React.FC = () => {
                   <caption className="sr-only" id="results-title">
                     お子さんの成長データ評価結果。各行は測定日ごとの測定値、年齢、身長SDS、体重SDS、BMI、肥満度を表示しています。
                   </caption>
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50 print:bg-transparent print:border-b">
+                  <thead className="text-xs text-gray-700 dark:text-zinc-300 uppercase bg-gray-50 dark:bg-zinc-800/60 print:bg-transparent print:border-b">
                     <tr>
                       <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">測定日</th>
                       <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
@@ -328,7 +372,7 @@ const GrowthDashboard: React.FC = () => {
                         肥満度
                         <span className={cn(
                           "ml-1 text-[8px] normal-case px-1 rounded",
-                          formData.sex === '男子' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
+                          formData.sex === '男子' ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300' : 'bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300'
                         )}>
                           {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
                         </span>
@@ -336,22 +380,21 @@ const GrowthDashboard: React.FC = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
                     {processedData.map((d, i) => {
                       const currentObesity = obesityMode === 'height' ? d.obesityIndex : d.obesityIndexAge;
-                      const isLast = i === processedData.length - 1;
                       return (
-                        <tr key={i} className={cn("border-b hover:bg-gray-50 print:border-b-0", !isLast && "print:hidden")}>
+                        <tr key={i} className="border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-800/40 print:border-b print:border-gray-100 text-gray-900 dark:text-zinc-100">
                           <td className="px-4 py-3 font-medium print:px-1 print:py-0.5 print:text-[8pt]">{format(d.date, 'yyyy/MM/dd')}</td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             <div className="font-semibold">{d.age.toFixed(4)}歳</div>
-                            <div className="text-[11px] text-gray-500 font-normal mt-0.5 leading-tight print:text-[6.5pt]">
+                            <div className="text-[11px] text-gray-500 dark:text-zinc-400 font-normal mt-0.5 leading-tight print:text-[6.5pt]">
                               {calculateFullMonthsAge(formData.birthDate, d.date)}
                             </div>
                             {d.showCorrected && (
-                              <div className="text-[10px] text-emerald-600 font-semibold print:text-[6pt] mt-1.5 pt-1.5 border-t border-emerald-100/30">
+                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold print:text-[6pt] mt-1.5 pt-1.5 border-t border-emerald-100/30">
                                 <div>修正: {d.correctedAge.toFixed(4)}歳</div>
-                                <div className="text-[9px] text-emerald-500 font-normal mt-0.5 print:text-[5.5pt]">
+                                <div className="text-[9px] text-emerald-500 dark:text-emerald-400 font-normal mt-0.5 print:text-[5.5pt]">
                                   {calculateFullMonthsAge(
                                     getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays),
                                     d.date
@@ -365,7 +408,7 @@ const GrowthDashboard: React.FC = () => {
                             {d.heightSDS !== undefined && (
                               <span className={cn(
                                 "ml-2 text-xs print:ml-1 print:text-[7pt]",
-                                Math.abs(d.heightSDS) > 2 ? "text-red-500 font-bold" : "text-gray-500"
+                                Math.abs(d.heightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
                               )}>
                                 ({d.heightSDS.toFixed(2)}SD)
                               </span>
@@ -376,7 +419,7 @@ const GrowthDashboard: React.FC = () => {
                             {d.weightSDS !== undefined && (
                               <span className={cn(
                                 "ml-2 text-xs print:ml-1 print:text-[7pt]",
-                                Math.abs(d.weightSDS) > 2 ? "text-red-500 font-bold" : "text-gray-500"
+                                Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
                               )}>
                                 ({d.weightSDS.toFixed(2)}SD)
                               </span>
@@ -386,12 +429,12 @@ const GrowthDashboard: React.FC = () => {
                           <td className="px-4 py-3 text-center print:px-1 print:py-0.5 print:text-[8pt]">
                             {currentObesity !== null ? (
                               <span className={cn(
-                                currentObesity > 20 ? "text-orange-500 font-bold" : currentObesity < -20 ? "text-blue-500 font-bold" : ""
+                                currentObesity > 20 ? "text-orange-500 dark:text-orange-400 font-bold" : currentObesity < -20 ? "text-blue-500 dark:text-blue-400 font-bold" : ""
                               )}>
                                 {currentObesity.toFixed(1)}%
                               </span>
                             ) : (
-                              <span className="text-gray-300 text-[10px] print:text-[6pt]">算出不可</span>
+                              <span className="text-gray-300 dark:text-zinc-600 text-[10px] print:text-[6pt]">算出不可</span>
                             )}
                           </td>
                         </tr>
@@ -404,32 +447,40 @@ const GrowthDashboard: React.FC = () => {
           </Card>
  
           {heightVelocity.length > 0 && (
-            <Card className={cn("border-opacity-50 print:hidden", formData.sex === '男子' ? "border-blue-100 bg-blue-50/30" : "border-pink-100 bg-pink-50/30")}>
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <Info className={cn("h-5 w-5", formData.sex === '男子' ? "text-blue-500" : "text-pink-500")} />
-                  身長速度
+            <Card className={cn(
+              "border-opacity-50 print:border print:border-gray-200 print:bg-white print:p-2 transition-colors", 
+              formData.sex === '男子' 
+                ? "border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20" 
+                : "border-pink-200 dark:border-pink-900 bg-pink-50/30 dark:bg-pink-950/20"
+            )}>
+              <CardHeader className="print:p-1">
+                <CardTitle className="text-xl font-semibold flex items-center gap-2 text-gray-900 dark:text-zinc-100 print:text-xs">
+                  <Info className={cn("h-5 w-5 print:h-3 print:w-3", formData.sex === '男子' ? "text-blue-500 dark:text-blue-400" : "text-pink-500 dark:text-pink-400")} />
+                  身長速度 (Height Velocity)
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="print:p-1">
+                <div className="space-y-4 print:space-y-1">
                   {heightVelocity.map((hv, i) => (
-                    <div key={i} className={cn("flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm", formData.sex === '男子' ? "border-blue-100" : "border-pink-100")}>
+                    <div key={i} className={cn(
+                      "flex items-center justify-between p-4 bg-white dark:bg-zinc-900 rounded-lg border shadow-sm print:p-2 print:shadow-none print:border-gray-100 text-xs transition-colors", 
+                      formData.sex === '男子' ? "border-blue-100 dark:border-blue-900/50" : "border-pink-100 dark:border-pink-900/50"
+                    )}>
                       <div>
-                        <div className="text-sm text-gray-500">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
-                        <div className={cn("text-2xl font-bold flex items-baseline gap-2", formData.sex === '男子' ? "text-blue-600" : "text-pink-600")}>
+                        <div className="text-sm text-gray-500 dark:text-zinc-400 print:text-[8px]">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
+                        <div className={cn("text-2xl font-bold flex items-baseline gap-2 print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>
                           HV: {hv.value.toFixed(2)} cm/年
                           {hv.hvSDS !== null && (
                             <span className={cn(
-                              "text-sm",
-                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 font-bold" : (formData.sex === '男子' ? "text-blue-500 font-medium" : "text-pink-500 font-medium")
+                              "text-sm print:text-[9px]",
+                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 dark:text-orange-400 font-bold" : (formData.sex === '男子' ? "text-blue-500 dark:text-blue-400 font-medium" : "text-pink-500 dark:text-pink-400 font-medium")
                             )}>
                               (SDS: {hv.hvSDS.toFixed(2)})
                             </span>
                           )}
                         </div>
                       </div>
-                      <div className="text-right text-xs text-gray-500">
+                      <div className="text-right text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">
                         根拠: +{hv.heightDiff.toFixed(1)} cm / {hv.ageDiffDays}日
                       </div>
                     </div>
@@ -439,9 +490,9 @@ const GrowthDashboard: React.FC = () => {
             </Card>
           )}
 
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex gap-3 shadow-sm print:hidden">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-            <div className="text-xs text-amber-800 space-y-2">
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg flex gap-3 shadow-sm print:hidden transition-colors">
+            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <div className="text-xs text-amber-800 dark:text-amber-200 space-y-2">
               <div>
                 <p className="font-bold underline mb-1">重要：ご利用にあたっての免責事項</p>
                 <ul className="list-disc list-inside space-y-1">
@@ -452,15 +503,15 @@ const GrowthDashboard: React.FC = () => {
                 </ul>
               </div>
               
-              <div className="pt-2 border-t border-amber-200/50">
+              <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40">
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
                 <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
               </div>
 
-              <div className="pt-2 border-t border-amber-200/50 text-[9px] text-amber-700/80">
+              <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40 text-[9px] text-amber-700/80 dark:text-amber-300/70">
                 <p className="font-semibold mb-1">参考文献・出典:</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>身長SDS（満月齢基準）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">日本小児内分泌学会 附表１（平均体重／標準偏差 2000 年）</a></li>
+                  <li>身長SDS（満月齢基準）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">日本小児内分泌学会 附表１（平均体重／標準偏差 2000 年）</a></li>
                   <li>成長曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
                   <li>肥満度計算: Clin Pediatr Endocrinol 25:77-82, 2016</li>
                   <li>体重SDS計算: Clin Pediatr Endocrinol 25:71-76, 2016</li>

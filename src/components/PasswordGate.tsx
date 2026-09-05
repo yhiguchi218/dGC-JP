@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Lock } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 const AUTH_KEY = 'dgc_jp_auth';
 const PASSWORD = 'yhiguchi218@gmail.com';
@@ -40,14 +41,17 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md shadow-lg border-gray-200">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-zinc-950 p-4 transition-colors">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <Card className="w-full max-w-md shadow-lg border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-gray-900 dark:text-zinc-100">
         <CardHeader className="space-y-1 flex flex-col items-center">
-          <div className="bg-blue-100 p-3 rounded-full mb-2">
-            <Lock className="w-6 h-6 text-blue-600" />
+          <div className="bg-blue-100 dark:bg-blue-950/50 p-3 rounded-full mb-2">
+            <Lock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">dGC-JP アクセス制限</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-gray-500 dark:text-zinc-400">
             このアプリはレビュー用に限定公開されています。
           </CardDescription>
         </CardHeader>
@@ -63,14 +67,14 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 aria-invalid={!!error}
                 aria-describedby={error ? "login-error-msg" : undefined}
-                className={error ? "border-red-500" : ""}
+                className={error ? "border-red-500" : "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700"}
               />
               {error && (
                 <div 
                   id="login-error-msg"
                   role="alert" 
                   aria-live="assertive"
-                  className="text-xs text-red-900 font-bold bg-red-50 p-2 rounded border-l-4 border-red-600 flex items-center gap-1"
+                  className="text-xs text-red-900 dark:text-red-200 font-bold bg-red-50 dark:bg-red-950/50 p-2 rounded border-l-4 border-red-600 flex items-center gap-1"
                 >
                   {error}
                 </div>
@@ -78,12 +82,12 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               aria-label="パスワードを入力してアプリケーションにアクセス"
             >
               ログイン
             </Button>
-            <p className="text-[10px] text-gray-400 text-center mt-4">
+            <p className="text-[10px] text-gray-400 dark:text-zinc-500 text-center mt-4">
               ※本認証はクライアントサイドでの簡易的な制限です。
             </p>
           </form>
