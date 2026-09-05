@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('quality-pr-{0}', github.event.pull_request.number) || 'pages' }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     name: Quality gate
@@ -47,9 +51,6 @@ jobs:
     permissions:
       pages: write
       id-token: write
-    concurrency:
-      group: "pages"
-      cancel-in-progress: false
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
