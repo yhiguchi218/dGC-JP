@@ -9,11 +9,9 @@ import {
   interpolateLMS,
   calculateObesityIndex,
   calculateObesityIndexByAge,
-  calculateHeightVelocity,
-  calculateHVSDS,
   calculateFullMonthsAge,
   getCorrectedBirthDate,
-  findBestSuwaPair
+  calculateHeightVelocityResults
 } from '../lib/growth-utils';
 import { 
   HEIGHT_BOYS_LMS, 
@@ -149,41 +147,7 @@ const GrowthDashboard: React.FC = () => {
         age: d.age,
         height: d.height!,
       }));
-    const list: Array<{
-      startDate: Date;
-      endDate: Date;
-      midAge: number;
-      value: number;
-      ageDiffDays: number;
-      heightDiff: number;
-      hvSDS: number | null;
-    }> = [];
-
-    for (let i = 1; i < valid.length; i++) {
-      const bestSuwaIndex = findBestSuwaPair(i, valid);
-      const previousIndex = bestSuwaIndex ?? i - 1;
-      const previous = valid[previousIndex];
-      const current = valid[i];
-      const hv = calculateHeightVelocity(previous.height, previous.age, current.height, current.age);
-      if (!hv) continue;
-
-      const diffDays = Math.round((current.date.getTime() - previous.date.getTime()) / (1000 * 60 * 60 * 24));
-      const heightDiff = current.height - previous.height;
-      const hvSDS = bestSuwaIndex === null
-        ? null
-        : calculateHVSDS(hv.velocity, hv.midpointAge, sexKey, suwaTable);
-
-      list.push({
-        startDate: previous.date,
-        endDate: current.date,
-        midAge: hv.midpointAge,
-        value: hv.velocity,
-        ageDiffDays: diffDays,
-        heightDiff,
-        hvSDS
-      });
-    }
-    return list;
+    return calculateHeightVelocityResults(valid, sexKey, suwaTable);
   }, [processedData, suwaTable, sexKey]);
 
   // Points for D3 Chart
@@ -477,22 +441,35 @@ const GrowthDashboard: React.FC = () => {
                       "flex items-center justify-between p-4 bg-white dark:bg-zinc-900 rounded-lg border shadow-sm print:p-2 print:shadow-none print:border-gray-100 text-xs transition-colors", 
                       formData.sex === '男子' ? "border-blue-100 dark:border-blue-900/50" : "border-pink-100 dark:border-pink-900/50"
                     )}>
-                      <div>
-                        <div className="text-sm text-gray-500 dark:text-zinc-400 print:text-[8px]">評価期間の中間年齢: {hv.midAge.toFixed(2)}歳</div>
-                        <div className={cn("text-2xl font-bold flex items-baseline gap-2 print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>
-                          HV: {hv.value.toFixed(2)} cm/年
-                          {hv.hvSDS !== null && (
-                            <span className={cn(
-                              "text-sm print:text-[9px]",
-                              Math.abs(hv.hvSDS) > 2 ? "text-orange-500 dark:text-orange-400 font-bold" : (formData.sex === '男子' ? "text-blue-500 dark:text-blue-400 font-medium" : "text-pink-500 dark:text-pink-400 font-medium")
-                            )}>
-                              (SDS: {hv.hvSDS.toFixed(2)})
-                            </span>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-sm text-gray-500 dark:text-zinc-400 print:text-[8px]">直近HV</div>
+                          {hv.raw ? (
+                            <>
+                              <div className={cn("text-2xl font-bold print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>HV: {hv.raw.velocity.toFixed(2)} cm/年</div>
+                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.raw.heightDiff.toFixed(1)} cm / {hv.raw.intervalDays}日</div>
+                            </>
+                          ) : <div className="text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>}
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500 dark:text-zinc-400 print:text-[8px]">12か月HV（Suwa基準）</div>
+                          {hv.suwa ? (
+                            <>
+                              <div className={cn("text-2xl font-bold print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>HV: {hv.suwa.velocity.toFixed(2)} cm/年</div>
+                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: {hv.suwa.sds?.toFixed(2) ?? '—'}</div>
+                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.suwa.heightDiff.toFixed(1)} cm / {hv.suwa.intervalDays}日</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>
+                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
+                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">Suwa法によるHV-SDSは約12か月間隔の測定値で算出します</div>
+                            </>
                           )}
                         </div>
                       </div>
                       <div className="text-right text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">
-                        根拠: +{hv.heightDiff.toFixed(1)} cm / {hv.ageDiffDays}日
+                        測定日: {format(hv.currentDate, 'yyyy/MM/dd')}
                       </div>
                     </div>
                   ))}

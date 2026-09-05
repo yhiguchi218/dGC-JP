@@ -200,6 +200,65 @@ export function findBestSuwaPair(
   return bestIndex;
 }
 
+export type HeightVelocityPoint = {
+  date: Date;
+  age: number;
+  height: number;
+};
+
+type HeightVelocityInterval = {
+  startDate: Date;
+  endDate: Date;
+  midpointAge: number;
+  velocity: number;
+  intervalDays: number;
+  heightDiff: number;
+};
+
+export type HeightVelocityResult = {
+  currentDate: Date;
+  raw: HeightVelocityInterval | null;
+  suwa: (HeightVelocityInterval & { sds: number | null }) | null;
+};
+
+export function calculateHeightVelocityResults(
+  points: HeightVelocityPoint[],
+  sex: 'male' | 'female',
+  suwaTable: HVReferencePoint[]
+): HeightVelocityResult[] {
+  return points.slice(1).map((current, offset) => {
+    const currentIndex = offset + 1;
+    const rawPrevious = points[currentIndex - 1];
+    const rawHV = calculateHeightVelocity(rawPrevious.height, rawPrevious.age, current.height, current.age);
+    const suwaPreviousIndex = findBestSuwaPair(currentIndex, points);
+    const suwaPrevious = suwaPreviousIndex === null ? null : points[suwaPreviousIndex];
+    const suwaHV = suwaPrevious && calculateHeightVelocity(suwaPrevious.height, suwaPrevious.age, current.height, current.age);
+
+    const toInterval = (
+      previous: HeightVelocityPoint,
+      velocity: NonNullable<typeof rawHV>
+    ): HeightVelocityInterval => ({
+      startDate: previous.date,
+      endDate: current.date,
+      midpointAge: velocity.midpointAge,
+      velocity: velocity.velocity,
+      intervalDays: Math.round((current.date.getTime() - previous.date.getTime()) / (1000 * 60 * 60 * 24)),
+      heightDiff: current.height - previous.height,
+    });
+
+    return {
+      currentDate: current.date,
+      raw: rawHV ? toInterval(rawPrevious, rawHV) : null,
+      suwa: suwaPrevious && suwaHV
+        ? {
+            ...toInterval(suwaPrevious, suwaHV),
+            sds: calculateHVSDS(suwaHV.velocity, suwaHV.midpointAge, sex, suwaTable),
+          }
+        : null,
+    };
+  });
+}
+
 /**
  * Calculate Standard Weight based on height, age, and sex
  * Using formulas provided for Japanese children
