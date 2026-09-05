@@ -9,9 +9,11 @@ import {
   interpolateLMS,
   calculateObesityIndex,
   calculateObesityIndexByAge,
+  calculateHeightVelocity,
   calculateHVSDS,
   calculateFullMonthsAge,
-  getCorrectedBirthDate
+  getCorrectedBirthDate,
+  findBestSuwaPair
 } from '../lib/growth-utils';
 import { 
   HEIGHT_BOYS_LMS, 
@@ -81,7 +83,10 @@ const GrowthDashboard: React.FC = () => {
         if (heightVal !== undefined && !isNaN(heightVal)) {
           const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
           if (effectiveAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) {
-            const months = differenceInMonths(m.date, formData.birthDate);
+            const referenceBirthDate = showCorrected
+              ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
+              : formData.birthDate;
+            const months = differenceInMonths(m.date, referenceBirthDate);
             if (months >= 0 && months < fuhyoTable.length) {
               const [mean, sd] = fuhyoTable[months];
               heightSDS = (heightVal - mean) / sd;
@@ -137,7 +142,13 @@ const GrowthDashboard: React.FC = () => {
 
   // Calculate Height Velocity (HV)
   const heightVelocity = useMemo(() => {
-    const valid = processedData.filter(d => d.height !== undefined && !isNaN(d.height!));
+    const valid = processedData
+      .filter(d => d.height !== undefined && !isNaN(d.height!))
+      .map(d => ({
+        date: d.date,
+        age: d.age,
+        height: d.height!,
+      }));
     const list: Array<{
       startDate: Date;
       endDate: Date;
@@ -148,29 +159,29 @@ const GrowthDashboard: React.FC = () => {
       hvSDS: number | null;
     }> = [];
 
-    for (let i = 0; i < valid.length - 1; i++) {
-      const p1 = valid[i];
-      const p2 = valid[i + 1];
-      const ageDiff = p2.age - p1.age;
-      const heightDiff = p2.height! - p1.height!;
+    for (let i = 1; i < valid.length; i++) {
+      const bestSuwaIndex = findBestSuwaPair(i, valid);
+      const previousIndex = bestSuwaIndex ?? i - 1;
+      const previous = valid[previousIndex];
+      const current = valid[i];
+      const hv = calculateHeightVelocity(previous.height, previous.age, current.height, current.age);
+      if (!hv) continue;
 
-      // Velocity is clinically meaningful if gap >= 180 days (0.5 years) or >= HV_MIN_INTERVAL_YEARS
-      if (ageDiff >= 0.5) {
-        const v = heightDiff / ageDiff;
-        const midAge = (p1.age + p2.age) / 2;
-        const diffDays = Math.round((p2.date.getTime() - p1.date.getTime()) / (1000 * 60 * 60 * 24));
-        const hvSDS = calculateHVSDS(v, midAge, sexKey, suwaTable);
+      const diffDays = Math.round((current.date.getTime() - previous.date.getTime()) / (1000 * 60 * 60 * 24));
+      const heightDiff = current.height - previous.height;
+      const hvSDS = bestSuwaIndex === null
+        ? null
+        : calculateHVSDS(hv.velocity, hv.midpointAge, sexKey, suwaTable);
 
-        list.push({
-          startDate: p1.date,
-          endDate: p2.date,
-          midAge,
-          value: v,
-          ageDiffDays: diffDays,
-          heightDiff,
-          hvSDS
-        });
-      }
+      list.push({
+        startDate: previous.date,
+        endDate: current.date,
+        midAge: hv.midpointAge,
+        value: hv.velocity,
+        ageDiffDays: diffDays,
+        heightDiff,
+        hvSDS
+      });
     }
     return list;
   }, [processedData, suwaTable, sexKey]);

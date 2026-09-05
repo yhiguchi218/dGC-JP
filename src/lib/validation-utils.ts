@@ -18,6 +18,19 @@ export interface RawGrowthJSONInput {
   measurements?: any;
 }
 
+export type SupportedSexInput = '男子' | '女子' | 'male' | 'female';
+export type NormalizedSex = '男子' | '女子';
+
+export function isValidSex(sexStr: unknown): sexStr is SupportedSexInput {
+  return typeof sexStr === 'string' && ['男子', '女子', 'male', 'female'].includes(sexStr);
+}
+
+export function normalizeSex(sexStr: unknown): NormalizedSex {
+  if (sexStr === '男子' || sexStr === 'male') return '男子';
+  if (sexStr === '女子' || sexStr === 'female') return '女子';
+  throw new Error('性別データが不正です。「男子」または「女子」を指定してください。');
+}
+
 /**
  * Validates a parsed JSON object for growth chart import with detailed field-level error messages.
  */
@@ -75,12 +88,11 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
 
   // 3. Validate Sex
   if (input.sex !== undefined) {
-    const validSexValues = ['男子', '女子', 'male', 'female'];
-    if (!validSexValues.includes(String(input.sex))) {
-      warnings.push({
+    if (!isValidSex(input.sex)) {
+      errors.push({
         field: 'sex',
-        message: `性別「${input.sex}」は未対応です（デフォルトで「男子」として処理されます）。`,
-        severity: 'warning',
+        message: `性別データが不正です（入力値: "${input.sex}"）。「男子」または「女子」を指定してください。`,
+        severity: 'error',
       });
     }
   }

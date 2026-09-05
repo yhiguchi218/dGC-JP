@@ -7,6 +7,8 @@ import {
   calculateStandardWeight,
   calculateStandardWeightByAge,
   calculateHeightVelocity,
+  isSuwaHVInterval,
+  findBestSuwaPair,
   interpolateLMS,
   interpolateHV,
   calculateHVSDS,
@@ -115,9 +117,35 @@ describe('Growth Utils Calculations', () => {
       expect(result?.midpointAge).toBe(10.5);
     });
 
-    it('should return null if interval is less than 1 year', () => {
+    it('should calculate velocity for the minimum raw clinical interval', () => {
       const result = calculateHeightVelocity(130, 10, 133, 10.5);
+      expect(result?.velocity).toBe(6);
+      expect(result?.midpointAge).toBe(10.25);
+    });
+
+    it('should return null if interval is shorter than the raw minimum interval', () => {
+      const result = calculateHeightVelocity(130, 10, 132.5, 10.4);
       expect(result).toBeNull();
+    });
+
+    it('should identify the Suwa interval window boundaries', () => {
+      expect(isSuwaHVInterval(0.95)).toBe(true);
+      expect(isSuwaHVInterval(1.0)).toBe(true);
+      expect(isSuwaHVInterval(1.05)).toBe(true);
+      expect(isSuwaHVInterval(0.94)).toBe(false);
+      expect(isSuwaHVInterval(1.06)).toBe(false);
+    });
+
+    it('should select the prior measurement closest to one year earlier for Suwa pairing', () => {
+      const points = [
+        { age: 4.0, height: 101.0 },
+        { age: 4.9, height: 107.0 },
+        { age: 5.0, height: 107.4 },
+        { age: 6.01, height: 113.8 },
+      ];
+
+      expect(findBestSuwaPair(3, points)).toBe(2);
+      expect(findBestSuwaPair(1, points)).toBeNull();
     });
 
     it('should interpolate Suwa HV reference values and calculate HV-SDS', () => {

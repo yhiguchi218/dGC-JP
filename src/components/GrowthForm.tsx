@@ -9,7 +9,7 @@ import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge } from '../lib/growth-utils';
 import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
-import { validateGrowthJSON, parseDateValue } from '../lib/validation-utils';
+import { validateGrowthJSON, parseDateValue, normalizeSex } from '../lib/validation-utils';
 
 const generateUniqueId = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
@@ -171,12 +171,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         }
 
         // Handle migration from old 'male'/'female' to Japanese if needed
-        let loadedSex = data.sex;
-        if (loadedSex === 'male') loadedSex = '男子';
-        if (loadedSex === 'female') loadedSex = '女子';
-        if (loadedSex !== '男子' && loadedSex !== '女子') {
-          loadedSex = '男子'; // Fallback
-        }
+        const loadedSex = data.sex === undefined ? '男子' : normalizeSex(data.sex);
 
         const loadedBirthDate = parseDateValue(data.birthDate) || new Date(2020, 0, 1);
         const loadedMeasurements = data.measurements.map((m: any) => ({

@@ -157,17 +157,47 @@ function cubicInterpolate(t: number, p0: number, p1: number, p2: number, p3: num
 }
 
 /**
- * Calculates Height Velocity (HV) according to Suwa's method.
+ * Calculates Height Velocity (HV) for any clinically meaningful interval.
  * Returns velocity in cm/year and the midpoint age.
  */
 export function calculateHeightVelocity(h1: number, t1: number, h2: number, t2: number): { velocity: number, midpointAge: number } | null {
   const interval = t2 - t1;
-  if (interval < 0.99) return null; // Minimum 1 year (approx) as per requirement (365 days)
+  if (interval < CLINICAL_LIMITS.HV.RAW_MIN_INTERVAL_YEARS) return null;
   
   const velocity = (h2 - h1) / interval;
   const midpointAge = (t1 + t2) / 2;
   
   return { velocity, midpointAge };
+}
+
+export function isSuwaHVInterval(intervalYears: number): boolean {
+  return (
+    intervalYears >= CLINICAL_LIMITS.HV.SUWA_MIN_INTERVAL_YEARS &&
+    intervalYears <= CLINICAL_LIMITS.HV.SUWA_MAX_INTERVAL_YEARS
+  );
+}
+
+export function findBestSuwaPair(
+  currentIndex: number,
+  points: Array<{ age: number; height: number }>
+): number | null {
+  const current = points[currentIndex];
+  let bestIndex: number | null = null;
+  let bestDistance = Infinity;
+
+  for (let j = 0; j < currentIndex; j++) {
+    const previous = points[j];
+    const interval = current.age - previous.age;
+    if (!isSuwaHVInterval(interval)) continue;
+
+    const distance = Math.abs(interval - CLINICAL_LIMITS.HV.SUWA_TARGET_INTERVAL_YEARS);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = j;
+    }
+  }
+
+  return bestIndex;
 }
 
 /**

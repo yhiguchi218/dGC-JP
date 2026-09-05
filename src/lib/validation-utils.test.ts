@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateGrowthJSON, parseDateValue } from './validation-utils';
+import { validateGrowthJSON, parseDateValue, isValidSex, normalizeSex } from './validation-utils';
 
 describe('JSON Detailed Validation Utils', () => {
   it('should validate valid data successfully', () => {
@@ -55,15 +55,24 @@ describe('JSON Detailed Validation Utils', () => {
     expect(res3.errors.some(e => e.message.includes('未来の日付'))).toBe(true);
   });
 
-  it('should detect empty childId or unrecognized sex and warn', () => {
+  it('should detect empty childId and still warn', () => {
+    const data = {
+      birthDate: '2020/01/01',
+      measurements: [{ date: '2021/01/01', height: 80, weight: 10 }],
+    };
+    const res = validateGrowthJSON(data);
+    expect(res.warnings.some(w => w.field === 'childId')).toBe(true);
+  });
+
+  it('should fail closed for unsupported sex values', () => {
     const data = {
       birthDate: '2020/01/01',
       sex: 'unknown_gender',
       measurements: [{ date: '2021/01/01', height: 80, weight: 10 }],
     };
     const res = validateGrowthJSON(data);
-    expect(res.warnings.some(w => w.field === 'childId')).toBe(true);
-    expect(res.warnings.some(w => w.field === 'sex')).toBe(true);
+    expect(res.isValid).toBe(false);
+    expect(res.errors.some(e => e.field === 'sex')).toBe(true);
   });
 
   it('should detect invalid gestational days and weeks', () => {
@@ -171,6 +180,24 @@ describe('JSON Detailed Validation Utils', () => {
       expect(parseDateValue(123)).toBeNull();
       expect(parseDateValue('completely invalid')).toBeNull();
       expect(parseDateValue(new Date('invalid'))).toBeNull();
+    });
+  });
+
+  describe('sex normalization helpers', () => {
+    it('should recognize all supported Japanese and English sex values', () => {
+      expect(isValidSex('男子')).toBe(true);
+      expect(isValidSex('女子')).toBe(true);
+      expect(isValidSex('male')).toBe(true);
+      expect(isValidSex('female')).toBe(true);
+      expect(isValidSex('other')).toBe(false);
+    });
+
+    it('should normalize English and Japanese sex values', () => {
+      expect(normalizeSex('男子')).toBe('男子');
+      expect(normalizeSex('male')).toBe('男子');
+      expect(normalizeSex('女子')).toBe('女子');
+      expect(normalizeSex('female')).toBe('女子');
+      expect(() => normalizeSex('other')).toThrow('性別データが不正です');
     });
   });
 });
