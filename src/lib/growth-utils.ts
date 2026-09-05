@@ -157,17 +157,106 @@ function cubicInterpolate(t: number, p0: number, p1: number, p2: number, p3: num
 }
 
 /**
- * Calculates Height Velocity (HV) according to Suwa's method.
+ * Calculates Height Velocity (HV) for any clinically meaningful interval.
  * Returns velocity in cm/year and the midpoint age.
  */
 export function calculateHeightVelocity(h1: number, t1: number, h2: number, t2: number): { velocity: number, midpointAge: number } | null {
   const interval = t2 - t1;
-  if (interval < 0.99) return null; // Minimum 1 year (approx) as per requirement (365 days)
+  if (interval < CLINICAL_LIMITS.HV.RAW_MIN_INTERVAL_YEARS) return null;
   
   const velocity = (h2 - h1) / interval;
   const midpointAge = (t1 + t2) / 2;
   
   return { velocity, midpointAge };
+}
+
+export function isSuwaHVInterval(intervalYears: number): boolean {
+  return (
+    intervalYears >= CLINICAL_LIMITS.HV.SUWA_MIN_INTERVAL_YEARS &&
+    intervalYears <= CLINICAL_LIMITS.HV.SUWA_MAX_INTERVAL_YEARS
+  );
+}
+
+export function findBestSuwaPair(
+  currentIndex: number,
+  points: Array<{ age: number; height: number }>
+): number | null {
+  const current = points[currentIndex];
+  let bestIndex: number | null = null;
+  let bestDistance = Infinity;
+
+  for (let j = 0; j < currentIndex; j++) {
+    const previous = points[j];
+    const interval = current.age - previous.age;
+    if (!isSuwaHVInterval(interval)) continue;
+
+    const distance = Math.abs(interval - CLINICAL_LIMITS.HV.SUWA_TARGET_INTERVAL_YEARS);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = j;
+    }
+  }
+
+  return bestIndex;
+}
+
+export type HeightVelocityPoint = {
+  date: Date;
+  age: number;
+  height: number;
+};
+
+type HeightVelocityInterval = {
+  startDate: Date;
+  endDate: Date;
+  midpointAge: number;
+  velocity: number;
+  intervalDays: number;
+  heightDiff: number;
+};
+
+export type HeightVelocityResult = {
+  currentDate: Date;
+  raw: HeightVelocityInterval | null;
+  suwa: (HeightVelocityInterval & { sds: number | null }) | null;
+};
+
+export function calculateHeightVelocityResults(
+  points: HeightVelocityPoint[],
+  sex: 'male' | 'female',
+  suwaTable: HVReferencePoint[]
+): HeightVelocityResult[] {
+  return points.slice(1).map((current, offset) => {
+    const currentIndex = offset + 1;
+    const rawPrevious = points[currentIndex - 1];
+    const rawHV = calculateHeightVelocity(rawPrevious.height, rawPrevious.age, current.height, current.age);
+    const suwaPreviousIndex = findBestSuwaPair(currentIndex, points);
+    const suwaPrevious = suwaPreviousIndex === null ? null : points[suwaPreviousIndex];
+    const suwaHV = suwaPrevious && calculateHeightVelocity(suwaPrevious.height, suwaPrevious.age, current.height, current.age);
+
+    const toInterval = (
+      previous: HeightVelocityPoint,
+      velocity: NonNullable<typeof rawHV>
+    ): HeightVelocityInterval => ({
+      startDate: previous.date,
+      endDate: current.date,
+      midpointAge: velocity.midpointAge,
+      velocity: velocity.velocity,
+      intervalDays: Math.round((current.date.getTime() - previous.date.getTime()) / (1000 * 60 * 60 * 24)),
+      heightDiff: current.height - previous.height,
+    });
+
+    return {
+      currentDate: current.date,
+      raw: rawHV ? toInterval(rawPrevious, rawHV) : null,
+      suwa: suwaPrevious && suwaHV
+        ? {
+            ...toInterval(suwaPrevious, suwaHV),
+            sds: calculateHVSDS(suwaHV.velocity, suwaHV.midpointAge, sex, suwaTable),
+          }
+        : null,
+    };
+  }).filter(result => result.raw !== null || result.suwa !== null);
 }
 
 /**

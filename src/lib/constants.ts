@@ -42,8 +42,13 @@ export const CLINICAL_LIMITS = {
   },
   // Standard Deviation threshold for outlier warnings
   SD_OUTLIER_THRESHOLD: 5, // ±5SD
-  // Minimum interval for height velocity calculation in years (approx 365 days / 347 days for >=0.95)
-  HV_MIN_INTERVAL_YEARS: 0.95,
+  // Height Velocity clinical evaluation criteria
+  HV: {
+    RAW_MIN_INTERVAL_YEARS: 0.5, // Simple mathematical height velocity minimum interval
+    SUWA_TARGET_INTERVAL_YEARS: 1.0, // Suwa standard 1-year target
+    SUWA_MIN_INTERVAL_YEARS: 0.95, // Practical clinical tolerance lower bound (~11.4 months)
+    SUWA_MAX_INTERVAL_YEARS: 1.05, // Practical clinical tolerance upper bound (~12.6 months)
+  },
 } as const;
 
 export const FILE_LIMITS = {
