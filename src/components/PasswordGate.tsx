@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Lock } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
-
-const AUTH_KEY = 'dgc_jp_auth';
-const PASSWORD = 'yhiguchi218@gmail.com';
+import {
+  createReviewAuthSession,
+  isReviewAuthSessionValid,
+  REVIEW_AUTH_STORAGE_KEY,
+  verifyReviewCode,
+} from '../lib/review-auth';
 
 interface PasswordGateProps {
   children: React.ReactNode;
@@ -17,22 +20,31 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(AUTH_KEY);
-    if (saved === 'true') {
-      setIsAuthenticated(true);
-    }
+    localStorage.removeItem('dgc_jp_auth');
+    setIsAuthenticated(isReviewAuthSessionValid(sessionStorage.getItem(REVIEW_AUTH_STORAGE_KEY)));
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === PASSWORD) {
-      setIsAuthenticated(true);
-      localStorage.setItem(AUTH_KEY, 'true');
-      setError('');
-    } else {
-      setError('パスワードが正しくありません。');
+    setIsVerifying(true);
+    setError('');
+
+    try {
+      if (await verifyReviewCode(password)) {
+        sessionStorage.setItem(REVIEW_AUTH_STORAGE_KEY, createReviewAuthSession());
+        setPassword('');
+        setError('');
+        setIsAuthenticated(true);
+      } else {
+        setError('レビュー用パスワードが正しくありません。');
+      }
+    } catch {
+      setError('レビュー用パスワードが正しくありません。');
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -58,15 +70,16 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">パスワード（指定のメールアドレス）</Label>
+              <Label htmlFor="password">レビュー用パスワード</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="メールアドレスを入力"
+                placeholder="パスワードを入力"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 aria-invalid={!!error}
                 aria-describedby={error ? "login-error-msg" : undefined}
+                disabled={isVerifying}
                 className={error ? "border-red-500" : "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700"}
               />
               {error && (
@@ -82,13 +95,14 @@ const PasswordGate: React.FC<PasswordGateProps> = ({ children }) => {
             </div>
             <Button 
               type="submit" 
+              disabled={isVerifying}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              aria-label="パスワードを入力してアプリケーションにアクセス"
+              aria-label="レビュー用パスワードを入力してアプリケーションにアクセス"
             >
-              ログイン
+              {isVerifying ? '確認中...' : 'ログイン'}
             </Button>
             <p className="text-[10px] text-gray-400 dark:text-zinc-500 text-center mt-4">
-              ※本認証はクライアントサイドでの簡易的な制限です。
+              ※本認証はレビュー期間中の簡易的なアクセス制限です。
             </p>
           </form>
         </CardContent>
