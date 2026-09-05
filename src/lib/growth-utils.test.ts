@@ -180,12 +180,12 @@ describe('Growth Utils Calculations', () => {
         { date: july2025, age: 5.5, height: 123 },
         { date: january2026, age: 6, height: 126 },
       ], 'male', SUWA_HV_BOYS);
-      const latest = results[2];
+      const latest = results.find(result => result.currentDate === january2026);
 
-      expect(latest.raw?.startDate).toBe(july2025);
-      expect(latest.raw?.velocity).toBe(6);
-      expect(latest.suwa?.startDate).toBe(january2025);
-      expect(latest.suwa?.velocity).toBe(6);
+      expect(latest?.raw?.startDate).toBe(july2025);
+      expect(latest?.raw?.velocity).toBe(6);
+      expect(latest?.suwa?.startDate).toBe(january2025);
+      expect(latest?.suwa?.velocity).toBe(6);
     });
 
     it('does not calculate raw HV below six months but retains a compatible Suwa pair', () => {
@@ -201,12 +201,48 @@ describe('Growth Utils Calculations', () => {
         { date: october2025, age: 5.75, height: 124.5 },
         { date: january2026, age: 6, height: 126 },
       ], 'male', SUWA_HV_BOYS);
-      const latest = results[3];
+      const latest = results.find(result => result.currentDate === january2026);
 
-      expect(latest.raw).toBeNull();
-      expect(latest.suwa?.startDate).toBe(january2025);
-      expect(latest.suwa?.velocity).toBe(6);
-      expect(latest.suwa?.sds).not.toBeNull();
+      expect(latest?.raw).toBeNull();
+      expect(latest?.suwa?.startDate).toBe(january2025);
+      expect(latest?.suwa?.velocity).toBe(6);
+      expect(latest?.suwa?.sds).not.toBeNull();
+    });
+
+    it('omits entries when neither raw nor Suwa HV can be calculated', () => {
+      const results = calculateHeightVelocityResults([
+        { date: new Date(2025, 0, 1), age: 0, height: 50 },
+        { date: new Date(2025, 1, 1), age: 1 / 12, height: 51 },
+        { date: new Date(2025, 2, 1), age: 2 / 12, height: 52 },
+        { date: new Date(2025, 3, 1), age: 3 / 12, height: 53 },
+      ], 'male', SUWA_HV_BOYS);
+
+      expect(results).toEqual([]);
+    });
+
+    it('retains records that have raw HV but no Suwa-compatible pair', () => {
+      const results = calculateHeightVelocityResults([
+        { date: new Date(2025, 0, 1), age: 0, height: 50 },
+        { date: new Date(2025, 6, 1), age: 0.5, height: 53 },
+      ], 'male', SUWA_HV_BOYS);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].raw).not.toBeNull();
+      expect(results[0].suwa).toBeNull();
+    });
+
+    it('retains records that have Suwa HV but no adjacent raw HV', () => {
+      const results = calculateHeightVelocityResults([
+        { date: new Date(2025, 0, 1), age: 0, height: 50 },
+        { date: new Date(2025, 3, 1), age: 0.25, height: 51.5 },
+        { date: new Date(2025, 6, 1), age: 0.5, height: 53 },
+        { date: new Date(2025, 9, 1), age: 0.75, height: 54.5 },
+        { date: new Date(2026, 0, 1), age: 1, height: 56 },
+      ], 'male', SUWA_HV_BOYS);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].raw).toBeNull();
+      expect(results[0].suwa).not.toBeNull();
     });
 
     it('retains separate raw and Suwa result objects for a one-year interval', () => {

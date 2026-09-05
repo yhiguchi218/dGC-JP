@@ -256,7 +256,7 @@ export function calculateHeightVelocityResults(
           }
         : null,
     };
-  });
+  }).filter(result => result.raw !== null || result.suwa !== null);
 }
 
 /**
