@@ -74,4 +74,22 @@ describe('GrowthDashboard responsive results content', () => {
     expect(measurementCard).toHaveTextContent(/修正 \d+\.\d{4}歳/);
     expect(measurementCard).toHaveTextContent(/修正 満(?:\d+歳)?\d+ヶ月/);
   });
+
+  it('announces and displays the selected obesity calculation basis', () => {
+    render(React.createElement(GrowthDashboard));
+
+    const heightButton = screen.getByRole('button', { name: '性別身長別' });
+    const ageButton = screen.getByRole('button', { name: '性別年齢別' });
+    const measurementCard = screen.getByLabelText('測定日 2020/01/01 の成長評価結果');
+
+    expect(heightButton).toHaveAttribute('aria-pressed', 'true');
+    expect(ageButton).toHaveAttribute('aria-pressed', 'false');
+    expect(measurementCard).toHaveTextContent('肥満度（身長値ベース）');
+
+    fireEvent.click(ageButton);
+
+    expect(heightButton).toHaveAttribute('aria-pressed', 'false');
+    expect(ageButton).toHaveAttribute('aria-pressed', 'true');
+    expect(measurementCard).toHaveTextContent('肥満度（年齢別ベース）');
+  });
 });

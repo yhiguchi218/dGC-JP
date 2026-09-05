@@ -307,9 +307,10 @@ const GrowthDashboard: React.FC = () => {
             <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果</div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
               <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100 print:text-base">評価結果</CardTitle>
-              <div className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-md text-[10px] md:text-xs print:hidden">
+              <div role="group" aria-label="肥満度の算出基準" className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
+                  aria-pressed={obesityMode === 'height'}
                   className={cn(
                     "px-2 py-1 rounded transition-colors",
                     obesityMode === 'height' ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 shadow-sm font-bold" : "text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-600"
@@ -319,6 +320,7 @@ const GrowthDashboard: React.FC = () => {
                 </button>
                 <button 
                   onClick={() => setObesityMode('age')}
+                  aria-pressed={obesityMode === 'age'}
                   className={cn(
                     "px-2 py-1 rounded transition-colors",
                     obesityMode === 'age' ? "bg-white dark:bg-zinc-700 text-gray-900 dark:text-zinc-100 shadow-sm font-bold" : "text-gray-500 dark:text-zinc-400 hover:bg-gray-200 dark:hover:bg-zinc-600"
@@ -487,7 +489,9 @@ const GrowthDashboard: React.FC = () => {
                         </dd>
                         <dt className="text-gray-500 dark:text-zinc-400">BMI</dt>
                         <dd className="text-right font-medium">{d.bmi?.toFixed(1) || '-'}</dd>
-                        <dt className="text-gray-500 dark:text-zinc-400">肥満度</dt>
+                        <dt className="text-gray-500 dark:text-zinc-400">
+                          肥満度（{obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}）
+                        </dt>
                         <dd className="text-right font-medium">
                           {currentObesity !== null ? (
                             <span className={cn(
