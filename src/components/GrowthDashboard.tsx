@@ -329,7 +329,7 @@ const GrowthDashboard: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div role="region" aria-labelledby="results-title" className="overflow-x-auto">
+              <div role="region" aria-labelledby="results-title" className="hidden overflow-x-auto md:block print:block">
                 <table className="w-full text-sm text-left">
                   <caption className="sr-only" id="results-title">
                     お子さんの成長データ評価結果。各行は測定日ごとの測定値、年齢、身長SDS、体重SDS、BMI、肥満度を表示しています。
@@ -428,6 +428,80 @@ const GrowthDashboard: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+              <div className="space-y-3 md:hidden print:hidden">
+                {processedData.map((d) => {
+                  const currentObesity = obesityMode === 'height' ? d.obesityIndex : d.obesityIndexAge;
+                  return (
+                    <article
+                      key={d.id}
+                      aria-label={`測定日 ${format(d.date, 'yyyy/MM/dd')} の成長評価結果`}
+                      className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-900 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                    >
+                      <div className="border-b border-gray-100 pb-3 dark:border-zinc-800">
+                        <div className="font-semibold">{format(d.date, 'yyyy/MM/dd')}</div>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-semibold">{d.age.toFixed(4)}歳</span>
+                          {d.showCorrected && (
+                            <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-zinc-200 dark:ring-zinc-600">
+                              修正 {d.correctedAge.toFixed(4)}歳
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
+                          {calculateFullMonthsAge(formData.birthDate, d.date)}
+                          {d.showCorrected && (
+                            <span>
+                              {' / 修正 '}
+                              {calculateFullMonthsAge(
+                                getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays),
+                                d.date
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                        <dt className="text-gray-500 dark:text-zinc-400">身長</dt>
+                        <dd className="text-right font-medium">
+                          {d.height ? `${d.height}cm` : '-'}
+                          {d.heightSDS !== undefined && (
+                            <span className={cn(
+                              "ml-2 text-xs",
+                              Math.abs(d.heightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
+                            )}>
+                              {d.heightSDS.toFixed(2)}SD
+                            </span>
+                          )}
+                        </dd>
+                        <dt className="text-gray-500 dark:text-zinc-400">体重</dt>
+                        <dd className="text-right font-medium">
+                          {d.weight ? `${d.weight}kg` : '-'}
+                          {d.weightSDS !== undefined && (
+                            <span className={cn(
+                              "ml-2 text-xs",
+                              Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
+                            )}>
+                              {d.weightSDS.toFixed(2)}SD
+                            </span>
+                          )}
+                        </dd>
+                        <dt className="text-gray-500 dark:text-zinc-400">BMI</dt>
+                        <dd className="text-right font-medium">{d.bmi?.toFixed(1) || '-'}</dd>
+                        <dt className="text-gray-500 dark:text-zinc-400">肥満度</dt>
+                        <dd className="text-right font-medium">
+                          {currentObesity !== null ? (
+                            <span className={cn(
+                              currentObesity > 20 ? "text-orange-500 dark:text-orange-400 font-bold" : currentObesity < -20 ? "text-blue-500 dark:text-blue-400 font-bold" : ""
+                            )}>
+                              {currentObesity.toFixed(1)}%
+                            </span>
+                          ) : <span className="text-[10px] text-gray-300 dark:text-zinc-600">算出不可</span>}
+                        </dd>
+                      </dl>
+                    </article>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
  
@@ -448,42 +522,47 @@ const GrowthDashboard: React.FC = () => {
                 <div className="space-y-4 print:space-y-1">
                   {heightVelocity.map((hv, i) => (
                     <div key={i} className={cn(
-                      "flex items-center justify-between p-4 bg-white dark:bg-zinc-900 rounded-lg border shadow-sm print:p-2 print:shadow-none print:border-gray-100 text-xs transition-colors", 
+                      "p-4 bg-white dark:bg-zinc-900 rounded-lg border shadow-sm print:p-2 print:shadow-none print:border-gray-100 text-xs transition-colors",
                       formData.sex === '男子' ? "border-blue-100 dark:border-blue-900/50" : "border-pink-100 dark:border-pink-900/50"
                     )}>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="text-sm text-gray-500 dark:text-zinc-400 print:text-[8px]">直近HV</div>
+                      <div className="mb-3 text-right text-xs text-gray-500 dark:text-zinc-400 print:mb-1 print:text-[8px]">
+                        測定日: {format(hv.currentDate, 'yyyy/MM/dd')}
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 print:grid-cols-2 print:gap-1">
+                        <section aria-labelledby={`raw-hv-${i}`} className="min-w-0 rounded border border-gray-200 p-3 dark:border-zinc-700 print:p-1">
+                          <h3 id={`raw-hv-${i}`} className="text-sm font-medium text-gray-500 dark:text-zinc-400 print:text-[8px]">直近HV</h3>
                           {hv.raw ? (
                             <>
-                              <div className={cn("text-2xl font-bold print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>HV: {hv.raw.velocity.toFixed(2)} cm/年</div>
-                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.raw.heightDiff.toFixed(1)} cm / {hv.raw.intervalDays}日</div>
-                            </>
-                          ) : <div className="text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>}
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500 dark:text-zinc-400 print:text-[8px]">12か月HV（Suwa基準）</div>
-                          {hv.suwa ? (
-                            <>
-                              <div className={cn("text-2xl font-bold print:text-sm", formData.sex === '男子' ? "text-blue-600 dark:text-blue-400" : "text-pink-600 dark:text-pink-400")}>HV: {hv.suwa.velocity.toFixed(2)} cm/年</div>
-                              {hv.suwa.sds !== null ? (
-                                <div className={cn("text-xs print:text-[8px]", getSuwaHVSDSClass(hv.suwa.sds, formData.sex))}>HV-SDS: {hv.suwa.sds.toFixed(2)}</div>
-                              ) : (
-                                <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
-                              )}
-                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.suwa.heightDiff.toFixed(1)} cm / {hv.suwa.intervalDays}日</div>
+                              <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-zinc-100 print:text-sm">{hv.raw.velocity.toFixed(2)} cm/年</div>
+                              <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.raw.heightDiff.toFixed(1)} cm / {hv.raw.intervalDays}日</div>
                             </>
                           ) : (
                             <>
-                              <div className="text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>
-                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
-                              <div className="text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">Suwa法によるHV-SDSは約12か月間隔の測定値で算出します</div>
+                              <div className="mt-1 text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>
+                              <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">算出可能な測定間隔がありません</div>
                             </>
                           )}
-                        </div>
-                      </div>
-                      <div className="text-right text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">
-                        測定日: {format(hv.currentDate, 'yyyy/MM/dd')}
+                        </section>
+                        <section aria-labelledby={`suwa-hv-${i}`} className="min-w-0 rounded border border-gray-200 p-3 dark:border-zinc-700 print:p-1">
+                          <h3 id={`suwa-hv-${i}`} className="text-sm font-medium text-gray-500 dark:text-zinc-400 print:text-[8px]">12か月HV（Suwa基準）</h3>
+                          {hv.suwa ? (
+                            <>
+                              <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-zinc-100 print:text-sm">{hv.suwa.velocity.toFixed(2)} cm/年</div>
+                              {hv.suwa.sds !== null ? (
+                                <div className={cn("mt-1 text-xs print:text-[8px]", getSuwaHVSDSClass(hv.suwa.sds, formData.sex))}>HV-SDS: {hv.suwa.sds.toFixed(2)}</div>
+                              ) : (
+                                <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
+                              )}
+                              <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.suwa.heightDiff.toFixed(1)} cm / {hv.suwa.intervalDays}日</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="mt-1 text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>
+                              <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
+                              <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">Suwa法によるHV-SDSは約12か月間隔の測定値で算出します</div>
+                            </>
+                          )}
+                        </section>
                       </div>
                     </div>
                   ))}
