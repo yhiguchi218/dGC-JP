@@ -213,7 +213,7 @@ const GrowthDashboard: React.FC = () => {
   }, [processedData]);
 
   return (
-    <main id="main-content" tabIndex={-1} className="focus:outline-none max-w-7xl mx-auto p-4 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none print:overflow-visible">
+    <main id="main-content" tabIndex={-1} className="focus:outline-none max-w-7xl mx-auto p-4 pb-28 md:p-8 space-y-8 print:m-0 print:p-0 print:max-w-none print:overflow-visible">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-zinc-800 pb-4 print:hidden transition-colors">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-zinc-100 tracking-tight">dGC-JP</h1>
@@ -229,7 +229,7 @@ const GrowthDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start print:block">
         {/* Left Column: Input Forms */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-8 print:hidden">
+        <div id="input-section" className="lg:col-span-4 space-y-6 scroll-mt-4 lg:sticky lg:top-8 print:hidden">
           <GrowthForm onDataChange={setFormData} initialData={formData} />
         </div>
 
@@ -272,7 +272,7 @@ const GrowthDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-zinc-800 gap-4 print:hidden transition-colors">
+          <div id="chart-section" className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-zinc-800 gap-4 scroll-mt-4 print:hidden transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">表示範囲:</span>
               <Select 
@@ -310,7 +310,7 @@ const GrowthDashboard: React.FC = () => {
             />
           </div>
 
-          <Card className="border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:shadow-none print:border-none print:m-0 print:p-0 transition-colors">
+          <Card id="results-section" className="border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 scroll-mt-4 print:shadow-none print:border-none print:m-0 print:p-0 transition-colors">
             <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果</div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
               <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100 print:text-base">評価結果</CardTitle>
@@ -517,7 +517,7 @@ const GrowthDashboard: React.FC = () => {
           </Card>
  
           {heightVelocity.length > 0 && (
-            <Card className={cn(
+            <Card id="hv-section" className={cn(
               "border-opacity-50 print:border print:border-gray-200 print:bg-white print:p-2 transition-colors", 
               formData.sex === '男子' 
                 ? "border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20" 
@@ -614,6 +614,15 @@ const GrowthDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <nav aria-label="画面内ナビゲーション" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur md:hidden print:hidden dark:border-zinc-700 dark:bg-zinc-900/95">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          <a href="#input-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">入力</a>
+          <a href="#chart-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">成長曲線</a>
+          <a href="#results-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">評価結果</a>
+          <a href="#hv-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">HV</a>
+        </div>
+      </nav>
 
       {/* Screen Reader Announcements for Dynamic Data Updates */}
       <div 
