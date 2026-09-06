@@ -110,6 +110,11 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   const primaryUnitClass = isMale ? 'text-blue-400 dark:text-blue-300' : 'text-pink-400 dark:text-pink-300';
 
   const handleSaveJSON = () => {
+    if (!isValidGestationalDays(gestationalDays)) {
+      alert('在胎日数を0〜6日の整数に修正してからデータを保存してください。');
+      return;
+    }
+
     const data = {
       childId,
       birthDate: format(birthDate, "yyyy/MM/dd"),

@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import GrowthForm from './GrowthForm';
 
 expect.extend(matchers);
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('GrowthForm Component Integration / E2E Tests', () => {
   const defaultInitialData = {
@@ -127,6 +132,46 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(daysInput).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('在胎日数は0〜6日の整数で入力してください')).toBeInTheDocument();
     expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalDays: 7 }));
+  });
+
+  it.each(['7', ''])('does not export JSON for invalid gestational days: %s', (value) => {
+    const handleDataChange = vi.fn();
+    const createObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.stubGlobal('alert', vi.fn());
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+    render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+    fireEvent.change(screen.getByLabelText('在胎期間 (日)'), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: /現在の入力データをJSONファイル形式/ }));
+
+    expect(window.alert).toHaveBeenCalledWith('在胎日数を0〜6日の整数に修正してからデータを保存してください。');
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 6])('exports valid gestational days as a number: %i', (gestationalDays) => {
+    const handleDataChange = vi.fn();
+    const createObjectURL = vi.fn(() => 'blob:test');
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const NativeBlob = Blob;
+    let serializedData = '';
+    class CapturingBlob extends NativeBlob {
+      constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+        serializedData = parts.join('');
+        super(parts, options);
+      }
+    }
+
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+    vi.stubGlobal('Blob', CapturingBlob);
+    render(<GrowthForm initialData={{ ...defaultInitialData, gestationalDays }} onDataChange={handleDataChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /現在の入力データをJSONファイル形式/ }));
+
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(click).toHaveBeenCalledOnce();
+    expect(JSON.parse(serializedData)).toEqual(expect.objectContaining({ gestationalDays }));
   });
 
   it('displays warning when measurement date is before birth date', () => {
