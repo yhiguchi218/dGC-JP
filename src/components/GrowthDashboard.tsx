@@ -620,7 +620,9 @@ const GrowthDashboard: React.FC = () => {
           <a href="#input-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">入力</a>
           <a href="#chart-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">成長曲線</a>
           <a href="#results-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">評価結果</a>
-          <a href="#hv-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">HV</a>
+          {heightVelocity.length > 0 && (
+            <a href="#hv-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">HV</a>
+          )}
         </div>
       </nav>
 

@@ -116,6 +116,14 @@ describe('GrowthDashboard responsive results content', () => {
     });
   });
 
+  it('hides the HV navigation link when no height-velocity results exist', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '35週6日のデータを表示' }));
+
+    expect(screen.queryByRole('link', { name: 'HV' })).toBeNull();
+    expect(document.querySelector('#hv-section')).toBeNull();
+  });
+
   it.each([
     ['早産児データを表示', '35週0日', true],
     ['35週6日のデータを表示', '35週6日', true],
