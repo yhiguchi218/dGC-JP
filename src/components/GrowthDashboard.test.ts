@@ -98,15 +98,27 @@ describe('Suwa HV-SDS display styling', () => {
 
 describe('GrowthDashboard responsive results content', () => {
   it.each([
-    ['早産児データを表示', true],
-    ['35週6日のデータを表示', true],
-    ['35週7日のデータを表示', false],
-    ['35週NaN日のデータを表示', false],
-  ])('displays preterm correction status only when gestational days are valid: %s', (buttonName, expected) => {
+    ['早産児データを表示', '35週0日', true],
+    ['35週6日のデータを表示', '35週6日', true],
+  ])('displays valid gestational days and preterm correction status: %s', (buttonName, gestationalAge, expected) => {
     render(React.createElement(GrowthDashboard));
     fireEvent.click(screen.getByRole('button', { name: buttonName }));
 
+    expect(screen.getByText(gestationalAge)).toBeInTheDocument();
     expect(screen.queryByText('(早産期修正)')).toBe(expected ? screen.getByText('(早産期修正)') : null);
+  });
+
+  it.each([
+    ['35週7日のデータを表示', '35週7日'],
+    ['35週NaN日のデータを表示', 'NaN'],
+  ])('does not print invalid gestational days: %s', (buttonName, invalidValue) => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: buttonName }));
+
+    const gestationalAge = screen.getByText('在胎期間').parentElement;
+    expect(gestationalAge).toHaveTextContent('35週（在胎日数要確認）');
+    expect(gestationalAge).not.toHaveTextContent(invalidValue);
+    expect(gestationalAge).not.toHaveTextContent('(早産期修正)');
   });
 
   it('does not display preterm correction status for term births', () => {

@@ -65,7 +65,8 @@ const GrowthDashboard: React.FC = () => {
   });
 
   const isPreterm = formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD;
-  const isPretermCorrectionEligible = isPreterm && isValidGestationalDays(formData.gestationalDays);
+  const hasValidGestationalDays = isValidGestationalDays(formData.gestationalDays);
+  const isPretermCorrectionEligible = isPreterm && hasValidGestationalDays;
   const sexKey: 'male' | 'female' = formData.sex === '男子' ? 'male' : 'female';
 
   // Selected gender tables
@@ -262,7 +263,9 @@ const GrowthDashboard: React.FC = () => {
               <div>
                 <span className="text-gray-500 block text-[9px] uppercase tracking-wider">在胎期間</span>
                 <span className="font-bold text-gray-950">
-                  {formData.gestationalWeeks}週{formData.gestationalDays}日
+                  {hasValidGestationalDays
+                    ? `${formData.gestationalWeeks}週${formData.gestationalDays}日`
+                    : `${formData.gestationalWeeks}週（在胎日数要確認）`}
                   {isPretermCorrectionEligible && <span className="text-emerald-700 ml-1 text-[9px]">(早産期修正)</span>}
                 </span>
               </div>
