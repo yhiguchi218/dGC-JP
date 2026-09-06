@@ -134,7 +134,14 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalDays: 7 }));
   });
 
-  it.each(['7', ''])('does not export JSON for invalid gestational days: %s', (value) => {
+  it.each([
+    ['7', 7],
+    ['', Number.NaN],
+    [' ', Number.NaN],
+    ['　', Number.NaN],
+    ['1e0', Number.NaN],
+    ['0x0', Number.NaN],
+  ])('does not export JSON for invalid gestational days: %s', (value, expectedDays) => {
     const handleDataChange = vi.fn();
     const createObjectURL = vi.fn();
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -148,6 +155,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(window.alert).toHaveBeenCalledWith('在胎日数を0〜6日の整数に修正してからデータを保存してください。');
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(click).not.toHaveBeenCalled();
+    expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalDays: expectedDays }));
   });
 
   it.each([0, 6])('exports valid gestational days as a number: %i', (gestationalDays) => {

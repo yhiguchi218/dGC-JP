@@ -375,7 +375,8 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
               value={gestationalDaysInput}
               onChange={(e) => {
                 const value = toHalfWidth(e.target.value);
-                const days = value === '' ? Number.NaN : Number(value);
+                const normalized = value.trim();
+                const days = /^\d+$/.test(normalized) ? Number(normalized) : Number.NaN;
                 setGestationalDaysInput(value);
                 setGestationalDays(days);
                 triggerChange({ gestationalDays: days });
