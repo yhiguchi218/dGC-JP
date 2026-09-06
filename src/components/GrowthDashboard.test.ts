@@ -47,6 +47,39 @@ vi.mock('./GrowthForm', () => ({
           measurements: [{ id: '1', date: new Date(2020, 1, 12), height: 54, weight: 4.2 }],
         }),
       }, '修正年齢0のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'preterm-valid-days-six',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 35,
+          gestationalDays: 6,
+          measurements: [],
+        }),
+      }, '35週6日のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'preterm-invalid-days-seven',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 35,
+          gestationalDays: 7,
+          measurements: [],
+        }),
+      }, '35週7日のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'preterm-invalid-days-nan',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 35,
+          gestationalDays: Number.NaN,
+          measurements: [],
+        }),
+      }, '35週NaN日のデータを表示')
     )
   ),
 }));
@@ -64,6 +97,24 @@ describe('Suwa HV-SDS display styling', () => {
 });
 
 describe('GrowthDashboard responsive results content', () => {
+  it.each([
+    ['早産児データを表示', true],
+    ['35週6日のデータを表示', true],
+    ['35週7日のデータを表示', false],
+    ['35週NaN日のデータを表示', false],
+  ])('displays preterm correction status only when gestational days are valid: %s', (buttonName, expected) => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: buttonName }));
+
+    expect(screen.queryByText('(早産期修正)')).toBe(expected ? screen.getByText('(早産期修正)') : null);
+  });
+
+  it('does not display preterm correction status for term births', () => {
+    render(React.createElement(GrowthDashboard));
+
+    expect(screen.queryByText('(早産期修正)')).toBeNull();
+  });
+
   it('renders separate Raw and Suwa HV cards using the existing calculated results', () => {
     render(React.createElement(GrowthDashboard));
 
