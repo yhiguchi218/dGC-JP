@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, parse, isValid } from 'date-fns';
 import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { calculateDecimalAge } from '../lib/growth-utils';
+import { calculateDecimalAge, isValidGestationalDays } from '../lib/growth-utils';
 import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
 import { validateGrowthJSON, parseDateValue, normalizeSex } from '../lib/validation-utils';
 
@@ -66,6 +66,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   const [sex, setSex] = useState<'男子' | '女子'>(initialData?.sex || '男子');
   const [gestationalWeeks, setGestationalWeeks] = useState(initialData?.gestationalWeeks || 40);
   const [gestationalDays, setGestationalDays] = useState(initialData?.gestationalDays || 0);
+  const [gestationalDaysInput, setGestationalDaysInput] = useState(String(initialData?.gestationalDays ?? 0));
   const [measurements, setMeasurements] = useState<MeasurementEntry[]>(initialData?.measurements || [
     { id: '1', date: new Date(), height: 100, weight: 15 }
   ]);
@@ -109,6 +110,11 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   const primaryUnitClass = isMale ? 'text-blue-400 dark:text-blue-300' : 'text-pink-400 dark:text-pink-300';
 
   const handleSaveJSON = () => {
+    if (!isValidGestationalDays(gestationalDays)) {
+      alert('在胎日数を0〜6日の整数に修正してからデータを保存してください。');
+      return;
+    }
+
     const data = {
       childId,
       birthDate: format(birthDate, "yyyy/MM/dd"),
@@ -186,6 +192,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         setSex(loadedSex);
         setGestationalWeeks(data.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT);
         setGestationalDays(data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT);
+        setGestationalDaysInput(String(data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT));
         setMeasurements(loadedMeasurements);
 
         onDataChange({
@@ -365,15 +372,34 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
               id="gestationalDays"
               type="text" 
               inputMode="numeric"
-              value={gestationalDays} 
+              value={gestationalDaysInput}
               onChange={(e) => {
-                const sanitized = sanitizeNumericInput(e.target.value, false);
-                const v = parseInt(sanitized) || 0;
-                setGestationalDays(v);
-                triggerChange({ gestationalDays: v });
-              }} 
-              className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100"
+                const value = toHalfWidth(e.target.value);
+                const normalized = value.trim();
+                const days = /^\d+$/.test(normalized) ? Number(normalized) : Number.NaN;
+                setGestationalDaysInput(value);
+                setGestationalDays(days);
+                triggerChange({ gestationalDays: days });
+              }}
+              aria-invalid={!isValidGestationalDays(gestationalDays)}
+              aria-describedby={!isValidGestationalDays(gestationalDays) ? 'days-warning' : undefined}
+              className={cn(
+                "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100",
+                !isValidGestationalDays(gestationalDays) && "border-amber-600 bg-amber-50 dark:bg-amber-950/40"
+              )}
             />
+            {!isValidGestationalDays(gestationalDays) && (
+              <div
+                id="days-warning"
+                role="alert"
+                aria-live="polite"
+                aria-atomic="true"
+                className="text-xs text-amber-900 dark:text-amber-200 font-bold bg-amber-100 dark:bg-amber-950/60 p-2 rounded border-l-4 border-amber-800 dark:border-amber-500 flex items-center gap-1 mt-1"
+              >
+                <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>在胎日数は0〜6日の整数で入力してください</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

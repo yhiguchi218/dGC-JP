@@ -16,7 +16,8 @@ import {
   calculateDecimalAge,
   calculateCorrectedAge,
   calculateFullMonthsAge,
-  getCorrectedBirthDate
+  getCorrectedBirthDate,
+  isValidGestationalDays
 } from './growth-utils';
 import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 
@@ -327,6 +328,17 @@ describe('Growth Utils Calculations', () => {
   });
 
   describe('calculateCorrectedAge Preterm Logic', () => {
+    it('should accept only whole gestational days from 0 through 6', () => {
+      expect(isValidGestationalDays(0)).toBe(true);
+      expect(isValidGestationalDays(6)).toBe(true);
+      expect(isValidGestationalDays(-1)).toBe(false);
+      expect(isValidGestationalDays(7)).toBe(false);
+      expect(isValidGestationalDays(1.5)).toBe(false);
+      expect(isValidGestationalDays(Number.NaN)).toBe(false);
+      expect(isValidGestationalDays(Infinity)).toBe(false);
+      expect(isValidGestationalDays('3')).toBe(false);
+    });
+
     it('should not apply corrected age for term infants (>=37 weeks)', () => {
       const birth = new Date('2020-01-01');
       const measure = new Date('2020-04-01');
@@ -366,6 +378,25 @@ describe('Growth Utils Calculations', () => {
       const corrected = calculateCorrectedAge(birth, measure, 32, 0);
       expect(corrected).toBe(uncorrected);
     });
+
+    it('should apply correction at exactly 3 years old but not after the boundary', () => {
+      const birth = new Date('2020-01-01');
+      const exactlyThree = new Date('2023-01-01');
+      const justOverThree = new Date('2023-01-02');
+
+      expect(calculateCorrectedAge(birth, exactlyThree, 32, 0)).not.toBe(calculateDecimalAge(birth, exactlyThree));
+      expect(calculateCorrectedAge(birth, justOverThree, 32, 0)).toBe(calculateDecimalAge(birth, justOverThree));
+    });
+
+    it('should preserve a corrected age of zero and fail closed for invalid gestational days', () => {
+      const birth = new Date('2020-01-01');
+      const correctedBirthDate = new Date('2020-02-12');
+
+      expect(calculateCorrectedAge(birth, correctedBirthDate, 34, 0)).toBe(0);
+      [-1, 7, 1.5, Number.NaN, Infinity].forEach((days) => {
+        expect(calculateCorrectedAge(birth, correctedBirthDate, 34, days)).toBeNull();
+      });
+    });
   });
 
   describe('getCorrectedBirthDate', () => {
@@ -381,6 +412,13 @@ describe('Growth Utils Calculations', () => {
       const corrected = getCorrectedBirthDate(birth, 36, 0);
       expect(corrected.getDate()).toBe(29);
       expect(corrected.getMonth()).toBe(0); // January 29
+    });
+
+    it('should not generate a corrected birth date for invalid gestational days', () => {
+      const birth = new Date('2020-01-01');
+      [-1, 7, 1.5, Number.NaN, Infinity].forEach((days) => {
+        expect(getCorrectedBirthDate(birth, 34, days)).toBeNull();
+      });
     });
   });
 

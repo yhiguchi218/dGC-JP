@@ -51,11 +51,21 @@ export function calculateDecimalAge(birthDate: Date, measurementDate: Date): num
   return age;
 }
 
+export function isValidGestationalDays(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isFinite(value)
+    && Number.isInteger(value)
+    && value >= CLINICAL_LIMITS.GESTATION_DAYS.MIN
+    && value <= CLINICAL_LIMITS.GESTATION_DAYS.MAX;
+}
+
 /**
  * Calculates corrected age for premature infants.
  * Only applicable up to 3 years old.
  */
 export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number | null {
+  if (!isValidGestationalDays(gestationalDays)) return null;
+
   const age = calculateDecimalAge(birthDate, measurementDate);
   if (age === null || age > CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) return age; // Do not apply correction if child is over 3y or age is invalid
 
@@ -426,7 +436,9 @@ export function calculateFullMonthsAge(birthDate: Date, measurementDate: Date): 
 /**
  * Returns the corrected birth date based on gestational age
  */
-export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: number, gestationalDays: number = 0): Date {
+export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: number, gestationalDays: number = 0): Date | null {
+  if (!isValidGestationalDays(gestationalDays)) return null;
+
   let weeks = gestationalWeeks;
   let days = gestationalDays;
   
