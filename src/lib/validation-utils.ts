@@ -1,6 +1,6 @@
 import { isValid, parse, isAfter } from 'date-fns';
 import { CLINICAL_LIMITS, DetailedValidationResult, ValidationIssue } from './constants';
-import { calculateDecimalAge } from './growth-utils';
+import { calculateDecimalAge, isValidGestationalDays } from './growth-utils';
 
 export interface RawMeasurementInput {
   id?: string;
@@ -110,12 +110,11 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   }
 
   if (input.gestationalDays !== undefined) {
-    const days = Number(input.gestationalDays);
-    if (isNaN(days) || days < CLINICAL_LIMITS.GESTATION_DAYS.MIN || days > CLINICAL_LIMITS.GESTATION_DAYS.MAX) {
-      warnings.push({
+    if (!isValidGestationalDays(input.gestationalDays)) {
+      errors.push({
         field: 'gestationalDays',
-        message: `在胎日数 (${input.gestationalDays}日) が0〜6日の範囲外です。`,
-        severity: 'warning',
+        message: `在胎日数は${CLINICAL_LIMITS.GESTATION_DAYS.MIN}〜${CLINICAL_LIMITS.GESTATION_DAYS.MAX}日の整数で指定してください。`,
+        severity: 'error',
       });
     }
   }

@@ -21,20 +21,33 @@ vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => null }));
 
 vi.mock('./GrowthForm', () => ({
   default: ({ onDataChange }: { onDataChange: (data: unknown) => void }) => (
-    React.createElement('button', {
-      type: 'button',
-      onClick: () => onDataChange({
-        childId: 'preterm',
-        birthDate: new Date(2020, 0, 1),
-        sex: '女子',
-        gestationalWeeks: 35,
-        gestationalDays: 0,
-        measurements: [
-          { id: '1', date: new Date(2020, 0, 1), height: 45, weight: 2.2 },
-          { id: '2', date: new Date(2021, 0, 1), height: 74, weight: 9.2 },
-        ],
-      }),
-    }, '早産児データを表示')
+    React.createElement(React.Fragment, null,
+      React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'preterm',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 35,
+          gestationalDays: 0,
+          measurements: [
+            { id: '1', date: new Date(2020, 0, 1), height: 45, weight: 2.2 },
+            { id: '2', date: new Date(2021, 0, 1), height: 74, weight: 9.2 },
+          ],
+        }),
+      }, '早産児データを表示'),
+      React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'corrected-age-zero',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 34,
+          gestationalDays: 0,
+          measurements: [{ id: '1', date: new Date(2020, 1, 12), height: 54, weight: 4.2 }],
+        }),
+      }, '修正年齢0のデータを表示')
+    )
   ),
 }));
 
@@ -73,6 +86,13 @@ describe('GrowthDashboard responsive results content', () => {
     expect(measurementCard).toHaveTextContent(/満(?:\d+歳)?\d+ヶ月/);
     expect(measurementCard).toHaveTextContent(/修正 \d+\.\d{4}歳/);
     expect(measurementCard).toHaveTextContent(/修正 満(?:\d+歳)?\d+ヶ月/);
+  });
+
+  it('preserves a corrected age of zero in the dashboard display', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '修正年齢0のデータを表示' }));
+
+    expect(screen.getByLabelText('測定日 2020/02/12 の成長評価結果')).toHaveTextContent('修正 0.0000歳');
   });
 
   it('announces and displays the selected obesity calculation basis', () => {

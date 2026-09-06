@@ -116,6 +116,19 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(screen.getByText(/44週以上は44週0日として計算されます/)).toBeInTheDocument();
   });
 
+  it('keeps invalid gestational days visible and reports them as invalid', () => {
+    const handleDataChange = vi.fn();
+    render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+    const daysInput = screen.getByLabelText('在胎期間 (日)');
+    fireEvent.change(daysInput, { target: { value: '7' } });
+
+    expect(daysInput).toHaveValue('7');
+    expect(daysInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('在胎日数は0〜6日の整数で入力してください')).toBeInTheDocument();
+    expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalDays: 7 }));
+  });
+
   it('displays warning when measurement date is before birth date', () => {
     const handleDataChange = vi.fn();
     const dataBeforeBirth = {

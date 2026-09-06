@@ -80,8 +80,9 @@ const GrowthDashboard: React.FC = () => {
         if (age === null) return null;
 
         const correctedAge = calculateCorrectedAge(formData.birthDate, m.date, formData.gestationalWeeks, formData.gestationalDays);
+        const correctedBirthDate = getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays);
         // Corrected age is clinically applied up to 3.0 years
-        const showCorrected = isPreterm && correctedAge !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
+        const showCorrected = isPreterm && correctedAge !== null && correctedBirthDate !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
 
         const heightVal = typeof m.height === 'string' ? parseFloat(m.height) : m.height;
         const weightVal = typeof m.weight === 'string' ? parseFloat(m.weight) : m.weight;
@@ -91,8 +92,8 @@ const GrowthDashboard: React.FC = () => {
         if (heightVal !== undefined && !isNaN(heightVal)) {
           const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
           if (effectiveAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) {
-            const referenceBirthDate = showCorrected
-              ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
+            const referenceBirthDate = showCorrected && correctedBirthDate
+              ? correctedBirthDate
               : formData.birthDate;
             const months = differenceInMonths(m.date, referenceBirthDate);
             if (months >= 0 && months < fuhyoTable.length) {
@@ -133,7 +134,8 @@ const GrowthDashboard: React.FC = () => {
           id: m.id,
           date: m.date,
           age,
-          correctedAge: correctedAge || age,
+          correctedAge: correctedAge ?? age,
+          correctedBirthDate,
           showCorrected,
           height: heightVal,
           weight: weightVal,
@@ -378,12 +380,12 @@ const GrowthDashboard: React.FC = () => {
                             <div className="text-[11px] text-gray-500 dark:text-zinc-400 font-normal mt-0.5 leading-tight print:text-[6.5pt]">
                               {calculateFullMonthsAge(formData.birthDate, d.date)}
                             </div>
-                            {d.showCorrected && (
+                            {d.showCorrected && d.correctedBirthDate && (
                               <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold print:text-[6pt] mt-1.5 pt-1.5 border-t border-emerald-100/30">
                                 <div>修正: {d.correctedAge.toFixed(4)}歳</div>
                                 <div className="text-[9px] text-emerald-500 dark:text-emerald-400 font-normal mt-0.5 print:text-[5.5pt]">
                                   {calculateFullMonthsAge(
-                                    getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays),
+                                    d.correctedBirthDate,
                                     d.date
                                   )}
                                 </div>
@@ -443,7 +445,7 @@ const GrowthDashboard: React.FC = () => {
                         <div className="font-semibold">{format(d.date, 'yyyy/MM/dd')}</div>
                         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="font-semibold">{d.age.toFixed(4)}歳</span>
-                          {d.showCorrected && (
+                          {d.showCorrected && d.correctedBirthDate && (
                             <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 dark:text-zinc-200 dark:ring-zinc-600">
                               修正 {d.correctedAge.toFixed(4)}歳
                             </span>
@@ -455,7 +457,7 @@ const GrowthDashboard: React.FC = () => {
                             <span>
                               {' / 修正 '}
                               {calculateFullMonthsAge(
-                                getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays),
+                                d.correctedBirthDate,
                                 d.date
                               )}
                             </span>

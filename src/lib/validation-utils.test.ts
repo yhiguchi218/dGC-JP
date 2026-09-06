@@ -85,8 +85,21 @@ describe('JSON Detailed Validation Utils', () => {
     };
     const res = validateGrowthJSON(data);
     expect(res.warnings.some(w => w.field === 'gestationalWeeks')).toBe(true);
-    expect(res.warnings.some(w => w.field === 'gestationalDays')).toBe(true);
+    expect(res.isValid).toBe(false);
+    expect(res.errors.some(e => e.field === 'gestationalDays')).toBe(true);
+    expect(res.errors.some(e => e.message === '在胎日数は0〜6日の整数で指定してください。')).toBe(true);
     expect(res.warnings.some(w => w.field === 'measurements')).toBe(true);
+  });
+
+  it.each([-1, 7, 1.5, Number.NaN, Infinity, 'invalid'])('rejects invalid gestational days: %s', (gestationalDays) => {
+    const res = validateGrowthJSON({
+      birthDate: '2020/01/01',
+      gestationalDays,
+      measurements: [],
+    });
+
+    expect(res.isValid).toBe(false);
+    expect(res.errors.some(e => e.field === 'gestationalDays')).toBe(true);
   });
 
   it('should detect measurement date before birth date with row numbers', () => {
