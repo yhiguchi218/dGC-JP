@@ -1,9 +1,9 @@
 # dGC-JP: 日本版デジタル成長曲線 (Digital Growth Chart for Japan)
 
 [![Quality gate](https://github.com/yhiguchi218/dGC-JP/actions/workflows/deploy.yml/badge.svg)](https://github.com/yhiguchi218/dGC-JP/actions/workflows/deploy.yml)
-![Coverage policy](https://img.shields.io/badge/Coverage%20policy-enforced-0f766e)
+![Coverage policy](https://img.shields.io/badge/src%2Flib%20coverage-enforced-0f766e)
 
-Coverage thresholds: Lines, Functions, and Statements >= 90%; Branches >= 80%.
+Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 90%; Branches >= 80%.
 
 日本人の成長基準に基づく成長指標の算出および可視化プラットフォームです。
 
