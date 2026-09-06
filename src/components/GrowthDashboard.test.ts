@@ -97,6 +97,33 @@ describe('Suwa HV-SDS display styling', () => {
 });
 
 describe('GrowthDashboard responsive results content', () => {
+  it('provides four accessible quick-navigation anchors for page sections', () => {
+    render(React.createElement(GrowthDashboard));
+
+    const navigation = screen.getByRole('navigation', { name: '画面内ナビゲーション' });
+    expect(navigation).toHaveTextContent('入力');
+    expect(navigation).toHaveTextContent('成長曲線');
+    expect(navigation).toHaveTextContent('評価結果');
+    expect(navigation).toHaveTextContent('HV');
+
+    expect(screen.getByRole('link', { name: '入力' })).toHaveAttribute('href', '#input-section');
+    expect(screen.getByRole('link', { name: '成長曲線' })).toHaveAttribute('href', '#chart-section');
+    expect(screen.getByRole('link', { name: '評価結果' })).toHaveAttribute('href', '#results-section');
+    expect(screen.getByRole('link', { name: 'HV' })).toHaveAttribute('href', '#hv-section');
+
+    ['input-section', 'chart-section', 'results-section', 'hv-section'].forEach((id) => {
+      expect(document.querySelectorAll(`#${id}`)).toHaveLength(1);
+    });
+  });
+
+  it('hides the HV navigation link when no height-velocity results exist', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '35週6日のデータを表示' }));
+
+    expect(screen.queryByRole('link', { name: 'HV' })).toBeNull();
+    expect(document.querySelector('#hv-section')).toBeNull();
+  });
+
   it.each([
     ['早産児データを表示', '35週0日', true],
     ['35週6日のデータを表示', '35週6日', true],
