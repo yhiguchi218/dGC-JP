@@ -1,5 +1,10 @@
 # dGC-JP: 日本版デジタル成長曲線 (Digital Growth Chart for Japan)
 
+[![Quality gate](https://github.com/yhiguchi218/dGC-JP/actions/workflows/deploy.yml/badge.svg)](https://github.com/yhiguchi218/dGC-JP/actions/workflows/deploy.yml)
+![Coverage policy](https://img.shields.io/badge/src%2Flib%20coverage-enforced-0f766e)
+
+Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 90%; Branches >= 80%.
+
 日本人の成長基準に基づく成長指標の算出および可視化プラットフォームです。
 
 ## 概要
@@ -38,7 +43,7 @@
 
 - **ローカル完結型**: 入力された患者IDや測定データはすべてブラウザ内蔵のメモリで処理されます。外部サーバーへ送信・蓄積されることはありません。
 - **揮発性**: セキュリティのため、ブラウザをリロード（再読み込み）すると入力データは破棄されます。データの保存が必要な場合は、ツール内の「保存」機能を利用してください。
-- **レビュー用アクセス制限**: PasswordGateは助成金審査・レビュー期間中に一般利用を抑制するための簡易アクセス制限です。GitHub Pagesのstatic client-side applicationであるため、本格的なauthentication/security boundaryではありません。現在のソースコードには平文passwordを保存せず、PBKDF2-SHA256で生成したsaltとverifierのみを保持します。ただし、この変更は過去のGit履歴に含まれるcredentialを削除するものではありません。client-side gateは意図的な解析・迂回を完全には防止できず、患者の機密情報を保護するものではありません。
+- **レビュー用アクセス制限**: PasswordGateは限定公開期間中に一般利用を抑制するための簡易アクセス制限です。GitHub Pagesのstatic client-side applicationであるため、本格的なauthentication/security boundaryではありません。現在のソースコードには平文passwordを保存せず、PBKDF2-SHA256で生成したsaltとverifierのみを保持します。ただし、この変更は過去のGit履歴に含まれるcredentialを削除するものではありません。client-side gateは意図的な解析・迂回を完全には防止できず、患者の機密情報を保護するものではありません。
 
 ## 免責事項
 
