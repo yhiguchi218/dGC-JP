@@ -84,6 +84,7 @@ const GrowthDashboard: React.FC = () => {
 
         const correctedAge = calculateCorrectedAge(formData.birthDate, m.date, formData.gestationalWeeks, formData.gestationalDays);
         const correctedBirthDate = getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays);
+        const isPretermBeforeCorrection = isPreterm && correctedBirthDate !== null && correctedAge === null;
         // Corrected age is clinically applied up to 3.0 years
         const showCorrected = isPreterm && correctedAge !== null && correctedBirthDate !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
 
@@ -92,7 +93,7 @@ const GrowthDashboard: React.FC = () => {
 
         // Calculate Height SDS (JSPE standard: use month-based table if under 3 years)
         let heightSDS: number | undefined = undefined;
-        if (heightVal !== undefined && !isNaN(heightVal)) {
+        if (!isPretermBeforeCorrection && heightVal !== undefined && !isNaN(heightVal)) {
           const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
           if (effectiveAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) {
             const referenceBirthDate = showCorrected && correctedBirthDate
@@ -112,7 +113,7 @@ const GrowthDashboard: React.FC = () => {
 
         // Calculate Weight SDS
         let weightSDS: number | undefined = undefined;
-        if (weightVal !== undefined && !isNaN(weightVal)) {
+        if (!isPretermBeforeCorrection && weightVal !== undefined && !isNaN(weightVal)) {
           const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
           const lms = interpolateLMS(effectiveAge, weightTable);
           weightSDS = calculateZScore(weightVal, lms);
@@ -140,6 +141,7 @@ const GrowthDashboard: React.FC = () => {
           correctedAge: correctedAge ?? age,
           correctedBirthDate,
           showCorrected,
+          isPretermBeforeCorrection,
           height: heightVal,
           weight: weightVal,
           heightSDS,
@@ -169,7 +171,7 @@ const GrowthDashboard: React.FC = () => {
   const heightPoints = useMemo(() => {
     const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (d.height !== undefined && !isNaN(d.height)) {
+      if (!d.isPretermBeforeCorrection && d.height !== undefined && !isNaN(d.height)) {
         points.push({
           age: d.age,
           value: d.height,
@@ -192,7 +194,7 @@ const GrowthDashboard: React.FC = () => {
   const weightPoints = useMemo(() => {
     const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (d.weight !== undefined && !isNaN(d.weight)) {
+      if (!d.isPretermBeforeCorrection && d.weight !== undefined && !isNaN(d.weight)) {
         points.push({
           age: d.age,
           value: d.weight,
@@ -399,7 +401,11 @@ const GrowthDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.height ? `${d.height}cm` : '-'}
-                            {d.heightSDS !== undefined && (
+                            {d.isPretermBeforeCorrection ? (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
+                                SDS算出対象外（40週0日相当前）
+                              </span>
+                            ) : d.heightSDS !== undefined && (
                               <span className={cn(
                                 "ml-2 text-xs print:ml-1 print:text-[7pt]",
                                 Math.abs(d.heightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
@@ -410,7 +416,11 @@ const GrowthDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.weight ? `${d.weight}kg` : '-'}
-                            {d.weightSDS !== undefined && (
+                            {d.isPretermBeforeCorrection ? (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
+                                SDS算出対象外（40週0日相当前）
+                              </span>
+                            ) : d.weightSDS !== undefined && (
                               <span className={cn(
                                 "ml-2 text-xs print:ml-1 print:text-[7pt]",
                                 Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
@@ -473,7 +483,11 @@ const GrowthDashboard: React.FC = () => {
                         <dt className="text-gray-500 dark:text-zinc-400">身長</dt>
                         <dd className="text-right font-medium">
                           {d.height ? `${d.height}cm` : '-'}
-                          {d.heightSDS !== undefined && (
+                          {d.isPretermBeforeCorrection ? (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
+                              SDS算出対象外（40週0日相当前）
+                            </span>
+                          ) : d.heightSDS !== undefined && (
                             <span className={cn(
                               "ml-2 text-xs",
                               Math.abs(d.heightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
@@ -485,7 +499,11 @@ const GrowthDashboard: React.FC = () => {
                         <dt className="text-gray-500 dark:text-zinc-400">体重</dt>
                         <dd className="text-right font-medium">
                           {d.weight ? `${d.weight}kg` : '-'}
-                          {d.weightSDS !== undefined && (
+                          {d.isPretermBeforeCorrection ? (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
+                              SDS算出対象外（40週0日相当前）
+                            </span>
+                          ) : d.weightSDS !== undefined && (
                             <span className={cn(
                               "ml-2 text-xs",
                               Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
