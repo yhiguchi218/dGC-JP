@@ -21,10 +21,18 @@ export interface RawGrowthJSONInput {
 export type SupportedSexInput = '男子' | '女子' | 'male' | 'female';
 export type NormalizedSex = '男子' | '女子';
 
+/**
+ * Checks whether an input is one of the supported Japanese or English sex labels accepted by import.
+ */
 export function isValidSex(sexStr: unknown): sexStr is SupportedSexInput {
   return typeof sexStr === 'string' && ['男子', '女子', 'male', 'female'].includes(sexStr);
 }
 
+/**
+ * Normalizes a supported Japanese or English sex label to the dashboard's Japanese labels.
+ *
+ * Unsupported values throw rather than being mapped to a plausible value.
+ */
 export function normalizeSex(sexStr: unknown): NormalizedSex {
   if (sexStr === '男子' || sexStr === 'male') return '男子';
   if (sexStr === '女子' || sexStr === 'female') return '女子';
@@ -32,7 +40,11 @@ export function normalizeSex(sexStr: unknown): NormalizedSex {
 }
 
 /**
- * Validates a parsed JSON object for growth chart import with detailed field-level error messages.
+ * Validates the structural and field-level conditions currently checked for growth-chart JSON import.
+ *
+ * Errors make `isValid` false and reject invalid required fields, including invalid gestational days.
+ * Warnings report accepted but notable conditions, such as empty measurements or values outside configured
+ * ranges, without making the result invalid. This validation does not establish complete clinical validity.
  */
 export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   const errors: ValidationIssue[] = [];
@@ -250,7 +262,10 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
 }
 
 /**
- * Helper to parse various date formats safely
+ * Parses valid `Date` values and strings accepted by the existing import path.
+ *
+ * Strings are tried first as `YYYY/MM/DD`, then with the native `Date` constructor. Other input types and
+ * invalid dates return `null`.
  */
 export function parseDateValue(dateVal: string | Date | unknown): Date | null {
   if (dateVal instanceof Date) return isValid(dateVal) ? dateVal : null;
