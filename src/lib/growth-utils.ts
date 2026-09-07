@@ -20,10 +20,10 @@ export interface ChildData {
 }
 
 /**
- * Calculates decimal age in years.
- * Logic: Completed Years + (Days since last birthday / Total days in that age year)
- * This ensures that a child's birthday results in an exact integer age.
- * Validates that age is between 0 and 18 years.
+ * Calculates chronological decimal age from completed years and the fraction of the current age year.
+ *
+ * Returns `null` when the measurement date precedes the birth date. Birthdays produce exact integer ages;
+ * the calculation accounts for the actual length of the age year, including leap years.
  */
 export function calculateDecimalAge(birthDate: Date, measurementDate: Date): number | null {
   if (measurementDate < birthDate) return null; // Indicator for measurement before birth
@@ -51,6 +51,12 @@ export function calculateDecimalAge(birthDate: Date, measurementDate: Date): num
   return age;
 }
 
+/**
+ * Checks whether a gestational-day value is acceptable for corrected-age utilities.
+ *
+ * Only finite integer values from 0 through 6 are accepted. Callers use a failed check to fail closed
+ * rather than silently substituting a day value.
+ */
 export function isValidGestationalDays(value: unknown): value is number {
   return typeof value === 'number'
     && Number.isFinite(value)
@@ -60,8 +66,12 @@ export function isValidGestationalDays(value: unknown): value is number {
 }
 
 /**
- * Calculates corrected age for premature infants.
- * Only applicable up to 3 years old.
+ * Calculates corrected age using the current application's preterm-correction policy.
+ *
+ * Invalid gestational days return `null`. Gestational weeks retain the existing clamping to 22 through
+ * 44 weeks; correction is applied only below the preterm threshold and through exactly 3.0 chronological
+ * years. Ages after that boundary, or term births, return chronological age unchanged. A corrected age of
+ * exactly `0` is a valid result.
  */
 export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number | null {
   if (!isValidGestationalDays(gestationalDays)) return null;
@@ -167,8 +177,11 @@ function cubicInterpolate(t: number, p0: number, p1: number, p2: number, p3: num
 }
 
 /**
- * Calculates Height Velocity (HV) for any clinically meaningful interval.
- * Returns velocity in cm/year and the midpoint age.
+ * Calculates Raw Height Velocity from one pair of measurements.
+ *
+ * Returns velocity in cm/year and midpoint age when the interval meets the configured raw minimum;
+ * otherwise returns `null`. This is the mathematical interval calculation used separately from
+ * Suwa-based HV selection and HV-SDS evaluation.
  */
 export function calculateHeightVelocity(h1: number, t1: number, h2: number, t2: number): { velocity: number, midpointAge: number } | null {
   const interval = t2 - t1;
@@ -180,6 +193,12 @@ export function calculateHeightVelocity(h1: number, t1: number, h2: number, t2: 
   return { velocity, midpointAge };
 }
 
+/**
+ * Checks whether an interval is eligible for Suwa-based HV evaluation in this application.
+ *
+ * The inclusive 0.95-1.05 year window is an application-defined tolerance around the one-year target,
+ * not a threshold attributed to the original Suwa publication.
+ */
 export function isSuwaHVInterval(intervalYears: number): boolean {
   return (
     intervalYears >= CLINICAL_LIMITS.HV.SUWA_MIN_INTERVAL_YEARS &&
@@ -187,6 +206,12 @@ export function isSuwaHVInterval(intervalYears: number): boolean {
   );
 }
 
+/**
+ * Finds the eligible prior measurement whose interval is closest to the one-year Suwa target.
+ *
+ * Only prior measurements within the application's Suwa interval tolerance are considered. Returns
+ * `null` when no eligible prior measurement exists; equal distances retain the first eligible match.
+ */
 export function findBestSuwaPair(
   currentIndex: number,
   points: Array<{ age: number; height: number }>
@@ -231,6 +256,13 @@ export type HeightVelocityResult = {
   suwa: (HeightVelocityInterval & { sds: number | null }) | null;
 };
 
+/**
+ * Produces separate Raw and Suwa-based height-velocity results for each measurement after the first.
+ *
+ * Raw HV uses the immediately preceding measurement. Suwa HV uses the eligible prior pair selected by
+ * `findBestSuwaPair` and includes an HV-SDS when its reference standard deviation is nonzero. Results
+ * with neither Raw nor Suwa data are omitted so the two concepts remain independently represented.
+ */
 export function calculateHeightVelocityResults(
   points: HeightVelocityPoint[],
   sex: 'male' | 'female',
@@ -382,7 +414,9 @@ export function calculateObesityIndexByAge(weight: number, height: number, age: 
 }
 
 /**
- * Linear interpolation for HV reference values (Suwa method)
+ * Linearly interpolates the supplied Suwa HV reference table at a decimal age.
+ *
+ * Ages outside the table range use the nearest endpoint's mean and standard deviation.
  */
 export function interpolateHV(age: number, table: HVReferencePoint[]): { mean: number, sd: number } {
   if (age <= table[0].age) return { mean: table[0].mean, sd: table[0].sd };
@@ -404,7 +438,11 @@ export function interpolateHV(age: number, table: HVReferencePoint[]): { mean: n
 }
 
 /**
- * Calculate Height Velocity SDS (Suwa method)
+ * Calculates HV-SDS from a velocity and the interpolated mean and standard deviation in the supplied
+ * Suwa reference table.
+ *
+ * Returns `null` when the interpolated standard deviation is zero; this function does not apply display
+ * or interpretation thresholds.
  */
 export function calculateHVSDS(velocity: number, age: number, sex: 'male' | 'female', table: HVReferencePoint[]): number | null {
   const ref = interpolateHV(age, table);
@@ -434,7 +472,11 @@ export function calculateFullMonthsAge(birthDate: Date, measurementDate: Date): 
 }
 
 /**
- * Returns the corrected birth date based on gestational age
+ * Returns the birth date used for preterm corrected-age and corrected monthly-reference calculations.
+ *
+ * Invalid gestational days return `null`. Existing gestational-week clamping to 22 through 44 weeks is
+ * applied before calculation; term births return the original birth date, while eligible preterm births
+ * return a date shifted by the calculated gestational deficit.
  */
 export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: number, gestationalDays: number = 0): Date | null {
   if (!isValidGestationalDays(gestationalDays)) return null;
