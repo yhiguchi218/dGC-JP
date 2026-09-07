@@ -294,7 +294,7 @@ const GrowthDashboard: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
+            <div className="text-xs sm:text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
               ※ 日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間を用いて算出しています。
             </div>
           </div>
@@ -617,11 +617,11 @@ const GrowthDashboard: React.FC = () => {
 
       <nav aria-label="画面内ナビゲーション" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur md:hidden print:hidden dark:border-zinc-700 dark:bg-zinc-900/95">
         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
-          <a href="#input-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">入力</a>
-          <a href="#chart-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">成長曲線</a>
-          <a href="#results-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">評価結果</a>
+          <a href="#input-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 dark:text-zinc-200 dark:focus-visible:ring-blue-400">入力</a>
+          <a href="#chart-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 dark:text-zinc-200 dark:focus-visible:ring-blue-400">成長曲線</a>
+          <a href="#results-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 dark:text-zinc-200 dark:focus-visible:ring-blue-400">評価結果</a>
           {heightVelocity.length > 0 && (
-            <a href="#hv-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 dark:text-zinc-200">HV</a>
+            <a href="#hv-section" className="flex h-11 items-center justify-center text-sm font-medium text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 dark:text-zinc-200 dark:focus-visible:ring-blue-400">HV</a>
           )}
         </div>
       </nav>
