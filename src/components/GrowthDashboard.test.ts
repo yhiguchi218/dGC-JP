@@ -115,6 +115,16 @@ describe('Suwa HV-SDS display styling', () => {
 });
 
 describe('GrowthDashboard responsive results content', () => {
+  it('provides an accessible link to the clinician guide', () => {
+    render(React.createElement(GrowthDashboard));
+
+    const helpLink = screen.getByRole('link', { name: 'ヘルプ' });
+    expect(helpLink).toHaveAttribute('href', 'https://github.com/yhiguchi218/dGC-JP/blob/main/USER_GUIDE.md');
+    expect(helpLink).toHaveAttribute('target', '_blank');
+    expect(helpLink).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    expect(helpLink).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
+  });
+
   it('provides four accessible quick-navigation anchors for page sections', () => {
     render(React.createElement(GrowthDashboard));
 

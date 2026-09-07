@@ -25,7 +25,7 @@ import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, CircleHelp, Info } from 'lucide-react';
 import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CLINICAL_LIMITS } from '../lib/constants';
@@ -225,6 +225,15 @@ const GrowthDashboard: React.FC = () => {
           <Badge variant="outline" className="px-3 py-1 bg-gray-50 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 border-gray-200 dark:border-zinc-700">
             フェーズ 1: スタンドアロン版
           </Badge>
+          <a
+            href="https://github.com/yhiguchi218/dGC-JP/blob/main/USER_GUIDE.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:focus-visible:ring-blue-400 print:hidden"
+          >
+            <CircleHelp className="h-4 w-4" aria-hidden="true" />
+            <span>ヘルプ</span>
+          </a>
           <ThemeToggle />
         </div>
       </header>
