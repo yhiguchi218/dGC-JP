@@ -7,6 +7,8 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 
 日本人の成長基準に基づく成長指標の算出および可視化プラットフォームです。
 
+📖 **臨床医向け操作ガイド:** [USER_GUIDE.md](USER_GUIDE.md)
+
 ## 概要
 
 本ツールは、小児科医や保健指導に携わる専門家が、日本人児童の成長データを評価・可視化するために開発されました。入力されたデータに基づき、身長・体重のSDS（標準偏差スコア）、肥満度、身長速度（HV）を計算し、公開された日本人小児の成長基準・関連文献に基づく成長曲線上にプロットします。
@@ -43,7 +45,7 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 
 - **ローカル完結型**: 入力された患者IDや測定データはすべてブラウザ内蔵のメモリで処理されます。外部サーバーへ送信・蓄積されることはありません。
 - **揮発性**: セキュリティのため、ブラウザをリロード（再読み込み）すると入力データは破棄されます。データの保存が必要な場合は、ツール内の「保存」機能を利用してください。
-- **レビュー用アクセス制限**: PasswordGateは限定公開期間中に一般利用を抑制するための簡易アクセス制限です。GitHub Pagesのstatic client-side applicationであるため、本格的なauthentication/security boundaryではありません。現在のソースコードには平文passwordを保存せず、PBKDF2-SHA256で生成したsaltとverifierのみを保持します。ただし、この変更は過去のGit履歴に含まれるcredentialを削除するものではありません。client-side gateは意図的な解析・迂回を完全には防止できず、患者の機密情報を保護するものではありません。
+- **レビュー用アクセス制限**: PasswordGateは限定公開期間中に一般利用を抑制するための簡易アクセス制限です。GitHub Pagesのstatic client-side applicationであるため、本格的なauthentication/security boundaryではありません。
 
 ## 免責事項
 
