@@ -357,6 +357,13 @@ describe('Growth Utils Calculations', () => {
       expect(corrected).toBe(expectedAge);
     });
 
+    it('should return null before the corrected 40w0d-equivalent date', () => {
+      const birth = new Date('2020-01-01');
+      const beforeCorrectedBirth = new Date('2020-02-25');
+
+      expect(calculateCorrectedAge(birth, beforeCorrectedBirth, 32, 0)).toBeNull();
+    });
+
     it('should clamp gestational weeks below 22 weeks and above 44 weeks', () => {
       const birth = new Date('2020-01-01');
       const measure = new Date('2020-06-01');

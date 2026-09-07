@@ -18,6 +18,12 @@ The MIT License in this repository applies to dGC-JP code and documentation. It 
 - **Numerical-data redistribution**: The tabulated values are implemented as application reference data; public availability of the PDF does not by itself establish redistribution rights for extracted data.
 - **Notes**: Confirm reuse conditions with the Japanese Society for Pediatric Endocrinology before relying on redistribution permission.
 
+## Preterm Reference-Range Policy
+
+- dGC-JP currently does not include a preterm-specific reference dataset for measurements before the 40w0d-equivalent date.
+- This application does not substitute a non-Japanese preterm standard during that period.
+- Standard height and weight SDS evaluation therefore begins at the 40w0d-equivalent date using corrected age 0.
+
 ## Height Velocity Reference
 
 - **Source**: Suwa S, Tachibana K. *Longitudinal standards for height velocity in Japanese children.* *Acta Paediatrica Japonica.* 1992;34(1):61-68. DOI: [10.1111/j.1442-200X.1992.tb00931.x](https://doi.org/10.1111/j.1442-200X.1992.tb00931.x).

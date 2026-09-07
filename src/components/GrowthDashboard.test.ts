@@ -9,7 +9,11 @@ import GrowthDashboard, { getSuwaHVSDSClass } from './GrowthDashboard';
 expect.extend(matchers);
 
 vi.mock('./GrowthChart', () => ({
-  default: () => React.createElement('div', { 'data-testid': 'growth-chart' }),
+  default: ({ heightPoints, weightPoints }: { heightPoints: Array<unknown>; weightPoints: Array<unknown> }) => React.createElement('div', {
+    'data-testid': 'growth-chart',
+    'data-height-points': heightPoints.length,
+    'data-weight-points': weightPoints.length,
+  }),
   CHART_PRESETS: [
     { id: 'preset-1', name: 'Preset 1' },
     { id: 'preset-2', name: 'Preset 2' },
@@ -47,6 +51,20 @@ vi.mock('./GrowthForm', () => ({
           measurements: [{ id: '1', date: new Date(2020, 1, 12), height: 54, weight: 4.2 }],
         }),
       }, '修正年齢0のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'preterm-before-term-equivalent',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 32,
+          gestationalDays: 0,
+          measurements: [
+            { id: '1', date: new Date(2020, 0, 29), height: 45, weight: 2.2 },
+            { id: '2', date: new Date(2020, 1, 26), height: 50, weight: 3.0 },
+          ],
+        }),
+      }, '40週相当前後のデータを表示')
       , React.createElement('button', {
         type: 'button',
         onClick: () => onDataChange({
@@ -183,6 +201,25 @@ describe('GrowthDashboard responsive results content', () => {
     fireEvent.click(screen.getByRole('button', { name: '修正年齢0のデータを表示' }));
 
     expect(screen.getByLabelText('測定日 2020/02/12 の成長評価結果')).toHaveTextContent('修正 0.0000歳');
+  });
+
+  it('excludes preterm measurements before term-equivalent from SDS and chart points', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '40週相当前後のデータを表示' }));
+
+    const beforeTermEquivalent = screen.getByLabelText('測定日 2020/01/29 の成長評価結果');
+    expect(beforeTermEquivalent).toHaveTextContent('45cm');
+    expect(beforeTermEquivalent).toHaveTextContent('2.2kg');
+    expect(beforeTermEquivalent).toHaveTextContent('SDS算出対象外（40週0日相当前）');
+    expect(beforeTermEquivalent).not.toHaveTextContent(/\d+\.\d{2}SD/);
+
+    const atTermEquivalent = screen.getByLabelText('測定日 2020/02/26 の成長評価結果');
+    expect(atTermEquivalent).toHaveTextContent('修正 0.0000歳');
+    const sdMatches = atTermEquivalent.textContent?.match(/\d+\.\d{2}SD/g) ?? [];
+    expect(sdMatches).toHaveLength(2);
+
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '2');
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-weight-points', '2');
   });
 
   it('announces and displays the selected obesity calculation basis', () => {

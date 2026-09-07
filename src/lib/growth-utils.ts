@@ -70,8 +70,9 @@ export function isValidGestationalDays(value: unknown): value is number {
  *
  * Invalid gestational days return `null`. Gestational weeks retain the existing clamping to 22 through
  * 44 weeks; correction is applied only below the preterm threshold and through exactly 3.0 chronological
- * years. Ages after that boundary, or term births, return chronological age unchanged. A corrected age of
- * exactly `0` is a valid result.
+ * years. A measurement before the corrected 40w0d-equivalent birth date returns `null`; the exact corrected
+ * birth date returns corrected age `0`, which is valid. Ages after that boundary, or term births, return
+ * chronological age unchanged.
  */
 export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number | null {
   if (!isValidGestationalDays(gestationalDays)) return null;
