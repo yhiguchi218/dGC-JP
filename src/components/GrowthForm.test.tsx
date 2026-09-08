@@ -101,6 +101,59 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(heightInputs.length).toBe(2);
   });
 
+  it('synchronizes the remaining measurements when one row is deleted', () => {
+    const handleDataChange = vi.fn();
+    const initialData = {
+      ...defaultInitialData,
+      childId: 'delete-test',
+      sex: '女子' as const,
+      gestationalWeeks: 35,
+      gestationalDays: 4,
+      measurements: [
+        { id: 'first', date: new Date(2020, 5, 1), height: 100, weight: 15 },
+        { id: 'second', date: new Date(2021, 5, 1), height: 110, weight: 18 },
+      ],
+    };
+
+    render(<GrowthForm initialData={initialData} onDataChange={handleDataChange} />);
+    fireEvent.click(screen.getByRole('button', { name: '2020/06/01の測定データを削除' }));
+
+    expect(screen.queryByRole('button', { name: '2020/06/01の測定データを削除' })).toBeNull();
+    expect(screen.getByRole('button', { name: '2021/06/01の測定データを削除' })).toBeInTheDocument();
+    expect(handleDataChange).toHaveBeenLastCalledWith({
+      childId: 'delete-test',
+      birthDate: initialData.birthDate,
+      sex: '女子',
+      gestationalWeeks: 35,
+      gestationalDays: 4,
+      measurements: [initialData.measurements[1]],
+    });
+  });
+
+  it('synchronizes an empty measurement array when the final row is deleted', () => {
+    const handleDataChange = vi.fn();
+    const initialData = {
+      ...defaultInitialData,
+      childId: 'delete-final-test',
+      gestationalWeeks: 36,
+      gestationalDays: 2,
+      measurements: [{ id: 'only', date: new Date(2022, 0, 15), height: 90, weight: 13 }],
+    };
+
+    render(<GrowthForm initialData={initialData} onDataChange={handleDataChange} />);
+    fireEvent.click(screen.getByRole('button', { name: '2022/01/15の測定データを削除' }));
+
+    expect(screen.queryByRole('button', { name: '2022/01/15の測定データを削除' })).toBeNull();
+    expect(handleDataChange).toHaveBeenLastCalledWith({
+      childId: 'delete-final-test',
+      birthDate: initialData.birthDate,
+      sex: initialData.sex,
+      gestationalWeeks: 36,
+      gestationalDays: 2,
+      measurements: [],
+    });
+  });
+
   it('displays warning when gestational weeks < 22', () => {
     const handleDataChange = vi.fn();
     const dataWithPrematureWarning = {
