@@ -86,7 +86,9 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   };
 
   const handleRemoveMeasurement = (id: string) => {
-    setMeasurements(measurements.filter(m => m.id !== id));
+    const newMeasurements = measurements.filter(m => m.id !== id);
+    setMeasurements(newMeasurements);
+    onDataChange({ childId, birthDate, sex, gestationalWeeks, gestationalDays, measurements: newMeasurements });
   };
 
   const updateMeasurement = (id: string, field: keyof MeasurementEntry, value: any) => {
