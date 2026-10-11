@@ -4,7 +4,6 @@
  */
 
 import GrowthDashboard from './components/GrowthDashboard';
-import PasswordGate from './components/PasswordGate';
 import { ThemeProvider } from './context/ThemeContext';
 
 export default function App() {
@@ -17,9 +16,7 @@ export default function App() {
         >
           メインコンテンツにスキップする
         </a>
-        <PasswordGate>
           <GrowthDashboard />
-        </PasswordGate>
       </div>
     </ThemeProvider>
   );
