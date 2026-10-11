@@ -45,7 +45,7 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 
 - **ローカル完結型**: 入力された患者IDや測定データはすべてブラウザ内蔵のメモリで処理されます。外部サーバーへ送信・蓄積されることはありません。
 - **揮発性**: セキュリティのため、ブラウザをリロード（再読み込み）すると入力データは破棄されます。データの保存が必要な場合は、ツール内の「保存」機能を利用してください。
-- **レビュー用アクセス制限**: PasswordGateは限定公開期間中に一般利用を抑制するための簡易アクセス制限です。GitHub Pagesのstatic client-side applicationであるため、本格的なauthentication/security boundaryではありません。
+- **公開方針**: 本ツールは開発中の教育・研究・臨床補助ツールとして公開しています。
 
 ## 免責事項
 
