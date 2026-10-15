@@ -589,7 +589,7 @@ const GrowthDashboard: React.FC = () => {
                               {hv.suwa.sds !== null ? (
                                 <div className={cn("mt-1 text-xs print:text-[8px]", getSuwaHVSDSClass(hv.suwa.sds, formData.sex))}>HV-SDS: {hv.suwa.sds.toFixed(2)}</div>
                               ) : (
-                                <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: —</div>
+                                <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: 算出不可（基準SDなし）</div>
                               )}
                               <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.suwa.heightDiff.toFixed(1)} cm / {hv.suwa.intervalDays}日</div>
                             </>

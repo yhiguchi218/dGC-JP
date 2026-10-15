@@ -1,27 +1,31 @@
 /**
  * @file suwa-hv-data.ts
- * @description 身長発育速度（Height Velocity）SDS算出用の日本人の縦断的成長基準データ。
+ * @description 身長速度（Height Velocity: HV）のSDS算出に用いる日本人の縦断的成長基準データ。
  * @reference
- * - 諏訪 昭, 立花 克郎. (1992). "身長速度SDS: Clin Pediatr Endocrinol 1(1):5-13, 1992"
- * - Suwa S, Tachibana K. "Longitudinal standards for height velocity in Japanese children." Acta Paediatrica Japonica 34(1):61-8, 1992.
+ * - Suwa S, Tachibana K, Maesaka H, Tanaka T, Yokoya S. Longitudinal Standards for Height and Height Velocity
+ *   for Japanese Children from Birth to Maturity. Clin Pediatr Endocrinol 1992;1(1):5-13. DOI: 10.1297/cpe.1.5
+ * - 男児: Table 3（誌面p.10）、女児: Table 4（誌面p.11）の `height velocity (cm/yr)` の mean と SD（単位 cm/年）。
  * @structure
- * - 0歳から17.5歳まで、0.25年刻み（計79ポイント）の年齢別身長速度の平均値(mean: cm/年)および標準偏差(sd: cm/年)を保持。
- * - 0歳〜0.25歳は、成長速度算出期間の都合上、プレースホルダーとして `mean: 0, sd: 0` を使用。
+ * - 0.25年刻み。男児は0〜17.5歳の71行、女児は0〜17.25歳の70行。年齢は原典の `yr-mo` を年換算した値（13-3 = 13.25歳）。
+ * - 原典で「—」の値は `null`（0ではない）。男女とも mean は0歳・0.25歳、SD は0歳〜0.75歳が `null`。
+ *   SDが `null` の点を端点とする区間ではHV-SDSを算出しない（`interpolateHV` を参照）。
  * @validation
- * - 本データは、思春期スパート（男児12〜14.5歳、女児10.5〜12.5歳）でのピーク発育速度、および男女の生理的発達時差を正確に反映していることを、2026年7月2日の自動テストで実証済みです。
+ * - mean・SDの全行を、原典ページ画像から転記した独立fixture（`suwa-hv-source-fixture.ts`）と
+ *   `suwa-hv-reference.test.ts` で照合している。AIによる転記・照合であり、人による独立二重入力ではない。
+ * - この照合の対象はこのSuwa HV表のみで、他の基準データの検証を意味しない。詳細は `docs/suwa-hv-reference-audit.md`。
  */
 
 export interface HVReferencePoint {
   age: number; // years
-  mean: number;
-  sd: number;
+  mean: number | null; // cm/year; null where the source prints "—" (not 0)
+  sd: number | null; // cm/year; null where the source prints "—" (not 0)
 }
 
 export const SUWA_HV_BOYS: HVReferencePoint[] = [
-  { age: 0, mean: 0, sd: 0 }, // Placeholder for start
-  { age: 0.25, mean: 0, sd: 0 },
-  { age: 0.5, mean: 25.7, sd: 0 },
-  { age: 0.75, mean: 17.7, sd: 0 },
+  { age: 0, mean: null, sd: null },
+  { age: 0.25, mean: null, sd: null },
+  { age: 0.5, mean: 25.7, sd: null },
+  { age: 0.75, mean: 17.7, sd: null },
   { age: 1.0, mean: 13.9, sd: 1.55 },
   { age: 1.25, mean: 11.7, sd: 1.18 },
   { age: 1.5, mean: 10.3, sd: 0.93 },
@@ -71,31 +75,31 @@ export const SUWA_HV_BOYS: HVReferencePoint[] = [
   { age: 12.5, mean: 8.6, sd: 1.15 },
   { age: 12.75, mean: 9.5, sd: 1.40 },
   { age: 13.0, mean: 9.9, sd: 1.45 },
-  { age: 13.25, mean: 9.8, sd: 1.45 },
-  { age: 13.5, mean: 9.4, sd: 1.45 },
-  { age: 13.75, mean: 8.7, sd: 1.23 },
-  { age: 14.0, mean: 7.6, sd: 1.01 },
-  { age: 14.25, mean: 6.3, sd: 0.88 },
-  { age: 14.5, mean: 5.3, sd: 0.80 },
-  { age: 14.75, mean: 4.5, sd: 0.78 },
-  { age: 15.0, mean: 3.9, sd: 0.71 },
-  { age: 15.25, mean: 3.3, sd: 0.69 },
-  { age: 15.5, mean: 2.8, sd: 0.68 },
-  { age: 15.75, mean: 2.3, sd: 0.63 },
-  { age: 16.0, mean: 1.9, sd: 0.58 },
-  { age: 16.25, mean: 1.6, sd: 0.53 },
-  { age: 16.5, mean: 1.3, sd: 0.49 },
-  { age: 16.75, mean: 1.0, sd: 0.44 },
-  { age: 17.0, mean: 0.8, sd: 0.39 },
-  { age: 17.25, mean: 0.6, sd: 0.39 },
+  { age: 13.25, mean: 9.4, sd: 1.45 },
+  { age: 13.5, mean: 8.7, sd: 1.23 },
+  { age: 13.75, mean: 7.6, sd: 1.01 },
+  { age: 14.0, mean: 6.3, sd: 0.88 },
+  { age: 14.25, mean: 5.3, sd: 0.80 },
+  { age: 14.5, mean: 4.5, sd: 0.78 },
+  { age: 14.75, mean: 3.9, sd: 0.71 },
+  { age: 15.0, mean: 3.3, sd: 0.69 },
+  { age: 15.25, mean: 2.8, sd: 0.68 },
+  { age: 15.5, mean: 2.3, sd: 0.63 },
+  { age: 15.75, mean: 1.9, sd: 0.58 },
+  { age: 16.0, mean: 1.6, sd: 0.53 },
+  { age: 16.25, mean: 1.3, sd: 0.49 },
+  { age: 16.5, mean: 1.0, sd: 0.44 },
+  { age: 16.75, mean: 0.8, sd: 0.39 },
+  { age: 17.0, mean: 0.6, sd: 0.39 },
+  { age: 17.25, mean: 0.5, sd: 0.38 },
   { age: 17.5, mean: 0.3, sd: 0.30 },
 ];
 
 export const SUWA_HV_GIRLS: HVReferencePoint[] = [
-  { age: 0, mean: 0, sd: 0 },
-  { age: 0.25, mean: 0, sd: 0 },
-  { age: 0.5, mean: 25.0, sd: 0 },
-  { age: 0.75, mean: 17.8, sd: 0 },
+  { age: 0, mean: null, sd: null },
+  { age: 0.25, mean: null, sd: null },
+  { age: 0.5, mean: 25.0, sd: null },
+  { age: 0.75, mean: 17.8, sd: null },
   { age: 1.0, mean: 13.4, sd: 1.4 },
   { age: 1.25, mean: 11.6, sd: 1.1 },
   { age: 1.5, mean: 10.3, sd: 1.0 },

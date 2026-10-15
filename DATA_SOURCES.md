@@ -26,10 +26,12 @@ The MIT License in this repository applies to dGC-JP code and documentation. It 
 
 ## Height Velocity Reference
 
-- **Source**: Suwa S, Tachibana K. *Longitudinal standards for height velocity in Japanese children.* *Acta Paediatrica Japonica.* 1992;34(1):61-68. DOI: [10.1111/j.1442-200X.1992.tb00931.x](https://doi.org/10.1111/j.1442-200X.1992.tb00931.x).
-- **Used in dGC-JP**: Age-indexed height-velocity mean and standard-deviation values for Suwa HV-SDS calculations.
+- **Source**: Suwa S, Tachibana K, Maesaka H, Tanaka T, Yokoya S. *Longitudinal Standards for Height and Height Velocity for Japanese Children from Birth to Maturity.* *Clin Pediatr Endocrinol.* 1992;1(1):5-13. DOI: [10.1297/cpe.1.5](https://doi.org/10.1297/cpe.1.5).
+- **Used in dGC-JP**: The `height velocity (cm/yr)` mean and SD columns of Table 3 (boys, journal p.10) and Table 4 (girls, journal p.11), in 0.25-year steps (boys 0-17.5 years, 71 rows; girls 0-17.25 years, 70 rows), for Suwa HV-SDS calculations. Source ages are printed as `yr-mo` and converted as years + months/12 (13-3 = 13.25 years).
+- **Missing values**: The source prints "—" for the mean at 0-0 and 0-3 and for the SD at 0-0 through 0-9, in both tables. dGC-JP holds these as missing (`null`), not 0, and does not calculate HV-SDS where the reference SD is missing (a midpoint age below 1.0 years). The Suwa HV in cm/year is still shown.
+- **Verification performed**: Every mean and SD cell of both tables is compared with a transcription of the source page images (`src/data/suwa-hv-source-fixture.ts`) by an automated test (`src/data/suwa-hv-reference.test.ts`); see `docs/suwa-hv-reference-audit.md`. The transcription was made by an AI agent and is not an independent human double entry. This check covers the Suwa height-velocity table only and does not extend to the other reference datasets listed here.
 - **Article/publication license**: The DOI resolves to a publication record. The article license and reuse terms were not independently confirmed in this repository review.
-- **Numerical-data redistribution**: The source values are implemented as application reference data. The article's availability or publication license alone is not treated as confirmation that extracted numerical data may be redistributed.
+- **Numerical-data redistribution**: The source values are implemented as application reference data. The article's availability or publication license alone is not treated as confirmation that extracted numerical data may be redistributed. The source PDF is not included in this repository.
 - **Notes**: Licensing status for the numerical reference values should be independently confirmed.
 
 ## Obesity Index Formulae

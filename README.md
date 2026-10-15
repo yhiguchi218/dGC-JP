@@ -21,7 +21,7 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
   - **体重SDS & 成長曲線背景**: 2016年に公表されたLMS成長基準に基づく補間算出。
   - **年齢併記表示**: 小数点4桁表示（例：3.5000歳）と満年齢月齢表記（例：満3歳6ヶ月）を併記。
   - **肥満度（身長別標準体重・年齢別標準体重）**
-  - **身長速度 (Height Velocity: HV) および その SDS**（Suwaら, 1992年の縦断的成長基準に準拠）
+  - **身長速度 (Height Velocity: HV) および そのSDS**（Suwaら, 1992年の縦断的成長基準に準拠）。原典の基準表にSDがない年齢域（測定間隔の中間年齢が1.0歳未満）ではHV-SDSを算出せず、HVのみ表示。
 - **データ入力支援**: Enterキーによる測定入力欄間のフォーカス移動を実装。
 - **修正月齢対応**: 早産児（37週未満）の場合、修正月齢でのプロットおよび評価が可能。修正年齢に対しても、同様に小数点4桁と簡潔な満年齢月齢表記を併記。
 - **データのエクスポート/インポート**: 入力したデータをJSON形式で保存・読み込み可能。
@@ -39,7 +39,7 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 - **身長SDS（満月齢基準）**: [日本小児内分泌学会 附表1（平均体重／標準偏差 2000年）](https://jspe.umin.jp/medical/files/fuhyo1.pdf)
 - **成長曲線・体重SDS**: Isojima et al., *Clin Pediatr Endocrinol.* 2016;25:71-76. [DOI: 10.1297/cpe.25.71](https://doi.org/10.1297/cpe.25.71)
 - **肥満度計算**: *Clin Pediatr Endocrinol.* 2016;25:77-82. [DOI: 10.1297/cpe.25.77](https://doi.org/10.1297/cpe.25.77)
-- **身長速度SDS**: Suwa S, Tachibana K. *Acta Paediatrica Japonica.* 1992;34(1):61-68. [DOI: 10.1111/j.1442-200X.1992.tb00931.x](https://doi.org/10.1111/j.1442-200X.1992.tb00931.x)
+- **身長速度SDS**: Suwa S, Tachibana K, Maesaka H, Tanaka T, Yokoya S. *Clin Pediatr Endocrinol.* 1992;1(1):5-13. [DOI: 10.1297/cpe.1.5](https://doi.org/10.1297/cpe.1.5)（Table 3・4の身長速度 mean/SD）
 
 ## プライバシーとセキュリティ
 
