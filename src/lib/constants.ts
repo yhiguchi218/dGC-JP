@@ -67,4 +67,8 @@ export interface DetailedValidationResult {
   isValid: boolean;
   errors: ValidationIssue[];
   warnings: ValidationIssue[];
+  parsedDates: {
+    birthDate: Date | null;
+    measurements: (Date | null)[];
+  };
 }

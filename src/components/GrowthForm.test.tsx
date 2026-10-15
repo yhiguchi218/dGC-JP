@@ -260,14 +260,17 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(screen.getByText(/18歳を超えています/)).toBeInTheDocument();
   });
 
-  it('handles JSON import with backward compatibility ("male" -> "男子")', async () => {
+  it.each([
+    ['male', '男子'],
+    ['female', '女子'],
+  ])('handles JSON import with backward compatibility (%s -> %s)', async (sexInput, expectedSex) => {
     const handleDataChange = vi.fn();
     const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
     
     const fileData = {
       childId: '005',
       birthDate: '2020/01/01',
-      sex: 'male',
+      sex: sexInput,
       gestationalWeeks: 38,
       gestationalDays: 2,
       measurements: [
@@ -286,10 +289,94 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
 
     expect(handleDataChange).toHaveBeenCalledWith(expect.objectContaining({
       childId: '005',
-      sex: '男子',
+      sex: expectedSex,
       gestationalWeeks: 38,
       gestationalDays: 2
     }));
+  });
+
+  it('rejects an invalid birth date without changing form state', async () => {
+    const handleDataChange = vi.fn();
+    vi.stubGlobal('alert', vi.fn());
+    const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const fileData = {
+      childId: 'imported',
+      birthDate: '2020/02/30',
+      sex: 'female',
+      measurements: [{ date: '2021/02/28', height: 80, weight: 10 }],
+    };
+    const file = new File([JSON.stringify(fileData)], 'invalid-birth.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('生年月日の形式が不正'));
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('YYYY/MM/DD または YYYY-MM-DD'));
+    expect(handleDataChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('管理ID')).toHaveValue('001');
+    expect(screen.getByLabelText('生年月日')).toHaveValue('2020/01/01');
+  });
+
+  it('rejects the entire import when a later measurement date is invalid', async () => {
+    const handleDataChange = vi.fn();
+    vi.stubGlobal('alert', vi.fn());
+    const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const fileData = {
+      childId: 'imported',
+      birthDate: '2020-02-29',
+      sex: 'female',
+      gestationalWeeks: 35,
+      gestationalDays: 4,
+      measurements: [
+        { id: 'valid', date: '2021-02-28', height: 80, weight: 10 },
+        { id: 'invalid', date: '2021/02/29', height: 90, weight: 12 },
+      ],
+    };
+    const file = new File([JSON.stringify(fileData)], 'invalid-measurement.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('2行目: 測定日'));
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('YYYY/MM/DD または YYYY-MM-DD'));
+    expect(handleDataChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('管理ID')).toHaveValue('001');
+    expect(screen.getByLabelText('生年月日')).toHaveValue('2020/01/01');
+    expect(container.querySelectorAll('input[id^="height-"]')).toHaveLength(1);
+    expect(container.querySelector('input[id^="height-"]')).toHaveValue('100');
+  });
+
+  it('preserves local calendar dates when saved JSON is reloaded', async () => {
+    const handleDataChange = vi.fn();
+    const createObjectURL = vi.fn(() => 'blob:test');
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+    const NativeBlob = Blob;
+    let serializedData = '';
+    class CapturingBlob extends NativeBlob {
+      constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+        serializedData = parts.join('');
+        super(parts, options);
+      }
+    }
+    vi.stubGlobal('Blob', CapturingBlob);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const initialData = {
+      ...defaultInitialData,
+      birthDate: new Date(2020, 1, 29),
+      measurements: [{ id: 'leap-day', date: new Date(2020, 11, 31), height: 100, weight: 15 }],
+    };
+    const { container } = render(<GrowthForm initialData={initialData} onDataChange={handleDataChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /現在の入力データをJSONファイル形式/ }));
+    const savedData = JSON.parse(serializedData);
+    expect(savedData.birthDate).toBe('2020/02/29');
+    expect(savedData.measurements[0].date).toBe('2020/12/31');
+    const file = new File([serializedData], 'round-trip.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(handleDataChange).toHaveBeenCalledOnce();
+    const imported = handleDataChange.mock.calls[0][0];
+    expect([imported.birthDate.getFullYear(), imported.birthDate.getMonth() + 1, imported.birthDate.getDate()]).toEqual([2020, 2, 29]);
+    expect([imported.measurements[0].date.getFullYear(), imported.measurements[0].date.getMonth() + 1, imported.measurements[0].date.getDate()]).toEqual([2020, 12, 31]);
   });
 
   it('handles invalid JSON import gracefully showing error alert', async () => {

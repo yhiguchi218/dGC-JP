@@ -184,15 +184,37 @@ describe('JSON Detailed Validation Utils', () => {
   });
 
   describe('parseDateValue helper', () => {
-    it('should parse valid Date instances', () => {
-      const d = new Date(2020, 0, 1);
-      expect(parseDateValue(d)).toEqual(d);
+    it.each([
+      ['2020/02/29', 2020, 2, 29],
+      ['2020-02-29', 2020, 2, 29],
+      ['2021/02/28', 2021, 2, 28],
+      ['2020/12/31', 2020, 12, 31],
+      ['2000/02/29', 2000, 2, 29],
+      ['  2020/02/29  ', 2020, 2, 29],
+      ['\t2020-02-29\n', 2020, 2, 29],
+    ])('parses strict local calendar date %j', (input, year, month, day) => {
+      const parsed = parseDateValue(input);
+      expect(parsed).not.toBeNull();
+      expect([parsed?.getFullYear(), (parsed?.getMonth() ?? -1) + 1, parsed?.getDate()]).toEqual([year, month, day]);
     });
 
-    it('should return null for non-date non-string or invalid dates', () => {
-      expect(parseDateValue(123)).toBeNull();
-      expect(parseDateValue('completely invalid')).toBeNull();
-      expect(parseDateValue(new Date('invalid'))).toBeNull();
+    it.each([
+      '2020/02/30', '2021/02/29', '1900/02/29', '2020-02-30', '2020/04/31',
+      '2020/00/01', '2020/13/01', '2020/01/00', '2020/01/32', '1', '', '   ',
+      'not-a-date', '２０２０/０２/２９', '2020/2/09', '2020/02-29', '02/29/2020',
+      '2020-02-29T00:00:00Z', '2020-02-29T00:00:00+09:00',
+    ])('rejects non-date or non-strict date string %j', (input) => {
+      expect(parseDateValue(input)).toBeNull();
+    });
+
+    it.each([123, null, undefined, [], {}, new Date('invalid')])('rejects unsupported date input %j', (input) => {
+      expect(parseDateValue(input)).toBeNull();
+    });
+
+    it('preserves valid Date instances', () => {
+      const d = new Date(2020, 0, 1);
+      expect(parseDateValue(d)).toEqual(d);
+      expect(parseDateValue(d)).toBe(d);
     });
   });
 
