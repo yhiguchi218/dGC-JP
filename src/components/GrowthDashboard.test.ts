@@ -98,6 +98,34 @@ vi.mock('./GrowthForm', () => ({
           measurements: [],
         }),
       }, '35週NaN日のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'hv-reference-sd-missing',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: '1', date: new Date(2020, 3, 20), height: 65, weight: 7.5 },
+            { id: '2', date: new Date(2021, 3, 20), height: 80, weight: 10.5 },
+          ],
+        }),
+      }, 'HV-SDSの基準SDがない年齢のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'hv-no-suwa-pair',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: '1', date: new Date(2020, 0, 1), height: 50, weight: 3.3 },
+            { id: '2', date: new Date(2020, 8, 1), height: 70, weight: 8.5 },
+          ],
+        }),
+      }, 'Suwa測定組がないデータを表示')
     )
   ),
 }));
@@ -193,6 +221,48 @@ describe('GrowthDashboard responsive results content', () => {
     expect(rawHVRegions).not.toContain(suwaHVRegions[0]);
     expect(rawHVRegions[0]).toHaveTextContent(/cm\/年/);
     expect(suwaHVRegions[0]).toHaveTextContent(/cm\/年/);
+  });
+
+  it('keeps valid Suwa HV-SDS values and labels a missing reference SD instead of showing a number', () => {
+    render(React.createElement(GrowthDashboard));
+
+    const suwaHVRegions = screen.getAllByRole('region', { name: '12か月HV（Suwa基準）' });
+    expect(suwaHVRegions).toHaveLength(3);
+
+    // Midpoint 0.5 years: the source has no SD there.
+    expect(suwaHVRegions[0]).toHaveTextContent('25.00 cm/年');
+    expect(suwaHVRegions[0]).toHaveTextContent('HV-SDS: 算出不可（基準SDなし）');
+    expect(suwaHVRegions[0]).not.toHaveTextContent(/HV-SDS: -?\d/);
+
+    // Midpoints 1.5 and 2.5 years: (11 - 10.3) / 0.93 and (9 - 8.0) / 0.70.
+    expect(suwaHVRegions[1]).toHaveTextContent('HV-SDS: 0.75');
+    expect(suwaHVRegions[2]).toHaveTextContent('HV-SDS: 1.43');
+  });
+
+  it('retains Raw and Suwa HV but shows no extreme HV-SDS when the reference SD is missing', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: 'HV-SDSの基準SDがない年齢のデータを表示' }));
+
+    const rawRegion = screen.getByRole('region', { name: '直近HV' });
+    const suwaRegion = screen.getByRole('region', { name: '12か月HV（Suwa基準）' });
+
+    expect(rawRegion).toHaveTextContent('15.03 cm/年');
+    expect(suwaRegion).toHaveTextContent('15.03 cm/年');
+    expect(suwaRegion).toHaveTextContent('HV-SDS: 算出不可（基準SDなし）');
+    expect(suwaRegion).not.toHaveTextContent(/HV-SDS: -?\d/);
+    expect(suwaRegion).not.toHaveTextContent('Suwa法によるHV-SDSは約12か月間隔の測定値で算出します');
+  });
+
+  it('distinguishes a missing Suwa measurement pair from a missing reference SD', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: 'Suwa測定組がないデータを表示' }));
+
+    const suwaRegion = screen.getByRole('region', { name: '12か月HV（Suwa基準）' });
+
+    expect(screen.getByRole('region', { name: '直近HV' })).toHaveTextContent(/cm\/年/);
+    expect(suwaRegion).toHaveTextContent('HV-SDS: —');
+    expect(suwaRegion).toHaveTextContent('Suwa法によるHV-SDSは約12か月間隔の測定値で算出します');
+    expect(suwaRegion).not.toHaveTextContent('算出不可（基準SDなし）');
   });
 
   it('retains chronological and corrected decimal and full-month ages in measurement cards', () => {

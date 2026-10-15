@@ -19,7 +19,7 @@ import {
   getCorrectedBirthDate,
   isValidGestationalDays
 } from './growth-utils';
-import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
+import { HVReferencePoint, SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 
 describe('Growth Utils Calculations', () => {
   describe('Z-Score (SDS) Calculations', () => {
@@ -262,19 +262,218 @@ describe('Growth Utils Calculations', () => {
 
     it('should interpolate Suwa HV reference values and calculate HV-SDS', () => {
       const hvRef = interpolateHV(10.5, SUWA_HV_BOYS);
-      expect(hvRef.mean).toBeGreaterThan(0);
-      expect(hvRef.sd).toBeGreaterThan(0);
+      expect(hvRef?.mean).toBeGreaterThan(0);
+      expect(hvRef?.sd).toBeGreaterThan(0);
 
       const sds = calculateHVSDS(6.0, 10.5, 'male', SUWA_HV_BOYS);
       expect(sds).not.toBeNull();
       expect(typeof sds).toBe('number');
 
-      // Edge cases for age below min or above max table
-      const underHV = interpolateHV(0, SUWA_HV_BOYS);
-      expect(underHV.mean).toBe(SUWA_HV_BOYS[0].mean);
+      // Table 3 prints "—" for mean and SD at age 0; this previously expected the placeholder mean 0 / SD 0.
+      expect(interpolateHV(0, SUWA_HV_BOYS)).toBeNull();
 
       const overHV = interpolateHV(20, SUWA_HV_BOYS);
-      expect(overHV.mean).toBe(SUWA_HV_BOYS[SUWA_HV_BOYS.length - 1].mean);
+      expect(overHV?.mean).toBe(SUWA_HV_BOYS[SUWA_HV_BOYS.length - 1].mean);
+    });
+  });
+
+  describe('Suwa HV-SDS reference availability', () => {
+    const sexTables: Array<['male' | 'female', HVReferencePoint[]]> = [
+      ['male', SUWA_HV_BOYS],
+      ['female', SUWA_HV_GIRLS],
+    ];
+
+    describe.each(sexTables)('%s table where the source has no SD', (sex, table) => {
+      it.each([0, 0.25, 0.5, 0.75, 0.76, 0.8, 0.875, 0.999999, 1 - Number.EPSILON / 2])('has no reference and no HV-SDS at %s years', (age) => {
+        expect(interpolateHV(age, table)).toBeNull();
+        expect(calculateHVSDS(15, age, sex, table)).toBeNull();
+      });
+    });
+
+    it('does not interpolate the missing 0.75-year SD toward 1.0 years', () => {
+      // The previous table treated the missing SD as 0: boys HV 15 gave about -41.10 at 0.76 and -6.26 at 0.80 years.
+      expect(calculateHVSDS(15, 0.76, 'male', SUWA_HV_BOYS)).toBeNull();
+      expect(calculateHVSDS(15, 0.8, 'male', SUWA_HV_BOYS)).toBeNull();
+    });
+
+    it('uses the 1.0-year table point itself although the preceding 0.75-year SD is missing', () => {
+      expect(interpolateHV(1.0, SUWA_HV_BOYS)).toEqual({ mean: 13.9, sd: 1.55 });
+      expect(interpolateHV(1.0, SUWA_HV_GIRLS)).toEqual({ mean: 13.4, sd: 1.4 });
+
+      // Hand calculations from the printed values: (15 - 13.9) / 1.55 and (15 - 13.4) / 1.4.
+      expect(calculateHVSDS(15, 1.0, 'male', SUWA_HV_BOYS)).toBeCloseTo(0.7096774193548384, 12);
+      expect(calculateHVSDS(15, 1.0, 'female', SUWA_HV_GIRLS)).toBeCloseTo(1.1428571428571428, 12);
+    });
+
+    it('has a reference immediately after 1.0 years', () => {
+      expect(interpolateHV(1.000001, SUWA_HV_BOYS)).not.toBeNull();
+      expect(interpolateHV(1.000001, SUWA_HV_GIRLS)).not.toBeNull();
+    });
+
+    it('linearly interpolates between valid adjacent points (boys 1.125 years: mean 12.8, SD 1.365)', () => {
+      const ref = interpolateHV(1.125, SUWA_HV_BOYS);
+
+      expect(ref?.mean).toBeCloseTo(12.8, 10);
+      expect(ref?.sd).toBeCloseTo(1.365, 10);
+      expect(calculateHVSDS(15, 1.125, 'male', SUWA_HV_BOYS)).toBeCloseTo(2.2 / 1.365, 10);
+    });
+
+    it('uses the Table 3 values at 14.0 years (boys HV 5.5 gives -0.909, not the former -2.079)', () => {
+      // (5.5 - 6.3) / 0.88
+      expect(calculateHVSDS(5.5, 14.0, 'male', SUWA_HV_BOYS)).toBeCloseTo(-0.9090909090909091, 12);
+    });
+
+    it('uses the Table 3 values at 13.25, 14.0 and 16.0 years and at points either side of them', () => {
+      // Hand calculations from printed Table 3 mean / SD: [age, HV, mean, SD]
+      const cases: Array<[number, number, number, number]> = [
+        [13.0, 11, 9.9, 1.45],
+        [13.25, 11, 9.4, 1.45],
+        [13.5, 11, 8.7, 1.23],
+        [13.75, 9, 7.6, 1.01],
+        [14.0, 7, 6.3, 0.88],
+        [14.25, 7, 5.3, 0.8],
+        [15.75, 3, 1.9, 0.58],
+        [16.0, 3, 1.6, 0.53],
+        [16.25, 3, 1.3, 0.49],
+      ];
+
+      cases.forEach(([age, velocity, mean, sd]) => {
+        expect(calculateHVSDS(velocity, age, 'male', SUWA_HV_BOYS)).toBeCloseTo((velocity - mean) / sd, 10);
+      });
+    });
+
+    it('interpolates between corrected boys rows (13.125 years: mean 9.65, SD 1.45; 16.125 years: mean 1.45, SD 0.51)', () => {
+      expect(calculateHVSDS(12, 13.125, 'male', SUWA_HV_BOYS)).toBeCloseTo((12 - 9.65) / 1.45, 10);
+      expect(calculateHVSDS(3, 16.125, 'male', SUWA_HV_BOYS)).toBeCloseTo((3 - 1.45) / 0.51, 10);
+    });
+
+    it('interpolates between valid girls rows (11.125 years: mean 8.15, SD 1.05)', () => {
+      expect(calculateHVSDS(10, 11.125, 'female', SUWA_HV_GIRLS)).toBeCloseTo((10 - 8.15) / 1.05, 10);
+    });
+
+    it('still uses the final table point beyond the last table age', () => {
+      expect(interpolateHV(17.5, SUWA_HV_BOYS)).toEqual({ mean: 0.3, sd: 0.3 });
+      expect(interpolateHV(20, SUWA_HV_BOYS)).toEqual({ mean: 0.3, sd: 0.3 });
+      expect(interpolateHV(17.25, SUWA_HV_GIRLS)).toEqual({ mean: 0.1, sd: 0.2 });
+      expect(interpolateHV(17.5, SUWA_HV_GIRLS)).toEqual({ mean: 0.1, sd: 0.2 });
+    });
+
+    describe('with a small table containing missing values', () => {
+      const table: HVReferencePoint[] = [
+        { age: 1, mean: 10, sd: 1 },
+        { age: 2, mean: 8, sd: null },
+        { age: 3, mean: null, sd: 1 },
+        { age: 4, mean: 6, sd: 2 },
+        { age: 5, mean: 4, sd: 1 },
+        { age: 6, mean: 0, sd: 1 },
+        { age: 7, mean: 2, sd: 0 },
+      ];
+
+      it('uses a table point that exactly matches the age, even next to missing points', () => {
+        expect(interpolateHV(1, table)).toEqual({ mean: 10, sd: 1 });
+        expect(interpolateHV(4, table)).toEqual({ mean: 6, sd: 2 });
+        expect(interpolateHV(5, table)).toEqual({ mean: 4, sd: 1 });
+      });
+
+      it('uses the nearest endpoint below the first table age', () => {
+        expect(interpolateHV(0, table)).toEqual({ mean: 10, sd: 1 });
+      });
+
+      it('treats a missing mean, a missing SD, or an SD of 0 at the matching point as unavailable', () => {
+        expect(interpolateHV(2, table)).toBeNull();
+        expect(interpolateHV(3, table)).toBeNull();
+        expect(interpolateHV(7, table)).toBeNull();
+      });
+
+      it('does not interpolate an interval with an unusable endpoint or reach a more distant point', () => {
+        expect(interpolateHV(1.5, table)).toBeNull();
+        expect(interpolateHV(2.5, table)).toBeNull();
+        expect(interpolateHV(3.5, table)).toBeNull();
+        expect(interpolateHV(6.5, table)).toBeNull();
+        expect(interpolateHV(8, table)).toBeNull();
+      });
+
+      it('interpolates linearly between usable points and treats a mean of 0 as a value', () => {
+        expect(interpolateHV(4.5, table)).toEqual({ mean: 5, sd: 1.5 });
+        expect(interpolateHV(5.5, table)).toEqual({ mean: 2, sd: 1 });
+        expect(interpolateHV(6, table)).toEqual({ mean: 0, sd: 1 });
+        expect(calculateHVSDS(1, 6, 'male', table)).toBeCloseTo(1, 12);
+      });
+
+      it('accepts a negative velocity', () => {
+        expect(calculateHVSDS(-1, 4.5, 'male', table)).toBeCloseTo(-4, 12);
+      });
+    });
+
+    describe('with invalid input', () => {
+      it('returns null for an empty table', () => {
+        expect(interpolateHV(1, [])).toBeNull();
+        expect(calculateHVSDS(5, 1, 'male', [])).toBeNull();
+      });
+
+      it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])('returns null for non-finite age or velocity %s', (value) => {
+        expect(interpolateHV(value, SUWA_HV_BOYS)).toBeNull();
+        expect(calculateHVSDS(value, 5, 'male', SUWA_HV_BOYS)).toBeNull();
+        expect(calculateHVSDS(15, value, 'male', SUWA_HV_BOYS)).toBeNull();
+      });
+
+      it('returns null for table points with non-finite values', () => {
+        const table: HVReferencePoint[] = [
+          { age: 1, mean: Number.NaN, sd: 1 },
+          { age: 2, mean: 5, sd: Number.POSITIVE_INFINITY },
+          { age: 3, mean: 5, sd: 1 },
+        ];
+
+        expect(interpolateHV(1, table)).toBeNull();
+        expect(interpolateHV(1.5, table)).toBeNull();
+        expect(interpolateHV(2, table)).toBeNull();
+        expect(interpolateHV(2.5, table)).toBeNull();
+        expect(interpolateHV(3, table)).toEqual({ mean: 5, sd: 1 });
+      });
+
+      it('returns null instead of Infinity when the interpolation or the SDS overflows', () => {
+        const table: HVReferencePoint[] = [
+          { age: 1, mean: -Number.MAX_VALUE, sd: 1 },
+          { age: 2, mean: Number.MAX_VALUE, sd: 1 },
+        ];
+
+        expect(interpolateHV(1.5, table)).toBeNull();
+        expect(calculateHVSDS(Number.MAX_VALUE, 5, 'male', SUWA_HV_BOYS)).toBeNull();
+      });
+    });
+
+    describe('in height-velocity results', () => {
+      it.each(sexTables)('keeps raw and Suwa HV but leaves HV-SDS null for a pair centred at 0.8 years (%s)', (sex, table) => {
+        const [result] = calculateHeightVelocityResults([
+          { date: new Date(2025, 0, 1), age: 0.3, height: 65 },
+          { date: new Date(2026, 0, 1), age: 1.3, height: 80 },
+        ], sex, table);
+
+        expect(result.raw?.velocity).toBeCloseTo(15, 10);
+        expect(result.suwa?.velocity).toBeCloseTo(15, 10);
+        expect(result.suwa?.midpointAge).toBeCloseTo(0.8, 10);
+        expect(result.suwa?.sds).toBeNull();
+      });
+
+      it('calculates HV-SDS for a pair centred exactly on 1.0 years', () => {
+        const [result] = calculateHeightVelocityResults([
+          { date: new Date(2025, 0, 1), age: 0.5, height: 65 },
+          { date: new Date(2026, 0, 1), age: 1.5, height: 80 },
+        ], 'male', SUWA_HV_BOYS);
+
+        expect(result.suwa?.midpointAge).toBe(1);
+        expect(result.suwa?.sds).toBeCloseTo(0.7096774193548384, 12);
+      });
+
+      it('calculates HV-SDS from the corrected boys table for a pair centred at 13.25 years', () => {
+        const [result] = calculateHeightVelocityResults([
+          { date: new Date(2025, 0, 1), age: 12.75, height: 150 },
+          { date: new Date(2026, 0, 1), age: 13.75, height: 161 },
+        ], 'male', SUWA_HV_BOYS);
+
+        expect(result.suwa?.midpointAge).toBe(13.25);
+        expect(result.suwa?.sds).toBeCloseTo((11 - 9.4) / 1.45, 10);
+      });
     });
   });
 

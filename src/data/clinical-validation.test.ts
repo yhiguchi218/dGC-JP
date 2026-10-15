@@ -91,7 +91,7 @@ describe('Clinical Pediatric Growth Reference Data Validation', () => {
     });
   });
 
-  describe('Longitudinal Height Velocity Reference (Suwa & Tachibana Standards)', () => {
+  describe('Longitudinal Height Velocity Reference (Suwa et al. 1992)', () => {
     
     it('Should contain 71 age intervals for boys and 70 for girls up to late adolescence', () => {
       expect(SUWA_HV_BOYS.length).toBe(71);

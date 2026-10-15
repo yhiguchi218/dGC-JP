@@ -261,8 +261,9 @@ export type HeightVelocityResult = {
  * Produces separate Raw and Suwa-based height-velocity results for each measurement after the first.
  *
  * Raw HV uses the immediately preceding measurement. Suwa HV uses the eligible prior pair selected by
- * `findBestSuwaPair` and includes an HV-SDS when its reference standard deviation is nonzero. Results
- * with neither Raw nor Suwa data are omitted so the two concepts remain independently represented.
+ * `findBestSuwaPair`; its HV-SDS is `null` where the reference table has no usable mean and SD at the
+ * pair's midpoint age, while the HV itself is retained. Results with neither Raw nor Suwa data are
+ * omitted so the two concepts remain independently represented.
  */
 export function calculateHeightVelocityResults(
   points: HeightVelocityPoint[],
@@ -414,41 +415,64 @@ export function calculateObesityIndexByAge(weight: number, height: number, age: 
   return ((weight - standardWeight) / standardWeight) * 100;
 }
 
+/** Returns the point's reference only when its mean and SD are both present, finite, and SD > 0. */
+function usableHVReference(point: HVReferencePoint): { mean: number, sd: number } | null {
+  const { mean, sd } = point;
+  if (typeof mean !== 'number' || typeof sd !== 'number') return null;
+  return Number.isFinite(mean) && Number.isFinite(sd) && sd > 0 ? { mean, sd } : null;
+}
+
 /**
  * Linearly interpolates the supplied Suwa HV reference table at a decimal age.
  *
- * Ages outside the table range use the nearest endpoint's mean and standard deviation.
+ * An age equal to a table age uses that point itself. Between two table ages both endpoints must be
+ * usable (mean and SD present, finite, SD > 0); a missing or unusable endpoint makes the interval
+ * unavailable, and no more distant point is substituted. Ages outside the table range use the nearest
+ * endpoint. Returns `null` for non-finite ages, empty tables, and any unavailable reference.
  */
-export function interpolateHV(age: number, table: HVReferencePoint[]): { mean: number, sd: number } {
-  if (age <= table[0].age) return { mean: table[0].mean, sd: table[0].sd };
-  if (age >= table[table.length - 1].age) return { mean: table[table.length - 1].mean, sd: table[table.length - 1].sd };
+export function interpolateHV(age: number, table: HVReferencePoint[]): { mean: number, sd: number } | null {
+  if (!Number.isFinite(age) || table.length === 0) return null;
+
+  const lastIndex = table.length - 1;
+  if (age <= table[0].age) return usableHVReference(table[0]);
+  if (age >= table[lastIndex].age) return usableHVReference(table[lastIndex]);
 
   let i = 0;
-  while (i < table.length - 1 && age > table[i + 1].age) {
+  while (i < lastIndex && age > table[i + 1].age) {
     i++;
   }
 
   const p1 = table[i];
   const p2 = table[i + 1];
-  const t = (age - p1.age) / (p2.age - p1.age);
+  if (age === p2.age) return usableHVReference(p2);
 
-  return {
-    mean: p1.mean + t * (p2.mean - p1.mean),
-    sd: p1.sd + t * (p2.sd - p1.sd)
-  };
+  const ref1 = usableHVReference(p1);
+  const ref2 = usableHVReference(p2);
+  if (ref1 === null || ref2 === null) return null;
+
+  const t = (age - p1.age) / (p2.age - p1.age);
+  const mean = ref1.mean + t * (ref2.mean - ref1.mean);
+  const sd = ref1.sd + t * (ref2.sd - ref1.sd);
+
+  return Number.isFinite(mean) && Number.isFinite(sd) && sd > 0 ? { mean, sd } : null;
 }
 
 /**
  * Calculates HV-SDS from a velocity and the interpolated mean and standard deviation in the supplied
  * Suwa reference table.
  *
- * Returns `null` when the interpolated standard deviation is zero; this function does not apply display
- * or interpretation thresholds.
+ * Returns `null` when the velocity is not finite, no usable reference exists at the age (see
+ * `interpolateHV`), or the result is not finite. A negative velocity is a valid input. This function
+ * does not apply display or interpretation thresholds.
  */
 export function calculateHVSDS(velocity: number, age: number, sex: 'male' | 'female', table: HVReferencePoint[]): number | null {
+  if (!Number.isFinite(velocity)) return null;
+
   const ref = interpolateHV(age, table);
-  if (ref.sd === 0) return null;
-  return (velocity - ref.mean) / ref.sd;
+  if (ref === null) return null;
+
+  const sds = (velocity - ref.mean) / ref.sd;
+  return Number.isFinite(sds) ? sds : null;
 }
 
 /**
