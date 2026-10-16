@@ -1,4 +1,4 @@
-import { isValid, parse, isAfter } from 'date-fns';
+import { format, isValid, parse, isAfter } from 'date-fns';
 import { CLINICAL_LIMITS, DetailedValidationResult, ValidationIssue } from './constants';
 import { calculateDecimalAge, isValidGestationalDays } from './growth-utils';
 
@@ -20,6 +20,7 @@ export interface RawGrowthJSONInput {
 
 export type SupportedSexInput = '男子' | '女子' | 'male' | 'female';
 export type NormalizedSex = '男子' | '女子';
+const SUPPORTED_DATE_FORMATS = 'YYYY/MM/DD または YYYY-MM-DD';
 
 /**
  * Checks whether an input is one of the supported Japanese or English sex labels accepted by import.
@@ -56,7 +57,7 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
       message: 'データが正しいJSONオブジェクト形式ではありません。',
       severity: 'error',
     });
-    return { isValid: false, errors, warnings };
+    return { isValid: false, errors, warnings, parsedDates: { birthDate: null, measurements: [] } };
   }
 
   const input = data as RawGrowthJSONInput;
@@ -75,7 +76,7 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   if (!input.birthDate) {
     errors.push({
       field: 'birthDate',
-      message: '生年月日（birthDate）が指定されていません。',
+      message: `生年月日（birthDate）が指定されていません。受け入れ形式: ${SUPPORTED_DATE_FORMATS}。`,
       severity: 'error',
     });
   } else {
@@ -83,7 +84,7 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
     if (!parsedBirthDate || !isValid(parsedBirthDate)) {
       errors.push({
         field: 'birthDate',
-        message: `生年月日の形式が不正です（入力値: "${input.birthDate}"、推奨形式: YYYY/MM/DD）。`,
+        message: `生年月日の形式が不正です（入力値: "${input.birthDate}"）。受け入れ形式: ${SUPPORTED_DATE_FORMATS}。`,
         severity: 'error',
       });
     } else {
@@ -132,6 +133,9 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   }
 
   // 5. Validate measurements
+  const parsedMeasurementDates: (Date | null)[] = Array.isArray(input.measurements)
+    ? Array(input.measurements.length).fill(null)
+    : [];
   if (!Array.isArray(input.measurements)) {
     errors.push({
       field: 'measurements',
@@ -164,16 +168,17 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
         errors.push({
           field: `measurements[${index}].date`,
           rowIndex: rowNumber,
-          message: `${rowNumber}行目: 測定日が指定されていません。`,
+          message: `${rowNumber}行目: 測定日が指定されていません。受け入れ形式: ${SUPPORTED_DATE_FORMATS}。`,
           severity: 'error',
         });
       } else {
         const mDate = parseDateValue(meas.date);
+        parsedMeasurementDates[index] = mDate;
         if (!mDate || !isValid(mDate)) {
           errors.push({
             field: `measurements[${index}].date`,
             rowIndex: rowNumber,
-            message: `${rowNumber}行目: 測定日（"${meas.date}"）の日付形式が不正です。`,
+            message: `${rowNumber}行目: 測定日（"${meas.date}"）の日付形式が不正です。受け入れ形式: ${SUPPORTED_DATE_FORMATS}。`,
             severity: 'error',
           });
         } else if (parsedBirthDate && isValid(parsedBirthDate)) {
@@ -258,26 +263,25 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
     isValid: errors.length === 0,
     errors,
     warnings,
+    parsedDates: { birthDate: parsedBirthDate, measurements: parsedMeasurementDates },
   };
 }
 
 /**
- * Parses valid `Date` values and strings accepted by the existing import path.
+ * Parses valid `Date` values and strict local calendar-date strings for JSON import.
  *
- * Strings are tried first as `YYYY/MM/DD`, then with the native `Date` constructor. Other input types and
- * invalid dates return `null`.
+ * Strings must use `YYYY/MM/DD` or `YYYY-MM-DD`; other input types and invalid dates return `null`.
  */
 export function parseDateValue(dateVal: string | Date | unknown): Date | null {
   if (dateVal instanceof Date) return isValid(dateVal) ? dateVal : null;
   if (typeof dateVal !== 'string') return null;
 
-  // Try YYYY/MM/DD
-  let parsed = parse(dateVal, 'yyyy/MM/dd', new Date());
-  if (isValid(parsed)) return parsed;
+  const normalized = dateVal.trim();
+  const match = /^(\d{4})(\/|-)(\d{2})\2(\d{2})$/.exec(normalized);
+  if (!match) return null;
 
-  // Try ISO or standard constructor
-  parsed = new Date(dateVal);
-  if (isValid(parsed)) return parsed;
-
-  return null;
+  const dateFormat = match[2] === '/' ? 'yyyy/MM/dd' : 'yyyy-MM-dd';
+  const parsed = parse(normalized, dateFormat, new Date());
+  if (!isValid(parsed) || format(parsed, dateFormat) !== normalized) return null;
+  return parsed;
 }

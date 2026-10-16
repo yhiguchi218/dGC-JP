@@ -9,7 +9,7 @@ import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge, isValidGestationalDays } from '../lib/growth-utils';
 import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
-import { validateGrowthJSON, parseDateValue, normalizeSex } from '../lib/validation-utils';
+import { validateGrowthJSON, normalizeSex } from '../lib/validation-utils';
 
 const generateUniqueId = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
@@ -169,6 +169,12 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           return;
         }
 
+        const parsedDates = validation.parsedDates;
+        if (!parsedDates.birthDate || parsedDates.measurements.some(date => date === null)) {
+          alert('ファイルの読み込みに失敗しました: 生年月日または測定日を YYYY/MM/DD または YYYY-MM-DD で指定してください。');
+          return;
+        }
+
         // Show warnings if any
         if (validation.warnings.length > 0) {
           const warningSummary = validation.warnings
@@ -181,10 +187,10 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         // Handle migration from old 'male'/'female' to Japanese if needed
         const loadedSex = data.sex === undefined ? '男子' : normalizeSex(data.sex);
 
-        const loadedBirthDate = parseDateValue(data.birthDate) || new Date(2020, 0, 1);
-        const loadedMeasurements = data.measurements.map((m: any) => ({
+        const loadedBirthDate = parsedDates.birthDate;
+        const loadedMeasurements = data.measurements.map((m: any, index: number) => ({
           id: m.id || generateUniqueId(),
-          date: parseDateValue(m.date) || new Date(),
+          date: parsedDates.measurements[index] as Date,
           height: m.height,
           weight: m.weight
         }));
