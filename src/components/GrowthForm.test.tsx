@@ -174,6 +174,46 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(screen.getByText(/44週以上は44週0日として計算されます/)).toBeInTheDocument();
   });
 
+  it('keeps gestational-week drafts uncommitted until a complete integer is confirmed', () => {
+    const handleDataChange = vi.fn();
+    render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const weeksInput = screen.getByLabelText('在胎期間 (週)');
+
+    fireEvent.change(weeksInput, { target: { value: '' } });
+    expect(weeksInput).toHaveValue('');
+    expect(weeksInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/在胎週数は空欄にせず/)).toBeInTheDocument();
+    expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalWeeks: Number.NaN }));
+
+    for (const draft of ['35.5', '35abc', '-3']) {
+      fireEvent.change(weeksInput, { target: { value: draft } });
+      fireEvent.blur(weeksInput);
+      expect(weeksInput).toHaveValue(draft);
+      expect(weeksInput).toHaveAttribute('aria-invalid', 'true');
+      expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalWeeks: Number.NaN }));
+    }
+
+    fireEvent.change(weeksInput, { target: { value: '３５' } });
+    fireEvent.keyDown(weeksInput, { key: 'Enter' });
+    expect(weeksInput).toHaveValue('35');
+    expect(weeksInput).toHaveAttribute('aria-invalid', 'false');
+    expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({ gestationalWeeks: 35 }));
+  });
+
+  it('does not export JSON while gestational weeks are blank or malformed', () => {
+    const handleDataChange = vi.fn();
+    const createObjectURL = vi.fn();
+    vi.stubGlobal('alert', vi.fn());
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+    render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+    fireEvent.change(screen.getByLabelText('在胎期間 (週)'), { target: { value: '35.5' } });
+    fireEvent.click(screen.getByRole('button', { name: /現在の入力データをJSONファイル形式/ }));
+
+    expect(window.alert).toHaveBeenCalledWith('在胎週数を有限の整数に修正してからデータを保存してください。');
+    expect(createObjectURL).not.toHaveBeenCalled();
+  });
+
   it('keeps invalid gestational days visible and reports them as invalid', () => {
     const handleDataChange = vi.fn();
     render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
@@ -194,6 +234,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     ['　', Number.NaN],
     ['1e0', Number.NaN],
     ['0x0', Number.NaN],
+    ['1.5', Number.NaN],
   ])('does not export JSON for invalid gestational days: %s', (value, expectedDays) => {
     const handleDataChange = vi.fn();
     const createObjectURL = vi.fn();
@@ -232,7 +273,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
 
     expect(createObjectURL).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
-    expect(JSON.parse(serializedData)).toEqual(expect.objectContaining({ gestationalDays }));
+    expect(JSON.parse(serializedData)).toEqual(expect.objectContaining({ gestationalWeeks: 40, gestationalDays }));
   });
 
   it('displays warning when measurement date is before birth date', () => {
@@ -342,6 +383,83 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(screen.getByLabelText('生年月日')).toHaveValue('2020/01/01');
     expect(container.querySelectorAll('input[id^="height-"]')).toHaveLength(1);
     expect(container.querySelector('input[id^="height-"]')).toHaveValue('100');
+  });
+
+  it('rejects an invalid gestational week without changing the current form or notifying the dashboard', async () => {
+    const handleDataChange = vi.fn();
+    vi.stubGlobal('alert', vi.fn());
+    const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const fileData = {
+      childId: 'imported',
+      birthDate: '2021/01/01',
+      gestationalWeeks: '35',
+      gestationalDays: 4,
+      measurements: [{ id: 'imported-row', date: '2021/02/01', height: 80, weight: 10 }],
+    };
+    const file = new File([JSON.stringify(fileData)], 'invalid-weeks.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('在胎週数は有限の整数'));
+    expect(handleDataChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('管理ID')).toHaveValue('001');
+    expect(screen.getByLabelText('生年月日')).toHaveValue('2020/01/01');
+    expect(screen.getByLabelText('在胎期間 (週)')).toHaveValue('40');
+    expect(container.querySelector('input[id^="height-"]')).toHaveValue('100');
+  });
+
+  it('uses 40 weeks and 0 days only when legacy JSON omits both fields', async () => {
+    const handleDataChange = vi.fn();
+    const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const fileData = {
+      childId: 'legacy',
+      birthDate: '2020/01/01',
+      measurements: [{ id: 'legacy-row', date: '2020/02/01', height: 52, weight: 4 }],
+    };
+    const file = new File([JSON.stringify(fileData)], 'legacy.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(handleDataChange).toHaveBeenCalledWith(expect.objectContaining({ gestationalWeeks: 40, gestationalDays: 0 }));
+    expect(screen.getByLabelText('在胎期間 (週)')).toHaveValue('40');
+    expect(screen.getByLabelText('在胎期間 (日)')).toHaveValue('0');
+  });
+
+  it('defaults omitted legacy gestational days to 0 while preserving the specified week', async () => {
+    const handleDataChange = vi.fn();
+    const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const fileData = {
+      childId: 'legacy-weeks-only',
+      birthDate: '2020/01/01',
+      gestationalWeeks: 35,
+      measurements: [{ id: 'legacy-weeks-only-row', date: '2020/02/01', height: 52, weight: 4 }],
+    };
+    const file = new File([JSON.stringify(fileData)], 'legacy-weeks-only.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(handleDataChange).toHaveBeenCalledWith(expect.objectContaining({ gestationalWeeks: 35, gestationalDays: 0 }));
+    expect(screen.getByLabelText('在胎期間 (週)')).toHaveValue('35');
+    expect(screen.getByLabelText('在胎期間 (日)')).toHaveValue('0');
+  });
+
+  it('shows the effective clamped value when importing an out-of-range integer week', async () => {
+    const handleDataChange = vi.fn();
+    vi.stubGlobal('alert', vi.fn());
+    const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+    const fileData = {
+      childId: 'clamped',
+      birthDate: '2020/01/01',
+      gestationalWeeks: 20,
+      gestationalDays: 4,
+      measurements: [{ id: 'clamped-row', date: '2020/02/01', height: 52, weight: 4 }],
+    };
+    const file = new File([JSON.stringify(fileData)], 'clamped.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('在胎週数 20週は22週0日として計算されます'));
+    expect(handleDataChange).toHaveBeenCalledWith(expect.objectContaining({ gestationalWeeks: 20, gestationalDays: 4 }));
   });
 
   it('preserves local calendar dates when saved JSON is reloaded', async () => {

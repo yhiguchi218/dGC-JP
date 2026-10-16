@@ -102,6 +102,87 @@ describe('JSON Detailed Validation Utils', () => {
     expect(res.errors.some(e => e.field === 'gestationalDays')).toBe(true);
   });
 
+  it.each([null, '0', '3', '', ' ', true, [], {}, 1.5, Number.NaN, Infinity])(
+    'rejects invalid gestational weeks without coercion: %j',
+    (gestationalWeeks) => {
+      const result = validateGrowthJSON({
+        birthDate: '2020/01/01',
+        gestationalWeeks,
+        gestationalDays: 0,
+        measurements: [],
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(error => error.field === 'gestationalWeeks')).toBe(true);
+      expect(result.warnings.some(warning => warning.field === 'gestationalWeeks')).toBe(false);
+    }
+  );
+
+  it.each([null, '0', '4', true, [], {}, 1.5, Number.NaN, Infinity])(
+    'rejects explicit invalid gestational days: %j',
+    (gestationalDays) => {
+      const result = validateGrowthJSON({
+        birthDate: '2020/01/01',
+        gestationalWeeks: 35,
+        gestationalDays,
+        measurements: [],
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(error => error.field === 'gestationalDays')).toBe(true);
+    }
+  );
+
+  it('defaults only omitted gestational fields for legacy JSON', () => {
+    const result = validateGrowthJSON({
+      birthDate: '2020/01/01',
+      measurements: [],
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.gestationalAge).toEqual({ weeks: 40, days: 0 });
+  });
+
+  it.each([0, 6])('accepts valid gestational days as numeric values: %i', (gestationalDays) => {
+    const result = validateGrowthJSON({
+      birthDate: '2020/01/01',
+      gestationalWeeks: 35,
+      gestationalDays,
+      measurements: [],
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.gestationalAge).toEqual({ weeks: 35, days: gestationalDays });
+  });
+
+  it('accepts the specified 35-week-4-day gestational age as numeric values', () => {
+    const result = validateGrowthJSON({
+      birthDate: '2020/01/01',
+      gestationalWeeks: 35,
+      gestationalDays: 4,
+      measurements: [],
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.gestationalAge).toEqual({ weeks: 35, days: 4 });
+  });
+
+  it.each([
+    [20, '22週0日'],
+    [45, '44週0日'],
+  ])('accepts integer week %i with the existing clamp warning', (gestationalWeeks, clampedGestation) => {
+    const result = validateGrowthJSON({
+      birthDate: '2020/01/01',
+      gestationalWeeks,
+      gestationalDays: 5,
+      measurements: [],
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.gestationalAge).toEqual({ weeks: gestationalWeeks, days: 5 });
+    expect(result.warnings.find(warning => warning.field === 'gestationalWeeks')?.message).toContain(clampedGestation);
+  });
+
   it('should detect measurement date before birth date with row numbers', () => {
     const data = {
       childId: '001',

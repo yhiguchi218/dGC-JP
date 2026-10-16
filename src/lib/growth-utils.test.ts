@@ -17,7 +17,8 @@ import {
   calculateCorrectedAge,
   calculateFullMonthsAge,
   getCorrectedBirthDate,
-  isValidGestationalDays
+  isValidGestationalDays,
+  isValidGestationalWeeks
 } from './growth-utils';
 import { HVReferencePoint, SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 
@@ -538,6 +539,11 @@ describe('Growth Utils Calculations', () => {
       expect(isValidGestationalDays('3')).toBe(false);
     });
 
+    it('accepts only finite integer gestational weeks', () => {
+      [22, 35, 44, 0, 45].forEach((weeks) => expect(isValidGestationalWeeks(weeks)).toBe(true));
+      [35.5, Number.NaN, Infinity, '35', null, undefined].forEach((weeks) => expect(isValidGestationalWeeks(weeks)).toBe(false));
+    });
+
     it('should not apply corrected age for term infants (>=37 weeks)', () => {
       const birth = new Date('2020-01-01');
       const measure = new Date('2020-04-01');
@@ -554,6 +560,14 @@ describe('Growth Utils Calculations', () => {
       const expectedBirth = new Date('2020-02-12'); // 42 days later
       const expectedAge = calculateDecimalAge(expectedBirth, measure);
       expect(corrected).toBe(expectedAge);
+    });
+
+    it.each([0, 6])('calculates the correction for 35 weeks and %i days', (days) => {
+      const birth = new Date('2020-01-01');
+      const measure = new Date('2020-06-01');
+      const expectedBirth = new Date(2020, 0, 1 + (40 - 35) * 7 - days);
+
+      expect(calculateCorrectedAge(birth, measure, 35, days)).toBe(calculateDecimalAge(expectedBirth, measure));
     });
 
     it('should return null before the corrected 40w0d-equivalent date', () => {
@@ -602,6 +616,14 @@ describe('Growth Utils Calculations', () => {
       [-1, 7, 1.5, Number.NaN, Infinity].forEach((days) => {
         expect(calculateCorrectedAge(birth, correctedBirthDate, 34, days)).toBeNull();
       });
+    });
+
+    it.each([Number.NaN, Infinity, 35.5, '35', null])('rejects invalid gestational weeks: %j', (weeks) => {
+      const birth = new Date('2020-01-01');
+      const measure = new Date('2020-06-01');
+
+      expect(calculateCorrectedAge(birth, measure, weeks, 0)).toBeNull();
+      expect(getCorrectedBirthDate(birth, weeks, 0)).toBeNull();
     });
   });
 

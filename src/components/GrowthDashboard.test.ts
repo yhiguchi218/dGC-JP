@@ -84,7 +84,7 @@ vi.mock('./GrowthForm', () => ({
           sex: '女子',
           gestationalWeeks: 35,
           gestationalDays: 7,
-          measurements: [],
+          measurements: [{ id: 'invalid-days', date: new Date(2021, 0, 1), height: 74, weight: 9.2 }],
         }),
       }, '35週7日のデータを表示')
       , React.createElement('button', {
@@ -95,9 +95,64 @@ vi.mock('./GrowthForm', () => ({
           sex: '女子',
           gestationalWeeks: 35,
           gestationalDays: Number.NaN,
-          measurements: [],
+          measurements: [{ id: 'invalid-days-nan', date: new Date(2021, 0, 1), height: 74, weight: 9.2 }],
         }),
       }, '35週NaN日のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-weeks',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: Number.NaN,
+          gestationalDays: 0,
+          measurements: [{ id: 'invalid-weeks-row', date: new Date(2021, 0, 1), height: 75, weight: 9.5 }],
+        }),
+      }, '在胎週数不正のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'valid-weeks-after-invalid',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 35,
+          gestationalDays: 0,
+          measurements: [{ id: 'valid-weeks-row', date: new Date(2021, 0, 1), height: 75, weight: 9.5 }],
+        }),
+      }, '35週確定後のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-weeks-at-three',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: Number.NaN,
+          gestationalDays: 0,
+          measurements: [{ id: 'invalid-weeks-at-three-row', date: new Date(2023, 0, 1), height: 95, weight: 14 }],
+        }),
+      }, '在胎週数不正で3歳ちょうどのデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-weeks-after-three',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: Number.NaN,
+          gestationalDays: 0,
+          measurements: [{ id: 'invalid-weeks-after-three-row', date: new Date(2023, 0, 2), height: 95.1, weight: 14.1 }],
+        }),
+      }, '在胎週数不正で3歳超のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'term-invalid-days',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 7,
+          measurements: [{ id: 'term-invalid-days-row', date: new Date(2021, 0, 1), height: 75, weight: 9.5 }],
+        }),
+      }, '満期児で在胎日数不正のデータを表示')
       , React.createElement('button', {
         type: 'button',
         onClick: () => onDataChange({
@@ -202,6 +257,62 @@ describe('GrowthDashboard responsive results content', () => {
     expect(gestationalAge).toHaveTextContent('35週（在胎日数要確認）');
     expect(gestationalAge).not.toHaveTextContent(invalidValue);
     expect(gestationalAge).not.toHaveTextContent('(早産期修正)');
+  });
+
+  it.each([
+    ['35週7日のデータを表示', '74cm'],
+    ['35週NaN日のデータを表示', '74cm'],
+    ['在胎週数不正のデータを表示', '75cm'],
+  ])('retains raw measurements but withholds SDS and chart points when correction is unknown: %s', (buttonName, rawHeight) => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: buttonName }));
+
+    const measurement = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
+    expect(measurement).toHaveTextContent(rawHeight);
+    expect(measurement).toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(measurement).not.toHaveTextContent(/\d+\.\d{2}SD/);
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '0');
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-weight-points', '0');
+  });
+
+  it('holds evaluation at exactly 3.0 years for invalid weeks, but uses chronological evaluation after 3.0', () => {
+    render(React.createElement(GrowthDashboard));
+
+    fireEvent.click(screen.getByRole('button', { name: '在胎週数不正で3歳ちょうどのデータを表示' }));
+    const atThree = screen.getByLabelText('測定日 2023/01/01 の成長評価結果');
+    expect(atThree).toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(atThree).not.toHaveTextContent(/\d+\.\d{2}SD/);
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '0');
+
+    fireEvent.click(screen.getByRole('button', { name: '在胎週数不正で3歳超のデータを表示' }));
+    const afterThree = screen.getByLabelText('測定日 2023/01/02 の成長評価結果');
+    expect(afterThree).not.toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(afterThree).toHaveTextContent(/\d+\.\d{2}SD/);
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '1');
+  });
+
+  it('keeps chronological SDS and chart points for a term child with invalid gestational days', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '満期児で在胎日数不正のデータを表示' }));
+
+    const measurement = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
+    expect(measurement).not.toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(measurement).toHaveTextContent(/\d+\.\d{2}SD/);
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '1');
+  });
+
+  it('resumes corrected-age evaluation after gestational weeks are confirmed', () => {
+    render(React.createElement(GrowthDashboard));
+
+    fireEvent.click(screen.getByRole('button', { name: '在胎週数不正のデータを表示' }));
+    expect(screen.getByLabelText('測定日 2021/01/01 の成長評価結果')).toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '0');
+
+    fireEvent.click(screen.getByRole('button', { name: '35週確定後のデータを表示' }));
+    const measurement = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
+    expect(measurement).not.toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(measurement).toHaveTextContent(/修正 \d+\.\d{4}歳/);
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '2');
   });
 
   it('does not display preterm correction status for term births', () => {

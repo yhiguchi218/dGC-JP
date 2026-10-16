@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { format, parse, isValid } from 'date-fns';
 import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { calculateDecimalAge, isValidGestationalDays } from '../lib/growth-utils';
+import { calculateDecimalAge, isValidGestationalDays, isValidGestationalWeeks } from '../lib/growth-utils';
 import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
 import { validateGrowthJSON, normalizeSex } from '../lib/validation-utils';
 
@@ -64,8 +64,9 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   const [childId, setChildId] = useState(initialData?.childId || '001');
   const [birthDate, setBirthDate] = useState<Date>(initialData?.birthDate || new Date(2020, 0, 1));
   const [sex, setSex] = useState<'男子' | '女子'>(initialData?.sex || '男子');
-  const [gestationalWeeks, setGestationalWeeks] = useState(initialData?.gestationalWeeks || 40);
-  const [gestationalDays, setGestationalDays] = useState(initialData?.gestationalDays || 0);
+  const [gestationalWeeks, setGestationalWeeks] = useState(initialData?.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT);
+  const [gestationalWeeksInput, setGestationalWeeksInput] = useState(String(initialData?.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT));
+  const [gestationalDays, setGestationalDays] = useState(initialData?.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT);
   const [gestationalDaysInput, setGestationalDaysInput] = useState(String(initialData?.gestationalDays ?? 0));
   const [measurements, setMeasurements] = useState<MeasurementEntry[]>(initialData?.measurements || [
     { id: '1', date: new Date(), height: 100, weight: 15 }
@@ -104,6 +105,15 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     onDataChange(final);
   };
 
+  const confirmGestationalWeeks = (value: string) => {
+    const normalized = toHalfWidth(value).trim();
+    const weeks = /^\d+$/.test(normalized) ? Number(normalized) : Number.NaN;
+    const confirmedWeeks = isValidGestationalWeeks(weeks) ? weeks : Number.NaN;
+    setGestationalWeeksInput(toHalfWidth(value));
+    setGestationalWeeks(confirmedWeeks);
+    triggerChange({ gestationalWeeks: confirmedWeeks });
+  };
+
   const isMale = sex === '男子';
   const primaryTextClass = isMale ? 'text-blue-700 dark:text-blue-400' : 'text-pink-700 dark:text-pink-400';
   const primaryBgClass = isMale ? 'bg-blue-50/30 dark:bg-blue-950/20' : 'bg-pink-50/30 dark:bg-pink-950/20';
@@ -112,6 +122,10 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   const primaryUnitClass = isMale ? 'text-blue-400 dark:text-blue-300' : 'text-pink-400 dark:text-pink-300';
 
   const handleSaveJSON = () => {
+    if (!isValidGestationalWeeks(gestationalWeeks)) {
+      alert('在胎週数を有限の整数に修正してからデータを保存してください。');
+      return;
+    }
     if (!isValidGestationalDays(gestationalDays)) {
       alert('在胎日数を0〜6日の整数に修正してからデータを保存してください。');
       return;
@@ -150,7 +164,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
     reader.onload = (event) => {
       try {
         const rawText = event.target?.result as string;
-        let data: any;
+        let data: unknown;
         try {
           data = JSON.parse(rawText);
         } catch {
@@ -175,40 +189,53 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           return;
         }
 
-        // Show warnings if any
-        if (validation.warnings.length > 0) {
-          const warningSummary = validation.warnings
+        const gestationalWeekWarnings = validation.warnings.filter(warning => warning.field === 'gestationalWeeks');
+        if (gestationalWeekWarnings.length > 0) {
+          alert(`読み込み時の在胎週数の確認事項:\n\n${gestationalWeekWarnings.map(warning => `・${warning.message}`).join('\n')}`);
+        }
+        const otherWarnings = validation.warnings.filter(warning => warning.field !== 'gestationalWeeks');
+        if (otherWarnings.length > 0) {
+          const warningSummary = otherWarnings
             .slice(0, 3)
-            .map(w => `・${w.message}`)
+            .map(warning => `・${warning.message}`)
             .join('\n');
           console.warn("JSON Import Warnings:\n" + warningSummary);
         }
 
         // Handle migration from old 'male'/'female' to Japanese if needed
-        const loadedSex = data.sex === undefined ? '男子' : normalizeSex(data.sex);
+        const importData = data as Record<string, unknown>;
+        const loadedSex = importData.sex === undefined ? '男子' : normalizeSex(importData.sex);
 
         const loadedBirthDate = parsedDates.birthDate;
-        const loadedMeasurements = data.measurements.map((m: any, index: number) => ({
-          id: m.id || generateUniqueId(),
-          date: parsedDates.measurements[index] as Date,
-          height: m.height,
-          weight: m.weight
-        }));
+        const importedMeasurements = importData.measurements as unknown[];
+        const loadedMeasurements: MeasurementEntry[] = importedMeasurements.map((row, index) => {
+          const measurement = row as Record<string, unknown>;
+          return {
+            id: typeof measurement.id === 'string' && measurement.id ? measurement.id : generateUniqueId(),
+            date: parsedDates.measurements[index] as Date,
+            height: typeof measurement.height === 'number' || typeof measurement.height === 'string' ? measurement.height : undefined,
+            weight: typeof measurement.weight === 'number' || typeof measurement.weight === 'string' ? measurement.weight : undefined,
+          };
+        });
 
-        setChildId(data.childId || '001');
+        const loadedChildId = importData.childId === undefined || importData.childId === null || importData.childId === ''
+          ? '001'
+          : String(importData.childId);
+        setChildId(loadedChildId);
         setBirthDate(loadedBirthDate);
         setSex(loadedSex);
-        setGestationalWeeks(data.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT);
-        setGestationalDays(data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT);
-        setGestationalDaysInput(String(data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT));
+        setGestationalWeeks(validation.gestationalAge.weeks);
+        setGestationalWeeksInput(String(validation.gestationalAge.weeks));
+        setGestationalDays(validation.gestationalAge.days);
+        setGestationalDaysInput(String(validation.gestationalAge.days));
         setMeasurements(loadedMeasurements);
 
         onDataChange({
-          childId: data.childId || '001',
+          childId: loadedChildId,
           birthDate: loadedBirthDate,
           sex: loadedSex,
-          gestationalWeeks: data.gestationalWeeks ?? CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT,
-          gestationalDays: data.gestationalDays ?? CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT,
+          gestationalWeeks: validation.gestationalAge.weeks,
+          gestationalDays: validation.gestationalAge.days,
           measurements: loadedMeasurements
         });
       } catch (err) {
@@ -330,25 +357,39 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
               id="gestationalWeeks"
               type="text" 
               inputMode="numeric"
-              value={gestationalWeeks} 
+              value={gestationalWeeksInput}
               onChange={(e) => {
-                const sanitized = sanitizeNumericInput(e.target.value, false);
-                const v = parseInt(sanitized) || 0;
-                setGestationalWeeks(v);
-                triggerChange({ gestationalWeeks: v });
-              }} 
-              aria-invalid={gestationalWeeks < 22 || gestationalWeeks >= 44}
+                const value = toHalfWidth(e.target.value);
+                setGestationalWeeksInput(value);
+                setGestationalWeeks(Number.NaN);
+                triggerChange({ gestationalWeeks: Number.NaN });
+              }}
+              onBlur={(e) => confirmGestationalWeeks(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  confirmGestationalWeeks(e.currentTarget.value);
+                }
+              }}
+              aria-invalid={!isValidGestationalWeeks(gestationalWeeks) || gestationalWeeks < 22 || gestationalWeeks >= 44}
               aria-describedby={
-                gestationalWeeks < 22 ? 'weeks-warning-low' : 
+                !isValidGestationalWeeks(gestationalWeeks) ? 'weeks-warning-invalid' :
+                gestationalWeeks < 22 ? 'weeks-warning-low' :
                 gestationalWeeks >= 44 ? 'weeks-warning-high' : 
                 undefined
               }
               className={cn(
                 "bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100",
-                (gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-600 bg-amber-50 dark:bg-amber-950/40"
+                (!isValidGestationalWeeks(gestationalWeeks) || gestationalWeeks < 22 || gestationalWeeks >= 44) && "border-amber-600 bg-amber-50 dark:bg-amber-950/40"
               )}
             />
-            {gestationalWeeks < 22 && (
+            {!isValidGestationalWeeks(gestationalWeeks) && (
+              <div id="weeks-warning-invalid" role="alert" aria-live="polite" aria-atomic="true" className="text-xs text-amber-900 dark:text-amber-200 font-bold bg-amber-100 dark:bg-amber-950/60 p-2 rounded border-l-4 border-amber-800 dark:border-amber-500 flex items-center gap-1 mt-1">
+                <Info className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span>在胎週数は空欄にせず、有限の整数で入力して確定してください。評価と保存は保留されます。</span>
+              </div>
+            )}
+            {isValidGestationalWeeks(gestationalWeeks) && gestationalWeeks < 22 && (
               <div 
                 id="weeks-warning-low"
                 role="alert"
@@ -360,7 +401,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 <span>22週未満は22週0日として計算されます</span>
               </div>
             )}
-            {gestationalWeeks >= 44 && (
+            {isValidGestationalWeeks(gestationalWeeks) && gestationalWeeks >= 44 && (
               <div 
                 id="weeks-warning-high"
                 role="alert"

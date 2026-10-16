@@ -1,6 +1,6 @@
 import { format, isValid, parse, isAfter } from 'date-fns';
 import { CLINICAL_LIMITS, DetailedValidationResult, ValidationIssue } from './constants';
-import { calculateDecimalAge, isValidGestationalDays } from './growth-utils';
+import { calculateDecimalAge, isValidGestationalDays, isValidGestationalWeeks } from './growth-utils';
 
 export interface RawMeasurementInput {
   id?: string;
@@ -10,12 +10,12 @@ export interface RawMeasurementInput {
 }
 
 export interface RawGrowthJSONInput {
-  childId?: any;
-  birthDate?: any;
-  sex?: any;
-  gestationalWeeks?: any;
-  gestationalDays?: any;
-  measurements?: any;
+  childId?: unknown;
+  birthDate?: unknown;
+  sex?: unknown;
+  gestationalWeeks?: unknown;
+  gestationalDays?: unknown;
+  measurements?: unknown;
 }
 
 export type SupportedSexInput = '男子' | '女子' | 'male' | 'female';
@@ -57,7 +57,13 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
       message: 'データが正しいJSONオブジェクト形式ではありません。',
       severity: 'error',
     });
-    return { isValid: false, errors, warnings, parsedDates: { birthDate: null, measurements: [] } };
+    return {
+      isValid: false,
+      errors,
+      warnings,
+      gestationalAge: { weeks: CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT, days: CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT },
+      parsedDates: { birthDate: null, measurements: [] },
+    };
   }
 
   const input = data as RawGrowthJSONInput;
@@ -111,17 +117,28 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   }
 
   // 4. Validate Gestational age
+  let gestationalWeeks: number = CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT;
   if (input.gestationalWeeks !== undefined) {
-    const weeks = Number(input.gestationalWeeks);
-    if (isNaN(weeks) || weeks < CLINICAL_LIMITS.GESTATION_WEEKS.MIN || weeks > CLINICAL_LIMITS.GESTATION_WEEKS.MAX) {
+    if (!isValidGestationalWeeks(input.gestationalWeeks)) {
+      errors.push({
+        field: 'gestationalWeeks',
+        message: '在胎週数は有限の整数で指定してください。',
+        severity: 'error',
+      });
+    } else {
+      gestationalWeeks = input.gestationalWeeks;
+    }
+    if (isValidGestationalWeeks(input.gestationalWeeks)
+      && (input.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.MIN || input.gestationalWeeks >= CLINICAL_LIMITS.GESTATION_WEEKS.MAX)) {
       warnings.push({
         field: 'gestationalWeeks',
-        message: `在胎週数 (${input.gestationalWeeks}週) が標準範囲 (${CLINICAL_LIMITS.GESTATION_WEEKS.MIN}〜${CLINICAL_LIMITS.GESTATION_WEEKS.MAX}週) 外です。計算時にクランプされます。`,
+        message: `在胎週数 ${input.gestationalWeeks}週は${input.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.MIN ? '22週0日' : '44週0日'}として計算されます。`,
         severity: 'warning',
       });
     }
   }
 
+  let gestationalDays: number = CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT;
   if (input.gestationalDays !== undefined) {
     if (!isValidGestationalDays(input.gestationalDays)) {
       errors.push({
@@ -129,27 +146,30 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
         message: `在胎日数は${CLINICAL_LIMITS.GESTATION_DAYS.MIN}〜${CLINICAL_LIMITS.GESTATION_DAYS.MAX}日の整数で指定してください。`,
         severity: 'error',
       });
+    } else {
+      gestationalDays = input.gestationalDays;
     }
   }
 
   // 5. Validate measurements
-  const parsedMeasurementDates: (Date | null)[] = Array.isArray(input.measurements)
-    ? Array(input.measurements.length).fill(null)
+  const measurementInputs = input.measurements;
+  const parsedMeasurementDates: (Date | null)[] = Array.isArray(measurementInputs)
+    ? Array(measurementInputs.length).fill(null)
     : [];
-  if (!Array.isArray(input.measurements)) {
+  if (!Array.isArray(measurementInputs)) {
     errors.push({
       field: 'measurements',
       message: '測定データ一覧（measurements）が配列形式ではありません。',
       severity: 'error',
     });
-  } else if (input.measurements.length === 0) {
+  } else if (measurementInputs.length === 0) {
     warnings.push({
       field: 'measurements',
       message: '測定データが空です。',
       severity: 'warning',
     });
   } else {
-    input.measurements.forEach((m: unknown, index: number) => {
+    measurementInputs.forEach((m: unknown, index: number) => {
       const rowNumber = index + 1;
       if (!m || typeof m !== 'object') {
         errors.push({
@@ -263,6 +283,7 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
     isValid: errors.length === 0,
     errors,
     warnings,
+    gestationalAge: { weeks: gestationalWeeks, days: gestationalDays },
     parsedDates: { birthDate: parsedBirthDate, measurements: parsedMeasurementDates },
   };
 }

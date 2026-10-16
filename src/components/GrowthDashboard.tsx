@@ -12,7 +12,8 @@ import {
   calculateFullMonthsAge,
   getCorrectedBirthDate,
   calculateHeightVelocityResults,
-  isValidGestationalDays
+  isValidGestationalDays,
+  isValidGestationalWeeks
 } from '../lib/growth-utils';
 import { 
   HEIGHT_BOYS_LMS, 
@@ -64,9 +65,10 @@ const GrowthDashboard: React.FC = () => {
     ]
   });
 
-  const isPreterm = formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD;
+  const hasValidGestationalWeeks = isValidGestationalWeeks(formData.gestationalWeeks);
+  const isPreterm = hasValidGestationalWeeks && formData.gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD;
   const hasValidGestationalDays = isValidGestationalDays(formData.gestationalDays);
-  const isPretermCorrectionEligible = isPreterm && hasValidGestationalDays;
+  const isPretermCorrectionEligible = hasValidGestationalWeeks && isPreterm && hasValidGestationalDays;
   const sexKey: 'male' | 'female' = formData.sex === '男子' ? 'male' : 'female';
 
   // Selected gender tables
@@ -82,9 +84,17 @@ const GrowthDashboard: React.FC = () => {
         const age = calculateDecimalAge(formData.birthDate, m.date);
         if (age === null) return null;
 
-        const correctedAge = calculateCorrectedAge(formData.birthDate, m.date, formData.gestationalWeeks, formData.gestationalDays);
-        const correctedBirthDate = getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays);
-        const isPretermBeforeCorrection = isPreterm && correctedBirthDate !== null && correctedAge === null;
+        const canCalculateCorrection = isPreterm && hasValidGestationalDays;
+        const correctedAge = canCalculateCorrection
+          ? calculateCorrectedAge(formData.birthDate, m.date, formData.gestationalWeeks, formData.gestationalDays)
+          : age;
+        const correctedBirthDate = canCalculateCorrection
+          ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
+          : null;
+        const isPretermBeforeCorrection = canCalculateCorrection && correctedBirthDate !== null && correctedAge === null;
+        const isGestationalEvaluationPending = age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS
+          && (!hasValidGestationalWeeks || (isPreterm && !hasValidGestationalDays));
+        const isStandardEvaluationHeld = isGestationalEvaluationPending || isPretermBeforeCorrection;
         // Corrected age is clinically applied up to 3.0 years
         const showCorrected = isPreterm && correctedAge !== null && correctedBirthDate !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
 
@@ -93,7 +103,7 @@ const GrowthDashboard: React.FC = () => {
 
         // Calculate Height SDS (JSPE standard: use month-based table if under 3 years)
         let heightSDS: number | undefined = undefined;
-        if (!isPretermBeforeCorrection && heightVal !== undefined && !isNaN(heightVal)) {
+        if (!isStandardEvaluationHeld && heightVal !== undefined && !isNaN(heightVal)) {
           const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
           if (effectiveAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) {
             const referenceBirthDate = showCorrected && correctedBirthDate
@@ -113,7 +123,7 @@ const GrowthDashboard: React.FC = () => {
 
         // Calculate Weight SDS
         let weightSDS: number | undefined = undefined;
-        if (!isPretermBeforeCorrection && weightVal !== undefined && !isNaN(weightVal)) {
+        if (!isStandardEvaluationHeld && weightVal !== undefined && !isNaN(weightVal)) {
           const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
           const lms = interpolateLMS(effectiveAge, weightTable);
           weightSDS = calculateZScore(weightVal, lms);
@@ -142,6 +152,8 @@ const GrowthDashboard: React.FC = () => {
           correctedBirthDate,
           showCorrected,
           isPretermBeforeCorrection,
+          isGestationalEvaluationPending,
+          isStandardEvaluationHeld,
           height: heightVal,
           weight: weightVal,
           heightSDS,
@@ -171,7 +183,7 @@ const GrowthDashboard: React.FC = () => {
   const heightPoints = useMemo(() => {
     const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (!d.isPretermBeforeCorrection && d.height !== undefined && !isNaN(d.height)) {
+      if (!d.isStandardEvaluationHeld && d.height !== undefined && !isNaN(d.height)) {
         points.push({
           age: d.age,
           value: d.height,
@@ -194,7 +206,7 @@ const GrowthDashboard: React.FC = () => {
   const weightPoints = useMemo(() => {
     const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (!d.isPretermBeforeCorrection && d.weight !== undefined && !isNaN(d.weight)) {
+      if (!d.isStandardEvaluationHeld && d.weight !== undefined && !isNaN(d.weight)) {
         points.push({
           age: d.age,
           value: d.weight,
@@ -275,8 +287,8 @@ const GrowthDashboard: React.FC = () => {
                 <span className="text-gray-500 block text-[9px] uppercase tracking-wider">在胎期間</span>
                 <span className="font-bold text-gray-950">
                   {hasValidGestationalDays
-                    ? `${formData.gestationalWeeks}週${formData.gestationalDays}日`
-                    : `${formData.gestationalWeeks}週（在胎日数要確認）`}
+                    ? hasValidGestationalWeeks ? `${formData.gestationalWeeks}週${formData.gestationalDays}日` : '在胎週数要確認'
+                    : hasValidGestationalWeeks ? `${formData.gestationalWeeks}週（在胎日数要確認）` : '在胎週数・日数要確認'}
                   {isPretermCorrectionEligible && <span className="text-emerald-700 ml-1 text-[9px]">(早産期修正)</span>}
                 </span>
               </div>
@@ -410,7 +422,9 @@ const GrowthDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.height ? `${d.height}cm` : '-'}
-                            {d.isPretermBeforeCorrection ? (
+                            {d.isGestationalEvaluationPending ? (
+                              <span className="ml-2 text-xs text-amber-700 dark:text-amber-300 print:ml-1 print:text-[7pt]">在胎情報要確認：SDS未評価</span>
+                            ) : d.isPretermBeforeCorrection ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
                                 SDS算出対象外（40週0日相当前）
                               </span>
@@ -425,7 +439,9 @@ const GrowthDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.weight ? `${d.weight}kg` : '-'}
-                            {d.isPretermBeforeCorrection ? (
+                            {d.isGestationalEvaluationPending ? (
+                              <span className="ml-2 text-xs text-amber-700 dark:text-amber-300 print:ml-1 print:text-[7pt]">在胎情報要確認：SDS未評価</span>
+                            ) : d.isPretermBeforeCorrection ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
                                 SDS算出対象外（40週0日相当前）
                               </span>
@@ -492,7 +508,9 @@ const GrowthDashboard: React.FC = () => {
                         <dt className="text-gray-500 dark:text-zinc-400">身長</dt>
                         <dd className="text-right font-medium">
                           {d.height ? `${d.height}cm` : '-'}
-                          {d.isPretermBeforeCorrection ? (
+                          {d.isGestationalEvaluationPending ? (
+                            <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">在胎情報要確認：SDS未評価</span>
+                          ) : d.isPretermBeforeCorrection ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
                               SDS算出対象外（40週0日相当前）
                             </span>
@@ -508,7 +526,9 @@ const GrowthDashboard: React.FC = () => {
                         <dt className="text-gray-500 dark:text-zinc-400">体重</dt>
                         <dd className="text-right font-medium">
                           {d.weight ? `${d.weight}kg` : '-'}
-                          {d.isPretermBeforeCorrection ? (
+                          {d.isGestationalEvaluationPending ? (
+                            <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">在胎情報要確認：SDS未評価</span>
+                          ) : d.isPretermBeforeCorrection ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
                               SDS算出対象外（40週0日相当前）
                             </span>
