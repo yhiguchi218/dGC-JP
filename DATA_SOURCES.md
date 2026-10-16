@@ -13,7 +13,8 @@ The MIT License in this repository applies to dGC-JP code and documentation. It 
 ## Monthly Height Reference (JSPE Attached Table 1)
 
 - **Source**: [Japanese Society for Pediatric Endocrinology, Attached Table 1 PDF](https://jspe.umin.jp/medical/files/fuhyo1.pdf).
-- **Used in dGC-JP**: Completed-month height means and standard deviations used for height SDS in the applicable early-childhood range.
+- **Used in dGC-JP**: Completed-month height means and standard deviations used for height SDS at all ages, for completed months 0 through 210 (17y6m). Height SDS = (height - mean for the completed month) / SD for the completed month, with no interpolation between months. Completed month 211 (17y7m) and later have no height SDS; the application does not fall back to LMS. Reference background curves and weight SDS use the LMS reference above, not this table.
+- **Verification limit**: Tests compare calculations against the values currently held in `src/data/fuhyo-growth-data.ts` (hand-calculated examples). Row-by-row verification of this table against the original Attached Table 1 PDF was not performed in this change, and the reference values were not modified.
 - **Article/publication license**: This is an official publicly available society document. A separate reuse or redistribution license was not confirmed in this repository review.
 - **Numerical-data redistribution**: The tabulated values are implemented as application reference data; public availability of the PDF does not by itself establish redistribution rights for extracted data.
 - **Notes**: Confirm reuse conditions with the Japanese Society for Pediatric Endocrinology before relying on redistribution permission.

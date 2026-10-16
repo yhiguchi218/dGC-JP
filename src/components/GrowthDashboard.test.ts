@@ -1,12 +1,22 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import GrowthDashboard, { getSuwaHVSDSClass } from './GrowthDashboard';
 
 expect.extend(matchers);
+
+// Lets a test substitute an invalid boys 附表1 table; production data stays untouched.
+const fuhyoOverride = vi.hoisted(() => ({ boys: null as [number, number][] | null }));
+vi.mock('../data/fuhyo-growth-data', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../data/fuhyo-growth-data')>();
+  return {
+    ...actual,
+    get FUHYO_BOYS_HEIGHT() { return fuhyoOverride.boys ?? actual.FUHYO_BOYS_HEIGHT; },
+  };
+});
 
 vi.mock('./GrowthChart', () => ({
   default: ({ heightPoints, weightPoints }: { heightPoints: Array<unknown>; weightPoints: Array<unknown> }) => React.createElement('div', {
@@ -181,6 +191,40 @@ vi.mock('./GrowthForm', () => ({
           ],
         }),
       }, 'Suwa測定組がないデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'monthly-height-sds-ages',
+          birthDate: new Date(2000, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            // boys 144 months: mean 149.1, SD 7.6 -> (141.5 - 149.1) / 7.6 = -1.00
+            { id: 'school', date: new Date(2012, 0, 1), height: 141.5, weight: 35 },
+            // boys 210 months: mean 170.8, SD 5.8 -> (176.6 - 170.8) / 5.8 = +1.00
+            { id: 'last-month-end', date: new Date(2017, 6, 31), height: 176.6, weight: 60 },
+            // 211 months: height SDS not calculable
+            { id: 'beyond', date: new Date(2017, 7, 1), height: 171, weight: 61 },
+          ],
+        }),
+      }, '附表1の月齢範囲境界のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'preterm-monthly-height-sds',
+          birthDate: new Date(2020, 0, 1),
+          sex: '女子',
+          gestationalWeeks: 35,
+          gestationalDays: 0,
+          measurements: [
+            // corrected birth date 2020-02-05 -> 34 corrected months: mean 90.9, SD 3.3 -> (94.2 - 90.9) / 3.3 = +1.00
+            { id: 'at-three', date: new Date(2023, 0, 1), height: 94.2, weight: 13 },
+            // age > 3.0: actual birth date -> 36 months: mean 92.2, SD 3.4 -> (95.6 - 92.2) / 3.4 = +1.00
+            { id: 'after-three', date: new Date(2023, 0, 2), height: 95.6, weight: 13 },
+          ],
+        }),
+      }, '早産児の3歳境界のデータを表示')
     )
   ),
 }));
@@ -429,5 +473,118 @@ describe('GrowthDashboard responsive results content', () => {
     expect(heightButton).toHaveAttribute('aria-pressed', 'false');
     expect(ageButton).toHaveAttribute('aria-pressed', 'true');
     expect(measurementCard).toHaveTextContent('肥満度（年齢別ベース）');
+  });
+
+  it('calculates height SDS from the 附表1 monthly mean and SD at school age and at 210 months', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '附表1の月齢範囲境界のデータを表示' }));
+
+    const school = screen.getByLabelText('測定日 2012/01/01 の成長評価結果');
+    expect(school).toHaveTextContent('141.5cm');
+    expect(school).toHaveTextContent('-1.00SD');
+
+    const lastMonth = screen.getByLabelText('測定日 2017/07/31 の成長評価結果');
+    expect(lastMonth).toHaveTextContent('176.6cm');
+    expect(lastMonth).toHaveTextContent('1.00SD');
+    expect(lastMonth).not.toHaveTextContent('算出不可（附表1の対象月齢外）');
+  });
+
+  it('keeps raw values, weight SDS and the chart point at 211 months while showing why height SDS is unavailable', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '附表1の月齢範囲境界のデータを表示' }));
+
+    const beyond = screen.getByLabelText('測定日 2017/08/01 の成長評価結果');
+    expect(beyond).toHaveTextContent('171cm');
+    expect(beyond).toHaveTextContent('61kg');
+    expect(beyond).toHaveTextContent('身長SDS算出不可（附表1の対象月齢外）');
+    expect(beyond).not.toHaveTextContent('在胎情報要確認');
+    expect(beyond).not.toHaveTextContent('40週0日相当前');
+    // The only SD shown is the LMS-based weight SDS; height SDS is not shown as 0.
+    expect(beyond.textContent?.match(/-?\d+\.\d{2}SD/g) ?? []).toHaveLength(1);
+    expect(beyond).not.toHaveTextContent(/身長.*0\.00SD/);
+    expect(beyond).toHaveTextContent('BMI');
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '3');
+    expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-weight-points', '3');
+  });
+
+  it('describes the height SDS basis and the LMS background in the visible notes', () => {
+    render(React.createElement(GrowthDashboard));
+
+    expect(screen.getByText(/身長SDSは附表1の満月齢別平均・SD（満月齢0〜210か月）で算出し/)).toBeInTheDocument();
+    expect(screen.getByText(/背景曲線と体重SDSはLMS基準/)).toBeInTheDocument();
+  });
+
+  it('keeps preterm correction through exactly 3.0 years for the monthly reference, and uses the actual birth date afterwards', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '早産児の3歳境界のデータを表示' }));
+
+    const atThree = screen.getByLabelText('測定日 2023/01/01 の成長評価結果');
+    expect(atThree).toHaveTextContent(/修正 \d+\.\d{4}歳/);
+    expect(atThree).toHaveTextContent('1.00SD');
+
+    const afterThree = screen.getByLabelText('測定日 2023/01/02 の成長評価結果');
+    expect(afterThree).not.toHaveTextContent(/修正 \d+\.\d{4}歳/);
+    expect(afterThree).toHaveTextContent('1.00SD');
+  });
+
+  it('uses corrected month 0 for a corrected age of zero: girls mean 48.4, SD 2.1 -> (54 - 48.4) / 2.1 = 2.67', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '修正年齢0のデータを表示' }));
+
+    const card = screen.getByLabelText('測定日 2020/02/12 の成長評価結果');
+    expect(card).toHaveTextContent('修正 0.0000歳');
+    expect(card).toHaveTextContent('2.67SD');
+  });
+
+  describe('height SDS unavailable reasons', () => {
+    afterEach(() => {
+      fuhyoOverride.boys = null;
+    });
+
+    // Default data: boys, born 2020/01/01, 2021/01/01 = 12 months, height 75 cm (mean 75.0, SD 2.6).
+    const firstHeightCell = (card: HTMLElement) => card.querySelectorAll('dd')[0];
+
+    it('keeps an exact 0 SDS as a number, not as unavailable', () => {
+      render(React.createElement(GrowthDashboard));
+
+      const height = firstHeightCell(screen.getByLabelText('測定日 2021/01/01 の成長評価結果'));
+      expect(height).toHaveTextContent('0.00SD');
+      expect(height).not.toHaveTextContent('算出不可');
+    });
+
+    it('labels 211 months and later as outside the 附表1 range', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '附表1の月齢範囲境界のデータを表示' }));
+
+      const height = firstHeightCell(screen.getByLabelText('測定日 2017/08/01 の成長評価結果'));
+      expect(height).toHaveTextContent('身長SDS算出不可（附表1の対象月齢外）');
+      expect(height).not.toHaveTextContent('入力値・基準値要確認');
+    });
+
+    it.each([
+      ['an SD of 0', (table: [number, number][]) => table.map((row, i) => (i === 12 ? [75.0, 0] as [number, number] : row))],
+      ['a NaN mean', (table: [number, number][]) => table.map((row, i) => (i === 12 ? [Number.NaN, 2.6] as [number, number] : row))],
+      ['a missing row', (table: [number, number][]) => table.slice(0, 12)],
+    ])('does not call an in-range month "outside the range" when the reference has %s', async (_label, mutate) => {
+      const actual = await vi.importActual<typeof import('../data/fuhyo-growth-data')>('../data/fuhyo-growth-data');
+      fuhyoOverride.boys = mutate(actual.FUHYO_BOYS_HEIGHT);
+      render(React.createElement(GrowthDashboard));
+
+      const height = firstHeightCell(screen.getByLabelText('測定日 2021/01/01 の成長評価結果'));
+      expect(height).toHaveTextContent('75cm');
+      expect(height).toHaveTextContent('身長SDS算出不可（入力値・基準値要確認）');
+      expect(height).not.toHaveTextContent('附表1の対象月齢外');
+      expect(height).not.toHaveTextContent(/-?\d+\.\d{2}SD/);
+      expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '4');
+    });
+  });
+
+  it('distinguishes out-of-range height SDS from pending gestational information', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '在胎週数不正のデータを表示' }));
+
+    const pending = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
+    expect(pending).toHaveTextContent('在胎情報要確認：SDS未評価');
+    expect(pending).not.toHaveTextContent('附表1の対象月齢外');
   });
 });
