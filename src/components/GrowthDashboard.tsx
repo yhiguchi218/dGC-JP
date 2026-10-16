@@ -5,6 +5,8 @@ import { ThemeToggle } from './ThemeToggle';
 import { 
   calculateDecimalAge, 
   calculateCorrectedAge, 
+  calculateMonthlyHeightSDS,
+  HEIGHT_SDS_MAX_COMPLETED_MONTHS,
   calculateZScore, 
   interpolateLMS,
   calculateObesityIndex,
@@ -101,25 +103,19 @@ const GrowthDashboard: React.FC = () => {
         const heightVal = typeof m.height === 'string' ? parseFloat(m.height) : m.height;
         const weightVal = typeof m.weight === 'string' ? parseFloat(m.weight) : m.weight;
 
-        // Calculate Height SDS (JSPE standard: use month-based table if under 3 years)
+        // Height SDS uses 附表1 completed-month mean/SD at every age; undefined means not calculable (no LMS fallback)
         let heightSDS: number | undefined = undefined;
+        const heightReferenceBirthDate = showCorrected && correctedBirthDate
+          ? correctedBirthDate
+          : formData.birthDate;
+        const hasHeightInput = heightVal !== undefined && Number.isFinite(heightVal);
         if (!isStandardEvaluationHeld && heightVal !== undefined && !isNaN(heightVal)) {
-          const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
-          if (effectiveAge <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) {
-            const referenceBirthDate = showCorrected && correctedBirthDate
-              ? correctedBirthDate
-              : formData.birthDate;
-            const months = differenceInMonths(m.date, referenceBirthDate);
-            if (months >= 0 && months < fuhyoTable.length) {
-              const [mean, sd] = fuhyoTable[months];
-              heightSDS = (heightVal - mean) / sd;
-            }
-          }
-          if (heightSDS === undefined) {
-            const lms = interpolateLMS(effectiveAge, heightTable);
-            heightSDS = calculateZScore(heightVal, lms);
-          }
+          heightSDS = calculateMonthlyHeightSDS(heightVal, heightReferenceBirthDate, m.date, fuhyoTable) ?? undefined;
         }
+        const isHeightSDSOutOfRange = !isStandardEvaluationHeld && hasHeightInput
+          && differenceInMonths(m.date, heightReferenceBirthDate) > HEIGHT_SDS_MAX_COMPLETED_MONTHS;
+        const isHeightSDSUnavailable = !isStandardEvaluationHeld && hasHeightInput
+          && !isHeightSDSOutOfRange && heightSDS === undefined;
 
         // Calculate Weight SDS
         let weightSDS: number | undefined = undefined;
@@ -154,6 +150,8 @@ const GrowthDashboard: React.FC = () => {
           isPretermBeforeCorrection,
           isGestationalEvaluationPending,
           isStandardEvaluationHeld,
+          isHeightSDSOutOfRange,
+          isHeightSDSUnavailable,
           height: heightVal,
           weight: weightVal,
           heightSDS,
@@ -318,7 +316,7 @@ const GrowthDashboard: React.FC = () => {
               </Select>
             </div>
             <div className="text-xs sm:text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
-              ※ 日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間を用いて算出しています。
+              ※ 背景曲線は日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間で描画しています（身長SDSは附表1の満月齢別平均・SDで算出）。
             </div>
           </div>
 
@@ -428,6 +426,14 @@ const GrowthDashboard: React.FC = () => {
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
                                 SDS算出対象外（40週0日相当前）
                               </span>
+                            ) : d.isHeightSDSOutOfRange ? (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
+                                身長SDS算出不可（附表1の対象月齢外）
+                              </span>
+                            ) : d.isHeightSDSUnavailable ? (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
+                                身長SDS算出不可（入力値・基準値要確認）
+                              </span>
                             ) : d.heightSDS !== undefined && (
                               <span className={cn(
                                 "ml-2 text-xs print:ml-1 print:text-[7pt]",
@@ -514,6 +520,14 @@ const GrowthDashboard: React.FC = () => {
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
                               SDS算出対象外（40週0日相当前）
                             </span>
+                          ) : d.isHeightSDSOutOfRange ? (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
+                              身長SDS算出不可（附表1の対象月齢外）
+                            </span>
+                          ) : d.isHeightSDSUnavailable ? (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
+                              身長SDS算出不可（入力値・基準値要確認）
+                            </span>
                           ) : d.heightSDS !== undefined && (
                             <span className={cn(
                               "ml-2 text-xs",
@@ -577,6 +591,9 @@ const GrowthDashboard: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="print:p-1">
+                <p className="mb-3 text-xs text-gray-500 dark:text-zinc-400 print:mb-1 print:text-[8px]">
+                  ※ 直近HV・12か月HVは暦年齢で計算します。HV-SDSは、測定組の暦年齢の中間年齢でSuwa基準を参照して評価します。
+                </p>
                 <div className="space-y-4 print:space-y-1">
                   {heightVelocity.map((hv, i) => (
                     <div key={i} className={cn(
@@ -643,6 +660,7 @@ const GrowthDashboard: React.FC = () => {
               </div>
               
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40">
+                <p>※ 身長SDSは附表1の満月齢別平均・SD（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線と体重SDSはLMS基準のため、身長SDSと背景基準線上の位置は完全には一致しない場合があります。</p>
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
                 <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
               </div>
@@ -650,8 +668,8 @@ const GrowthDashboard: React.FC = () => {
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40 text-[9px] text-amber-700/80 dark:text-amber-300/70">
                 <p className="font-semibold mb-1">参考文献・出典:</p>
                 <ul className="list-disc list-inside space-y-0.5">
-                  <li>身長SDS（満月齢基準）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">日本小児内分泌学会 附表１（平均体重／標準偏差 2000 年）</a></li>
-                  <li>成長曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
+                  <li>身長SDS（附表1・満月齢0〜210か月）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">日本小児内分泌学会 附表1（身長の平均・標準偏差を参照）</a></li>
+                  <li>背景曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
                   <li>肥満度計算: Clin Pediatr Endocrinol 25:77-82, 2016</li>
                   <li>体重SDS計算: Clin Pediatr Endocrinol 25:71-76, 2016</li>
                   <li>成長率計算: Clin Pediatr Endocrinol 1(1):5-13, 1992</li>

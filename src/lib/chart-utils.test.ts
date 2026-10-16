@@ -49,6 +49,19 @@ describe('Chart Utils Point Visual Modes and Theming', () => {
     expect(underChart.marker).toBe('▲');
   });
 
+  it('should plot a point without SDS at its measured position and not flag it as an outlier', () => {
+    const result = calculatePointVisualMode(171, undefined, normalRange, false, boyColor);
+    expect(result.isOutlier).toBe(false);
+    expect(result.plottedValue).toBe(171);
+    expect(result.marker).toBe('●');
+  });
+
+  it('should still clip an off-chart point whose SDS is undefined', () => {
+    const result = calculatePointVisualMode(210, undefined, normalRange, false, boyColor);
+    expect(result.isOutlier).toBe(true);
+    expect(result.plottedValue).toBe(190);
+  });
+
   it('should respect custom outlier and corrected colors for dark mode', () => {
     const darkOutlier = '#fb923c';
     const darkCorrected = '#34d399';

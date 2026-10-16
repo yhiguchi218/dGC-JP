@@ -501,6 +501,42 @@ export function calculateFullMonthsAge(birthDate: Date, measurementDate: Date): 
   }
 }
 
+/** Last completed month covered by 附表1 (17y6m); 211 months (17y7m) and later have no height SDS. */
+export const HEIGHT_SDS_MAX_COMPLETED_MONTHS = 210;
+
+/**
+ * Calculates height SDS from the 附表1 completed-month mean and SD: (height - mean) / SD.
+ *
+ * Completed months come from `differenceInMonths(measurementDate, referenceBirthDate)`, the same
+ * calculation used for the 満月齢 display. Supported range is 0 through 210 months; the table row is used
+ * unchanged for every day within a month (no interpolation). Returns `null` for invalid dates, negative or
+ * out-of-range months, a missing row, a non-finite height, or a non-finite mean or SD <= 0. Never falls
+ * back to LMS.
+ */
+export function calculateMonthlyHeightSDS(
+  height: number,
+  referenceBirthDate: Date,
+  measurementDate: Date,
+  table: ReadonlyArray<readonly [number, number]>
+): number | null {
+  if (typeof height !== 'number' || !Number.isFinite(height)) return null;
+
+  if (Number.isNaN(referenceBirthDate.getTime()) || Number.isNaN(measurementDate.getTime())) return null;
+  // differenceInMonths truncates toward zero, so a date less than a month earlier yields 0, not a negative.
+  if (measurementDate.getTime() < referenceBirthDate.getTime()) return null;
+
+  const months = differenceInMonths(measurementDate, referenceBirthDate);
+  if (!Number.isInteger(months) || months < 0 || months > HEIGHT_SDS_MAX_COMPLETED_MONTHS) return null;
+
+  const row = table[months];
+  if (!row) return null;
+  const [mean, sd] = row;
+  if (typeof mean !== 'number' || typeof sd !== 'number' || !Number.isFinite(mean) || !Number.isFinite(sd) || sd <= 0) return null;
+
+  const sds = (height - mean) / sd;
+  return Number.isFinite(sds) ? sds : null;
+}
+
 /**
  * Returns the birth date used for preterm corrected-age and corrected monthly-reference calculations.
  *
