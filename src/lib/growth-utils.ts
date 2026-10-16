@@ -65,6 +65,11 @@ export function isValidGestationalDays(value: unknown): value is number {
     && value <= CLINICAL_LIMITS.GESTATION_DAYS.MAX;
 }
 
+/** Checks that gestational weeks are a finite integer number. */
+export function isValidGestationalWeeks(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value);
+}
+
 /**
  * Calculates corrected age using the current application's preterm-correction policy.
  *
@@ -74,8 +79,8 @@ export function isValidGestationalDays(value: unknown): value is number {
  * birth date returns corrected age `0`, which is valid. Ages after that boundary, or term births, return
  * chronological age unchanged.
  */
-export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: number, gestationalDays: number = 0): number | null {
-  if (!isValidGestationalDays(gestationalDays)) return null;
+export function calculateCorrectedAge(birthDate: Date, measurementDate: Date, gestationalWeeks: unknown, gestationalDays: unknown = 0): number | null {
+  if (!isValidGestationalWeeks(gestationalWeeks) || !isValidGestationalDays(gestationalDays)) return null;
 
   const age = calculateDecimalAge(birthDate, measurementDate);
   if (age === null || age > CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS) return age; // Do not apply correction if child is over 3y or age is invalid
@@ -503,8 +508,8 @@ export function calculateFullMonthsAge(birthDate: Date, measurementDate: Date): 
  * applied before calculation; term births return the original birth date, while eligible preterm births
  * return a date shifted by the calculated gestational deficit.
  */
-export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: number, gestationalDays: number = 0): Date | null {
-  if (!isValidGestationalDays(gestationalDays)) return null;
+export function getCorrectedBirthDate(birthDate: Date, gestationalWeeks: unknown, gestationalDays: unknown = 0): Date | null {
+  if (!isValidGestationalWeeks(gestationalWeeks) || !isValidGestationalDays(gestationalDays)) return null;
 
   let weeks = gestationalWeeks;
   let days = gestationalDays;

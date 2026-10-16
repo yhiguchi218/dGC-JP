@@ -67,6 +67,10 @@ export interface DetailedValidationResult {
   isValid: boolean;
   errors: ValidationIssue[];
   warnings: ValidationIssue[];
+  gestationalAge: {
+    weeks: number;
+    days: number;
+  };
   parsedDates: {
     birthDate: Date | null;
     measurements: (Date | null)[];
