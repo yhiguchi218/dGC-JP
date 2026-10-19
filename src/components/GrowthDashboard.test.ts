@@ -528,8 +528,9 @@ describe('GrowthDashboard responsive results content', () => {
   it('describes the height SDS basis and the LMS background in the visible notes', () => {
     render(React.createElement(GrowthDashboard));
 
-    expect(screen.getByText(/身長SDSは附表1の満月齢別平均・SD（満月齢0〜210か月）で算出し/)).toBeInTheDocument();
-    expect(screen.getByText(/背景曲線と体重SDSはLMS基準/)).toBeInTheDocument();
+    expect(screen.getByText(/身長SDSは附表1の満月齢別平均・標準偏差（満月齢0〜210か月）で算出し/)).toBeInTheDocument();
+    expect(screen.getByText(/背景曲線はIsojima 2016のLMS基準によるため、表示SDSと曲線上の位置は一致しない場合があります/)).toBeInTheDocument();
+    expect(screen.getByText(/−2\.5SD・−3SD線もLMS基準による計算線です/)).toBeInTheDocument();
   });
 
   it('keeps preterm correction through exactly 3.0 years for the monthly reference, and uses the actual birth date afterwards', () => {

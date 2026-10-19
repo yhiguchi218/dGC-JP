@@ -316,7 +316,7 @@ const GrowthDashboard: React.FC = () => {
               </Select>
             </div>
             <div className="text-xs sm:text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
-              ※ 背景曲線は日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間で描画しています（身長SDSは附表1の満月齢別平均・SD、体重SDSは満月齢を年換算しLMS基準値を補間して算出）。
+              ※ 背景曲線はIsojima 2016のLMS基準（表の点の間はアプリが補間）で描画しています（身長SDSは附表1の満月齢別平均・SD、体重SDSは満月齢を年換算しLMS基準値を補間して算出）。
             </div>
           </div>
 
@@ -660,7 +660,7 @@ const GrowthDashboard: React.FC = () => {
               </div>
               
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40">
-                <p>※ 身長SDSは附表1の満月齢別平均・SD（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線と体重SDSはLMS基準のため、身長SDSと背景基準線上の位置は完全には一致しない場合があります。</p>
+                <p>※ 身長SDSは附表1の満月齢別平均・標準偏差（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線はIsojima 2016のLMS基準によるため、表示SDSと曲線上の位置は一致しない場合があります。−2.5SD・−3SD線もLMS基準による計算線です。</p>
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
                 <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
               </div>
