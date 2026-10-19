@@ -23,6 +23,7 @@ vi.mock('./GrowthChart', () => ({
     'data-testid': 'growth-chart',
     'data-height-points': heightPoints.length,
     'data-weight-points': weightPoints.length,
+    'data-weight-point-values': JSON.stringify(weightPoints),
   }),
   CHART_PRESETS: [
     { id: 'preset-1', name: 'Preset 1' },
@@ -225,6 +226,23 @@ vi.mock('./GrowthForm', () => ({
           ],
         }),
       }, '早産児の3歳境界のデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'monthly-weight-sds-boundary',
+          birthDate: new Date(2024, 5, 7),
+          sex: '女子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'before-month', date: new Date(2026, 5, 6), height: 100, weight: 11.1 },
+            { id: 'month-start', date: new Date(2026, 5, 7), height: 100, weight: 11.1 },
+            { id: 'month-zero', date: new Date(2026, 5, 20), height: 100, weight: 11.0 },
+            { id: 'same-month-end', date: new Date(2026, 5, 30), height: 100, weight: 11.1 },
+            { id: 'next-month', date: new Date(2026, 6, 7), height: 100, weight: 11.1 },
+          ],
+        }),
+      }, '体重SDSの満月齢境界データを表示')
     )
   ),
 }));
@@ -520,11 +538,17 @@ describe('GrowthDashboard responsive results content', () => {
 
     const atThree = screen.getByLabelText('測定日 2023/01/01 の成長評価結果');
     expect(atThree).toHaveTextContent(/修正 \d+\.\d{4}歳/);
+    expect(atThree).toHaveTextContent('94.2cm');
     expect(atThree).toHaveTextContent('1.00SD');
+    expect(atThree).toHaveTextContent('13kg');
+    expect(atThree).toHaveTextContent('0.15SD');
 
     const afterThree = screen.getByLabelText('測定日 2023/01/02 の成長評価結果');
     expect(afterThree).not.toHaveTextContent(/修正 \d+\.\d{4}歳/);
+    expect(afterThree).toHaveTextContent('95.6cm');
     expect(afterThree).toHaveTextContent('1.00SD');
+    expect(afterThree).toHaveTextContent('13kg');
+    expect(afterThree).toHaveTextContent('-0.07SD');
   });
 
   it('uses corrected month 0 for a corrected age of zero: girls mean 48.4, SD 2.1 -> (54 - 48.4) / 2.1 = 2.67', () => {
@@ -534,6 +558,43 @@ describe('GrowthDashboard responsive results content', () => {
     const card = screen.getByLabelText('測定日 2020/02/12 の成長評価結果');
     expect(card).toHaveTextContent('修正 0.0000歳');
     expect(card).toHaveTextContent('2.67SD');
+    expect(card).toHaveTextContent('4.2kg');
+    expect(card).toHaveTextContent('2.77SD');
+  });
+
+  it('uses completed-month weight SDS in the result views and chart while preserving decimal-age coordinates', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '体重SDSの満月齢境界データを表示' }));
+
+    const beforeMonth = screen.getByLabelText('測定日 2026/06/06 の成長評価結果');
+    const monthStart = screen.getByLabelText('測定日 2026/06/07 の成長評価結果');
+    const zeroSDS = screen.getByLabelText('測定日 2026/06/20 の成長評価結果');
+    const sameMonthEnd = screen.getByLabelText('測定日 2026/06/30 の成長評価結果');
+    const nextMonth = screen.getByLabelText('測定日 2026/07/07 の成長評価結果');
+    expect(beforeMonth).toHaveTextContent('11.1kg');
+    expect(beforeMonth).toHaveTextContent('0.29SD');
+    expect(monthStart).toHaveTextContent('11.1kg');
+    expect(monthStart).toHaveTextContent('0.09SD');
+    expect(zeroSDS).toHaveTextContent('11kg');
+    expect(zeroSDS).toHaveTextContent('0.00SD');
+    expect(zeroSDS).not.toHaveTextContent('算出不可');
+    expect(sameMonthEnd).toHaveTextContent('11.1kg');
+    expect(sameMonthEnd).toHaveTextContent('0.09SD');
+    expect(nextMonth).toHaveTextContent('11.1kg');
+    expect(nextMonth).toHaveTextContent('-0.05SD');
+
+    const chartPoints = JSON.parse(screen.getByTestId('growth-chart').getAttribute('data-weight-point-values') ?? '[]');
+    expect(chartPoints).toHaveLength(5);
+    expect(chartPoints[0].value).toBe(11.1);
+    expect(chartPoints[0].zScore).toBeCloseTo(0.2933063975354676, 12);
+    expect(chartPoints[1].value).toBe(11.1);
+    expect(chartPoints[1].zScore).toBeCloseTo(0.08595455685908822, 12);
+    expect(chartPoints[2].zScore).toBe(0);
+    expect(chartPoints[3].zScore).toBe(chartPoints[1].zScore);
+    expect(chartPoints[4].zScore).toBeCloseTo(-0.04734361593447061, 12);
+    expect(chartPoints[1].age).toBe(2);
+    expect(chartPoints[3].age).toBeCloseTo(2 + 23 / 365, 4);
+    expect(chartPoints[4].age).toBeCloseTo(2 + 30 / 365, 4);
   });
 
   describe('height SDS unavailable reasons', () => {
