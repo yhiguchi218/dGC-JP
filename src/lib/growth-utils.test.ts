@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { differenceInMonths } from 'date-fns';
 import { 
   calculateZScore, 
   calculateMeasurementFromZ, 
@@ -16,13 +17,88 @@ import {
   calculateDecimalAge,
   calculateCorrectedAge,
   calculateFullMonthsAge,
+  calculateWeightSDSByCompletedMonths,
   getCorrectedBirthDate,
   isValidGestationalDays,
   isValidGestationalWeeks
 } from './growth-utils';
 import { HVReferencePoint, SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
+import { WEIGHT_BOYS_LMS, WEIGHT_GIRLS_LMS } from '../data/growth-data';
+import { MONTHLY_WEIGHT_SDS_GOLDEN_CASES } from './monthly-weight-sds-golden-cases';
 
 describe('Growth Utils Calculations', () => {
+  describe('weight SDS by completed months', () => {
+    it.each(MONTHLY_WEIGHT_SDS_GOLDEN_CASES)(
+      'matches independently calculated fixed golden $label at $completedMonths months',
+      ({ sex, birthDate, measurementDate, weight, completedMonths, lmsSupportPoints, expectedSDS, expectedDisplay }) => {
+        const table = sex === 'male' ? WEIGHT_BOYS_LMS : WEIGHT_GIRLS_LMS;
+        const birth = new Date(`${birthDate}T00:00:00`);
+        const measured = new Date(`${measurementDate}T00:00:00`);
+        const result = calculateWeightSDSByCompletedMonths(
+          weight,
+          birth,
+          measured,
+          table
+        );
+
+        expect(table
+          .filter(point => lmsSupportPoints.some(([age]) => age === point.age))
+          .map(({ age, L, M, S }) => [age, L, M, S]))
+          .toEqual(lmsSupportPoints);
+        expect(differenceInMonths(measured, birth)).toBe(completedMonths);
+        expect(result).toBeCloseTo(expectedSDS, 12);
+        expect(result?.toFixed(2)).toBe(expectedDisplay);
+      }
+    );
+
+    it('uses the same LMS reference throughout a completed month and switches on its anniversary', () => {
+      const birthDate = new Date(2024, 5, 7);
+      const beforeMonth = calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(2026, 5, 6), WEIGHT_GIRLS_LMS);
+      const monthStart = calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(2026, 5, 7), WEIGHT_GIRLS_LMS);
+      const monthEnd = calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(2026, 5, 30), WEIGHT_GIRLS_LMS);
+      const nextMonth = calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(2026, 6, 7), WEIGHT_GIRLS_LMS);
+
+      expect(beforeMonth).toBeCloseTo(0.2933063975354676, 12);
+      expect(monthStart).toBeCloseTo(0.08595455685908822, 12);
+      expect(monthEnd).toBe(monthStart);
+      expect(nextMonth).toBeCloseTo(-0.04734361593447061, 12);
+    });
+
+    it('follows date-fns completed-month behavior for month-end and leap-day births', () => {
+      const leapBirth = new Date(2020, 1, 29);
+      const beforeAnniversary = new Date(2021, 1, 27);
+      const anniversary = new Date(2021, 1, 28);
+
+      expect(differenceInMonths(beforeAnniversary, leapBirth)).toBe(11);
+      expect(differenceInMonths(anniversary, leapBirth)).toBe(12);
+      expect(calculateWeightSDSByCompletedMonths(11, leapBirth, beforeAnniversary, WEIGHT_GIRLS_LMS))
+        .not.toBe(calculateWeightSDSByCompletedMonths(11, leapBirth, anniversary, WEIGHT_GIRLS_LMS));
+    });
+
+    it('retains LMS endpoint clamping at 210, 211 months, and beyond 18 years', () => {
+      const birthDate = new Date(2000, 0, 1);
+      const at210 = calculateWeightSDSByCompletedMonths(70, birthDate, new Date(2017, 6, 1), WEIGHT_BOYS_LMS);
+      const at211 = calculateWeightSDSByCompletedMonths(70, birthDate, new Date(2017, 7, 1), WEIGHT_BOYS_LMS);
+      const after18 = calculateWeightSDSByCompletedMonths(70, birthDate, new Date(2020, 0, 1), WEIGHT_BOYS_LMS);
+      const endpoint = calculateWeightSDSByCompletedMonths(70, birthDate, new Date(2017, 6, 1), WEIGHT_BOYS_LMS);
+
+      expect(at210).toBe(endpoint);
+      expect(at211).toBe(endpoint);
+      expect(after18).toBe(endpoint);
+    });
+
+    it('returns a valid numeric zero SDS and fails closed for invalid or reversed dates and weights', () => {
+      const birthDate = new Date(2024, 5, 7);
+      const zeroSDS = calculateWeightSDSByCompletedMonths(11, birthDate, new Date(2026, 5, 7), WEIGHT_GIRLS_LMS);
+      expect(zeroSDS === 0).toBe(true);
+      expect(calculateWeightSDSByCompletedMonths(11.1, new Date(Number.NaN), new Date(2026, 5, 7), WEIGHT_GIRLS_LMS)).toBeNull();
+      expect(calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(Number.NaN), WEIGHT_GIRLS_LMS)).toBeNull();
+      expect(calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(2024, 5, 6), WEIGHT_GIRLS_LMS)).toBeNull();
+      expect(calculateWeightSDSByCompletedMonths(0, birthDate, new Date(2026, 5, 7), WEIGHT_GIRLS_LMS)).toBeNull();
+      expect(calculateWeightSDSByCompletedMonths(11.1, birthDate, new Date(2026, 5, 7), [])).toBeNull();
+    });
+  });
+
   describe('Z-Score (SDS) Calculations', () => {
     it('should calculate correct Z-score for given LMS values', () => {
       // Basic check: if y == M, Z should be 0

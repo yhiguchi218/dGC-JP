@@ -538,6 +538,31 @@ export function calculateMonthlyHeightSDS(
 }
 
 /**
+ * Calculates weight SDS using LMS values interpolated at completed months converted to years.
+ * Invalid dates, a measurement before the reference birth date, non-positive/non-finite weight, or an
+ * unusable result return `null`. LMS interpolation retains its existing table-endpoint clamping behavior.
+ */
+export function calculateWeightSDSByCompletedMonths(
+  weight: number,
+  referenceBirthDate: Date,
+  measurementDate: Date,
+  table: LMSPoint[]
+): number | null {
+  if (typeof weight !== 'number' || !Number.isFinite(weight) || weight <= 0) return null;
+  if (!Number.isFinite(referenceBirthDate.getTime()) || !Number.isFinite(measurementDate.getTime())) return null;
+  if (measurementDate.getTime() < referenceBirthDate.getTime()) return null;
+  if (!table.length) return null;
+
+  const completedMonths = differenceInMonths(measurementDate, referenceBirthDate);
+  if (!Number.isInteger(completedMonths) || completedMonths < 0) return null;
+
+  const referenceAgeYears = completedMonths / 12;
+  const lms = interpolateLMS(referenceAgeYears, table);
+  const sds = calculateZScore(weight, lms);
+  return Number.isFinite(sds) ? sds : null;
+}
+
+/**
  * Returns the birth date used for preterm corrected-age and corrected monthly-reference calculations.
  *
  * Invalid gestational days return `null`. Existing gestational-week clamping to 22 through 44 weeks is

@@ -6,9 +6,8 @@ import {
   calculateDecimalAge, 
   calculateCorrectedAge, 
   calculateMonthlyHeightSDS,
+  calculateWeightSDSByCompletedMonths,
   HEIGHT_SDS_MAX_COMPLETED_MONTHS,
-  calculateZScore, 
-  interpolateLMS,
   calculateObesityIndex,
   calculateObesityIndexByAge,
   calculateFullMonthsAge,
@@ -120,9 +119,10 @@ const GrowthDashboard: React.FC = () => {
         // Calculate Weight SDS
         let weightSDS: number | undefined = undefined;
         if (!isStandardEvaluationHeld && weightVal !== undefined && !isNaN(weightVal)) {
-          const effectiveAge = showCorrected && correctedAge !== null ? correctedAge : age;
-          const lms = interpolateLMS(effectiveAge, weightTable);
-          weightSDS = calculateZScore(weightVal, lms);
+          const weightReferenceBirthDate = showCorrected && correctedBirthDate
+            ? correctedBirthDate
+            : formData.birthDate;
+          weightSDS = calculateWeightSDSByCompletedMonths(weightVal, weightReferenceBirthDate, m.date, weightTable) ?? undefined;
         }
 
         // Calculate BMI
@@ -316,7 +316,7 @@ const GrowthDashboard: React.FC = () => {
               </Select>
             </div>
             <div className="text-xs sm:text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
-              ※ 背景曲線は日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間で描画しています（身長SDSは附表1の満月齢別平均・SDで算出）。
+              ※ 背景曲線は日本人の標準成長曲線（2000年度版）に基づき、LMS法と3次スプライン補間で描画しています（身長SDSは附表1の満月齢別平均・SD、体重SDSは満月齢を年換算しLMS基準値を補間して算出）。
             </div>
           </div>
 

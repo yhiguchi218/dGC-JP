@@ -9,6 +9,8 @@ The MIT License in this repository applies to dGC-JP code and documentation. It 
 - **Article/publication license**: The DOI resolves to the publisher/Crossref record. The publication license was not independently confirmed in this repository review.
 - **Numerical-data redistribution**: The source values are implemented as application reference data. Permission to redistribute extracted numerical data is not inferred from the ability to access the article or its publication license alone.
 - **Notes**: Licensing status for extracted numerical data should be independently confirmed with the relevant rightsholder or publisher.
+- **Weight SDS calculation age**: dGC-JP selects the completed month from the measurement date and applicable reference birth date, converts it to years by dividing by 12, and interpolates the existing LMS table at that age. The existing LMS interpolation and endpoint clamping are retained.
+- **Spreadsheet comparison**: A user-provided report of comparison with a reference Excel workbook states that differences can arise from height-reference value precision, weight LMS reference-value generation methods and related details, and the definition of the fractional year used for decimal age. This application records that report; it did not independently re-analyze the workbook. No hidden-sheet values, coefficients, or formulas are reproduced here. The golden tests verify the calculation path against the current in-repository LMS values and do not establish that the LMS data itself has been checked against its original source.
 
 ## Monthly Height Reference (JSPE Attached Table 1)
 
