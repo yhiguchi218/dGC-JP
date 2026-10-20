@@ -15,7 +15,7 @@ export const GOLDEN_VALIDATION_CASES: GoldenValidationCase[] = [
   { label: 'boys 3 years', sex: 'male', age: 3.0, expectedHeight: 93.5, expectedWeight: 13.5 },
   { label: 'boys 6 years', sex: 'male', age: 6.0, expectedHeight: 113.3, expectedWeight: 19.6 },
   { label: 'boys 10 years', sex: 'male', age: 10.0, expectedHeight: 135.9, expectedWeight: 31.4 },
-  { label: 'boys 17.5 years', sex: 'male', age: 17.5, expectedHeight: 170.7, expectedWeight: 60.9 },
+  { label: 'boys 17.5 years', sex: 'male', age: 17.5, expectedHeight: 170.8, expectedWeight: 60.9 },
   { label: 'girls birth', sex: 'female', age: 0, expectedHeight: 48.5, expectedWeight: 2.95 },
   { label: 'girls 3 months', sex: 'female', age: 0.25, expectedHeight: 60.1, expectedWeight: 5.86 },
   { label: 'girls 6 months', sex: 'female', age: 0.5, expectedHeight: 66.2, expectedWeight: 7.32 },
@@ -24,5 +24,5 @@ export const GOLDEN_VALIDATION_CASES: GoldenValidationCase[] = [
   { label: 'girls 3 years', sex: 'female', age: 3.0, expectedHeight: 91.8, expectedWeight: 13.1 },
   { label: 'girls 6 years', sex: 'female', age: 6.0, expectedHeight: 112.7, expectedWeight: 19.4 },
   { label: 'girls 10 years', sex: 'female', age: 10.0, expectedHeight: 137.2, expectedWeight: 31.2 },
-  { label: 'girls 17.5 years', sex: 'female', age: 17.5, expectedHeight: 157.9, expectedWeight: 52.3 },
+  { label: 'girls 17.5 years', sex: 'female', age: 17.5, expectedHeight: 157.8, expectedWeight: 52.3 },
 ];

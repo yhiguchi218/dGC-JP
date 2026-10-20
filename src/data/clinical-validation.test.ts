@@ -40,16 +40,16 @@ describe('Clinical Pediatric Growth Reference Data Validation', () => {
       const bBirthH = HEIGHT_BOYS_LMS[0];
       const bAdultH = HEIGHT_BOYS_LMS[HEIGHT_BOYS_LMS.length - 1];
       expect(bBirthH.M).toBeCloseTo(49.0, 1);
-      expect(bAdultH.M).toBeCloseTo(170.7, 1);
+      expect(bAdultH.M).toBeCloseTo(170.8, 1); // Isojima 2016 Table 2 (previously 170.7)
       
       const gBirthH = HEIGHT_GIRLS_LMS[0];
       const gAdultH = HEIGHT_GIRLS_LMS[HEIGHT_GIRLS_LMS.length - 1];
       expect(gBirthH.M).toBeCloseTo(48.5, 1);
-      expect(gAdultH.M).toBeCloseTo(157.9, 1);
+      expect(gAdultH.M).toBeCloseTo(157.8, 1); // Isojima 2016 Table 2 (previously 157.9)
 
-      // Height L parameter should always be 1.0 (Japan pediatric clinical normal distribution assumption)
-      HEIGHT_BOYS_LMS.forEach(p => expect(p.L).toBe(1.0));
-      HEIGHT_GIRLS_LMS.forEach(p => expect(p.L).toBe(1.0));
+      // Height L is no longer fixed at 1.0; published Table 2 L values vary by age (see height-background-lms.test.ts)
+      expect(HEIGHT_BOYS_LMS.some(p => p.L !== 1.0)).toBe(true);
+      expect(HEIGHT_GIRLS_LMS.some(p => p.L !== 1.0)).toBe(true);
 
       // Weight Spot Checks
       const bBirthW = WEIGHT_BOYS_LMS[0];
