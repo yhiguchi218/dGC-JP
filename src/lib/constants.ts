@@ -67,10 +67,14 @@ export interface DetailedValidationResult {
   isValid: boolean;
   errors: ValidationIssue[];
   warnings: ValidationIssue[];
+  /** Normalized sex; null when absent or rejected. */
+  sex: '男子' | '女子' | null;
   gestationalAge: {
     weeks: number;
     days: number;
   };
+  /** Validated height/weight per measurement row (null = not entered or row rejected); import uses these as-is. */
+  measurementValues: ({ height: number | null; weight: number | null } | null)[];
   parsedDates: {
     birthDate: Date | null;
     measurements: (Date | null)[];

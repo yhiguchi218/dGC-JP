@@ -217,6 +217,8 @@ export function isSuwaHVInterval(intervalYears: number): boolean {
  *
  * Only prior measurements within the application's Suwa interval tolerance are considered. Returns
  * `null` when no eligible prior measurement exists; equal distances retain the first eligible match.
+ * Selection depends on time only: a candidate with an invalid height is still a candidate, so that the
+ * caller can report it instead of silently falling back to the next best one.
  */
 export function findBestSuwaPair(
   currentIndex: number,
@@ -244,8 +246,13 @@ export function findBestSuwaPair(
 export type HeightVelocityPoint = {
   date: Date;
   age: number;
+  /** A non-finite or non-positive height marks an invalid measurement that disables every pair using it. */
   height: number;
 };
+
+function isUsableHeight(height: number): boolean {
+  return Number.isFinite(height) && height > 0;
+}
 
 type HeightVelocityInterval = {
   startDate: Date;
@@ -260,6 +267,8 @@ export type HeightVelocityResult = {
   currentDate: Date;
   raw: HeightVelocityInterval | null;
   suwa: (HeightVelocityInterval & { sds: number | null }) | null;
+  /** Set when a Suwa pair exists by timing but the current or best-candidate height is invalid; distinct from a missing reference SD. */
+  suwaUnavailableReason: 'invalid-height' | null;
 };
 
 /**
@@ -267,8 +276,10 @@ export type HeightVelocityResult = {
  *
  * Raw HV uses the immediately preceding measurement. Suwa HV uses the eligible prior pair selected by
  * `findBestSuwaPair`; its HV-SDS is `null` where the reference table has no usable mean and SD at the
- * pair's midpoint age, while the HV itself is retained. Results with neither Raw nor Suwa data are
- * omitted so the two concepts remain independently represented.
+ * pair's midpoint age, while the HV itself is retained. The Suwa pair is chosen by timing alone; if the
+ * current or the chosen candidate's height is invalid, Suwa is unavailable (`suwaUnavailableReason`) and no
+ * next-best candidate is used. Results with no Raw, Suwa or reason are omitted so the two concepts remain
+ * independently represented.
  */
 export function calculateHeightVelocityResults(
   points: HeightVelocityPoint[],
@@ -278,10 +289,17 @@ export function calculateHeightVelocityResults(
   return points.slice(1).map((current, offset) => {
     const currentIndex = offset + 1;
     const rawPrevious = points[currentIndex - 1];
-    const rawHV = calculateHeightVelocity(rawPrevious.height, rawPrevious.age, current.height, current.age);
+    const currentUsable = isUsableHeight(current.height);
+    const rawHV = currentUsable && isUsableHeight(rawPrevious.height)
+      ? calculateHeightVelocity(rawPrevious.height, rawPrevious.age, current.height, current.age)
+      : null;
     const suwaPreviousIndex = findBestSuwaPair(currentIndex, points);
     const suwaPrevious = suwaPreviousIndex === null ? null : points[suwaPreviousIndex];
-    const suwaHV = suwaPrevious && calculateHeightVelocity(suwaPrevious.height, suwaPrevious.age, current.height, current.age);
+    // The best candidate is fixed by timing first; an invalid height there (or now) makes Suwa unavailable.
+    const suwaInvalid = suwaPrevious !== null && (!currentUsable || !isUsableHeight(suwaPrevious.height));
+    const suwaHV = suwaPrevious && !suwaInvalid
+      ? calculateHeightVelocity(suwaPrevious.height, suwaPrevious.age, current.height, current.age)
+      : null;
 
     const toInterval = (
       previous: HeightVelocityPoint,
@@ -304,8 +322,9 @@ export function calculateHeightVelocityResults(
             sds: calculateHVSDS(suwaHV.velocity, suwaHV.midpointAge, sex, suwaTable),
           }
         : null,
+      suwaUnavailableReason: suwaInvalid ? 'invalid-height' as const : null,
     };
-  }).filter(result => result.raw !== null || result.suwa !== null);
+  }).filter(result => result.raw !== null || result.suwa !== null || result.suwaUnavailableReason !== null);
 }
 
 /**
@@ -357,9 +376,23 @@ export function calculateStandardWeight(height: number, age: number, sex: 'male'
  * (Actual Weight - Standard Weight) / Standard Weight * 100
  */
 export function calculateObesityIndex(weight: number, height: number, age: number, sex: 'male' | 'female'): number | null {
-  const standardWeight = calculateStandardWeight(height, age, sex);
-  if (standardWeight === null) return null;
-  return ((weight - standardWeight) / standardWeight) * 100;
+  if (!isPositiveFinite(weight) || !isPositiveFinite(height)) return null;
+  return obesityIndexFromStandardWeight(weight, calculateStandardWeight(height, age, sex));
+}
+
+function isPositiveFinite(value: number): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/** A standard weight can be a divisor only when it is finite and greater than 0. */
+export function isUsableStandardWeight(standardWeight: number | null): standardWeight is number {
+  return standardWeight !== null && Number.isFinite(standardWeight) && standardWeight > 0;
+}
+
+function obesityIndexFromStandardWeight(weight: number, standardWeight: number | null): number | null {
+  if (!isUsableStandardWeight(standardWeight)) return null;
+  const index = ((weight - standardWeight) / standardWeight) * 100;
+  return Number.isFinite(index) ? index : null;
 }
 
 /**
@@ -415,9 +448,8 @@ export function calculateStandardWeightByAge(height: number, age: number, sex: '
  * Calculates Obesity Index using Age-Specific Standard Weight
  */
 export function calculateObesityIndexByAge(weight: number, height: number, age: number, sex: 'male' | 'female'): number | null {
-  const standardWeight = calculateStandardWeightByAge(height, age, sex);
-  if (standardWeight === null) return null;
-  return ((weight - standardWeight) / standardWeight) * 100;
+  if (!isPositiveFinite(weight) || !isPositiveFinite(height)) return null;
+  return obesityIndexFromStandardWeight(weight, calculateStandardWeightByAge(height, age, sex));
 }
 
 /** Returns the point's reference only when its mean and SD are both present, finite, and SD > 0. */
@@ -510,7 +542,7 @@ export const HEIGHT_SDS_MAX_COMPLETED_MONTHS = 210;
  * Completed months come from `differenceInMonths(measurementDate, referenceBirthDate)`, the same
  * calculation used for the 満月齢 display. Supported range is 0 through 210 months; the table row is used
  * unchanged for every day within a month (no interpolation). Returns `null` for invalid dates, negative or
- * out-of-range months, a missing row, a non-finite height, or a non-finite mean or SD <= 0. Never falls
+ * out-of-range months, a missing row, a non-finite or non-positive height, or a non-finite mean or SD <= 0. Never falls
  * back to LMS.
  */
 export function calculateMonthlyHeightSDS(
@@ -519,7 +551,7 @@ export function calculateMonthlyHeightSDS(
   measurementDate: Date,
   table: ReadonlyArray<readonly [number, number]>
 ): number | null {
-  if (typeof height !== 'number' || !Number.isFinite(height)) return null;
+  if (typeof height !== 'number' || !Number.isFinite(height) || height <= 0) return null;
 
   if (Number.isNaN(referenceBirthDate.getTime()) || Number.isNaN(measurementDate.getTime())) return null;
   // differenceInMonths truncates toward zero, so a date less than a month earlier yields 0, not a negative.

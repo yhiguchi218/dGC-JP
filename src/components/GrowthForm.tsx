@@ -9,7 +9,12 @@ import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge, isValidGestationalDays, isValidGestationalWeeks } from '../lib/growth-utils';
 import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
-import { validateGrowthJSON, normalizeSex } from '../lib/validation-utils';
+import { validateGrowthJSON, parseMeasurementValue, MeasurementValueParse } from '../lib/validation-utils';
+
+const describeInvalidValue = (label: string, range: string, result: MeasurementValueParse) =>
+  result.status === 'invalid' && result.issue === 'non-positive'
+    ? `${label}は正の値を入力してください（推奨範囲: ${range}）。`
+    : `${label}は正の数値で入力してください（例: ${label === '身長' ? '100.5' : '15.2'}）。不正な値の間は評価・保存を保留します。`;
 
 const generateUniqueId = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
@@ -29,17 +34,8 @@ const toHalfWidth = (str: string) => {
   return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0));
 };
 
-const sanitizeNumericInput = (value: string, allowDecimal: boolean = true) => {
-  let sanitized = toHalfWidth(value);
-  if (allowDecimal) {
-    sanitized = sanitized.replace(/[^0-9.]/g, '');
-    const parts = sanitized.split('.');
-    if (parts.length > 2) sanitized = parts[0] + '.' + parts.slice(1).join('');
-  } else {
-    sanitized = sanitized.replace(/[^0-9]/g, '');
-  }
-  return sanitized;
-};
+// Typed text is kept as entered (only full-width characters become their half-width equivalents);
+// validity is judged by parseMeasurementValue, never by deleting characters.
 
 interface GrowthFormProps {
   initialData?: {
@@ -71,6 +67,21 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
   const [measurements, setMeasurements] = useState<MeasurementEntry[]>(initialData?.measurements || [
     { id: '1', date: new Date(), height: 100, weight: 15 }
   ]);
+  // Rows added for further input that the user has not edited yet; they are neither saved nor a reason to block saving.
+  const [spareRowIds, setSpareRowIds] = useState<ReadonlySet<string>>(new Set());
+  // While an IME is composing, the field text is stored untouched so that the composition is not rewritten.
+  const composingRef = React.useRef(false);
+  const numericInputProps = (id: string, field: 'height' | 'weight') => ({
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      const composing = composingRef.current || (e.nativeEvent as InputEvent).isComposing === true;
+      updateMeasurement(id, field, composing ? e.target.value : toHalfWidth(e.target.value));
+    },
+    onCompositionStart: () => { composingRef.current = true; },
+    onCompositionEnd: (e: React.CompositionEvent<HTMLInputElement>) => {
+      composingRef.current = false;
+      updateMeasurement(id, field, toHalfWidth(e.currentTarget.value));
+    },
+  });
 
   const handleAddMeasurement = () => {
     const newId = generateUniqueId();
@@ -79,6 +90,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
       { id: newId, date: new Date(), height: undefined, weight: undefined }
     ];
     setMeasurements(newMeasurements);
+    setSpareRowIds(prev => new Set(prev).add(newId));
     // Trigger focus on the new date input after render
     setTimeout(() => {
       const el = document.getElementById(`date-${newId}`);
@@ -97,6 +109,12 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
       m.id === id ? { ...m, [field]: value } : m
     );
     setMeasurements(newMeasurements);
+    setSpareRowIds(prev => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     onDataChange({ childId, birthDate, sex, gestationalWeeks, gestationalDays, measurements: newMeasurements });
   };
 
@@ -130,6 +148,23 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
       alert('在胎日数を0〜6日の整数に修正してからデータを保存してください。');
       return;
     }
+    const rowsToSave = measurements
+      .map((m, index) => ({ m, rowNumber: index + 1 }))
+      .filter(({ m }) => !spareRowIds.has(m.id));
+    const problems = rowsToSave.flatMap(({ m, rowNumber }) => {
+      const label = `${rowNumber}行目（${m.date ? format(m.date, 'yyyy/MM/dd') : '未指定日'}）`;
+      const height = parseMeasurementValue(m.height);
+      const weight = parseMeasurementValue(m.weight);
+      const rowProblems: string[] = [];
+      if (height.status === 'invalid') rowProblems.push(`${label}: 身長の入力値が不正です`);
+      if (weight.status === 'invalid') rowProblems.push(`${label}: 体重の入力値が不正です`);
+      if (height.status === 'missing' && weight.status === 'missing') rowProblems.push(`${label}: 身長・体重のどちらも未入力です`);
+      return rowProblems;
+    });
+    if (problems.length > 0) {
+      alert(`測定データを修正してから保存してください。\n\n${problems.slice(0, 5).map(p => `・${p}`).join('\n')}`);
+      return;
+    }
 
     const data = {
       childId,
@@ -137,7 +172,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
       sex,
       gestationalWeeks,
       gestationalDays,
-      measurements: measurements.map(m => ({
+      measurements: rowsToSave.map(({ m }) => ({
         ...m,
         date: format(m.date, "yyyy/MM/dd")
       }))
@@ -202,19 +237,24 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           console.warn("JSON Import Warnings:\n" + warningSummary);
         }
 
-        // Handle migration from old 'male'/'female' to Japanese if needed
+        // Sex and measurement values come from validation; no separate conversion here.
         const importData = data as Record<string, unknown>;
-        const loadedSex = importData.sex === undefined ? '男子' : normalizeSex(importData.sex);
+        const loadedSex = validation.sex;
+        if (loadedSex === null) {
+          alert('ファイルの読み込みに失敗しました: 性別を確認してください。');
+          return;
+        }
 
         const loadedBirthDate = parsedDates.birthDate;
         const importedMeasurements = importData.measurements as unknown[];
         const loadedMeasurements: MeasurementEntry[] = importedMeasurements.map((row, index) => {
           const measurement = row as Record<string, unknown>;
+          const values = validation.measurementValues[index];
           return {
             id: typeof measurement.id === 'string' && measurement.id ? measurement.id : generateUniqueId(),
             date: parsedDates.measurements[index] as Date,
-            height: typeof measurement.height === 'number' || typeof measurement.height === 'string' ? measurement.height : undefined,
-            weight: typeof measurement.weight === 'number' || typeof measurement.weight === 'string' ? measurement.weight : undefined,
+            height: values?.height ?? undefined,
+            weight: values?.weight ?? undefined,
           };
         });
 
@@ -229,6 +269,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         setGestationalDays(validation.gestationalAge.days);
         setGestationalDaysInput(String(validation.gestationalAge.days));
         setMeasurements(loadedMeasurements);
+        setSpareRowIds(new Set());
 
         onDataChange({
           childId: loadedChildId,
@@ -470,6 +511,10 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           <div className="space-y-4">
             {measurements.map((m, index) => {
               const age = calculateDecimalAge(birthDate, m.date);
+              const heightCheck = parseMeasurementValue(m.height);
+              const weightCheck = parseMeasurementValue(m.weight);
+              const heightInvalid = heightCheck.status === 'invalid';
+              const weightInvalid = weightCheck.status === 'invalid';
               
               return (
                 <div key={m.id} className={cn(
@@ -510,7 +555,9 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         const val = e.target.value;
                         const date = parse(val, "yyyy/MM/dd", new Date());
                         if (isValid(date)) {
-                          updateMeasurement(m.id, 'date', date);
+                          // Merely focusing and leaving a spare row's date must not turn it into a measurement row.
+                          const untouchedSpareRow = spareRowIds.has(m.id) && format(date, "yyyy/MM/dd") === format(m.date, "yyyy/MM/dd");
+                          if (!untouchedSpareRow) updateMeasurement(m.id, 'date', date);
                         } else {
                           // Revert to current date if invalid
                           e.target.value = m.date ? format(m.date, "yyyy/MM/dd") : "";
@@ -535,24 +582,21 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         type="text" 
                         inputMode="decimal"
                         value={m.height ?? ''} 
-                        onChange={(e) => {
-                          const sanitized = sanitizeNumericInput(e.target.value);
-                          updateMeasurement(m.id, 'height', sanitized);
-                        }} 
+                        {...numericInputProps(m.id, 'height')}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const nextEl = document.getElementById(`weight-${m.id}`);
                             if (nextEl) nextEl.focus();
                           }
                         }}
-                        aria-invalid={Number(m.height || 0) < 0}
-                        aria-describedby={Number(m.height || 0) < 0 ? `height-error-${m.id}` : undefined}
+                        aria-invalid={heightInvalid}
+                        aria-describedby={heightInvalid ? `height-error-${m.id}` : undefined}
                         className={cn(
                           "h-20 md:h-32 text-4xl md:text-6xl font-black text-center text-gray-900 dark:text-zinc-100", 
                           primaryBgClass, 
                           primaryBorderClass, 
                           primaryFocusClass,
-                          Number(m.height || 0) < 0 && "border-red-500 bg-red-50 dark:bg-red-950/40"
+                          heightInvalid && "border-red-500 bg-red-50 dark:bg-red-950/40"
                         )}
                         placeholder="000.0"
                       />
@@ -560,7 +604,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         cm
                       </div>
                     </div>
-                    {Number(m.height || 0) < 0 && (
+                    {heightInvalid && (
                       <div 
                         id={`height-error-${m.id}`}
                         role="alert"
@@ -568,7 +612,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         aria-atomic="true"
                         className="text-xs text-red-900 dark:text-red-200 font-bold bg-red-100 dark:bg-red-950/60 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
                       >
-                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 身長は正の値を入力してください（推奨範囲: 50～200 cm）。
+                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> {describeInvalidValue('身長', '50～200 cm', heightCheck)}
                       </div>
                     )}
                   </div>
@@ -580,10 +624,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         type="text" 
                         inputMode="decimal"
                         value={m.weight ?? ''} 
-                        onChange={(e) => {
-                          const sanitized = sanitizeNumericInput(e.target.value);
-                          updateMeasurement(m.id, 'weight', sanitized);
-                        }} 
+                        {...numericInputProps(m.id, 'weight')}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             if (index === measurements.length - 1) {
@@ -595,14 +636,14 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                             }
                           }
                         }}
-                        aria-invalid={Number(m.weight || 0) < 0}
-                        aria-describedby={Number(m.weight || 0) < 0 ? `weight-error-${m.id}` : undefined}
+                        aria-invalid={weightInvalid}
+                        aria-describedby={weightInvalid ? `weight-error-${m.id}` : undefined}
                         className={cn(
                           "h-20 md:h-32 text-4xl md:text-6xl font-black text-center text-gray-900 dark:text-zinc-100", 
                           primaryBgClass, 
                           primaryBorderClass, 
                           primaryFocusClass,
-                          Number(m.weight || 0) < 0 && "border-red-500 bg-red-50 dark:bg-red-950/40"
+                          weightInvalid && "border-red-500 bg-red-50 dark:bg-red-950/40"
                         )}
                         placeholder="00.00"
                       />
@@ -610,7 +651,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         kg
                       </div>
                     </div>
-                    {Number(m.weight || 0) < 0 && (
+                    {weightInvalid && (
                       <div 
                         id={`weight-error-${m.id}`}
                         role="alert"
@@ -618,7 +659,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                         aria-atomic="true"
                         className="text-xs text-red-900 dark:text-red-200 font-bold bg-red-100 dark:bg-red-950/60 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 mt-1"
                       >
-                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 体重は正の値を入力してください（推奨範囲: 2～100 kg）。
+                        <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> {describeInvalidValue('体重', '2～100 kg', weightCheck)}
                       </div>
                     )}
                   </div>

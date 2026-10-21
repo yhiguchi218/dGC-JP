@@ -243,6 +243,121 @@ vi.mock('./GrowthForm', () => ({
           ],
         }),
       }, '体重SDSの満月齢境界データを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-height-hv',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'hv-a', date: new Date(2020, 0, 1), height: 75, weight: 9 },
+            { id: 'hv-b', date: new Date(2020, 6, 1), height: '0', weight: 9.5 },
+            { id: 'hv-c', date: new Date(2021, 0, 1), height: 85, weight: 10 },
+          ],
+        }),
+      }, '不正な身長を含むHVデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-height-fixed',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'hv-a', date: new Date(2020, 0, 1), height: 75, weight: 9 },
+            { id: 'hv-b', date: new Date(2020, 6, 1), height: '80', weight: 9.5 },
+            { id: 'hv-c', date: new Date(2021, 0, 1), height: 85, weight: 10 },
+          ],
+        }),
+      }, '不正な身長を修正したデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'missing-height-hv',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'hv-a', date: new Date(2020, 0, 1), height: 75, weight: 9 },
+            { id: 'hv-b', date: new Date(2020, 6, 1), height: '', weight: 9.5 },
+            { id: 'hv-c', date: new Date(2021, 0, 1), height: 85, weight: 10 },
+          ],
+        }),
+      }, '身長未入力を含むHVデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-best-suwa-candidate',
+          birthDate: new Date(2019, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'c-a', date: new Date(2024, 0, 1), height: 120, weight: 20 },
+            { id: 'c-b', date: new Date(2024, 0, 16), height: 0, weight: 20.1 },
+            { id: 'c-c', date: new Date(2025, 0, 16), height: 126, weight: 22 },
+          ],
+        }),
+      }, '最良候補の身長が不正なHVデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'invalid-height-kinds',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'k-nan', date: new Date(2021, 0, 1), height: Number.NaN, weight: 9.5 },
+            { id: 'k-inf', date: new Date(2021, 1, 1), height: Infinity, weight: 9.6 },
+            { id: 'k-zero', date: new Date(2021, 2, 1), height: 0, weight: 9.7 },
+            { id: 'k-neg', date: new Date(2021, 3, 1), height: -5, weight: 9.8 },
+            { id: 'k-dot', date: new Date(2021, 4, 1), height: '.', weight: 9.9 },
+            { id: 'k-unit', date: new Date(2021, 5, 1), height: '12abc', weight: 10 },
+            { id: 'k-empty', date: new Date(2021, 6, 1), height: '', weight: 10.1 },
+          ],
+        }),
+      }, '不正な身長の種類別データを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'unusable-standard-weight',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [{ id: 'sw', date: new Date(2025, 5, 1), height: 50, weight: 20 }],
+        }),
+      }, '標準体重が算出できないデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'age-mode-valid',
+          birthDate: new Date(2010, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [{ id: 'age10', date: new Date(2020, 0, 1), height: 140, weight: 40 }],
+        }),
+      }, '年齢別肥満度が算出できるデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'pending-gestation-hv',
+          birthDate: new Date(2020, 0, 1),
+          sex: '男子',
+          gestationalWeeks: Number.NaN,
+          gestationalDays: 0,
+          measurements: [
+            { id: 'p1', date: new Date(2020, 0, 1), height: 50, weight: 3.3 },
+            { id: 'p2', date: new Date(2021, 0, 1), height: 75, weight: 9.5 },
+          ],
+        }),
+      }, '在胎情報保留中のHVデータを表示')
     )
   ),
 }));
@@ -648,5 +763,140 @@ describe('GrowthDashboard responsive results content', () => {
     const pending = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
     expect(pending).toHaveTextContent('在胎情報要確認：SDS未評価');
     expect(pending).not.toHaveTextContent('附表1の対象月齢外');
+  });
+
+  describe('invalid and unusable inputs', () => {
+    const tableRow = (dateText: string) => Array.from(document.querySelectorAll('tbody tr'))
+      .find(row => row.textContent?.includes(dateText)) as HTMLElement;
+    const cardCells = (card: HTMLElement) => card.querySelectorAll('dd');
+
+    it('withholds height-dependent evaluations for an invalid height in both views, and keeps the independent weight SDS', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '不正な身長を含むHVデータを表示' }));
+
+      const card = screen.getByLabelText('測定日 2020/07/01 の成長評価結果');
+      const row = tableRow('2020/07/01');
+      [card, row].forEach((view) => {
+        expect(view).toHaveTextContent('身長入力が不正です（入力値: 0）');
+        expect(view).not.toHaveTextContent('在胎情報要確認');
+        // The only SD shown is the weight SDS.
+        expect(view.textContent?.match(/-?\d+\.\d{2}SD/g) ?? []).toHaveLength(1);
+        expect(view).toHaveTextContent('9.5kg');
+      });
+      expect(cardCells(card)[2]).toHaveTextContent('-');
+      expect(cardCells(card)[3]).toHaveTextContent('算出不可');
+      expect(cardCells(card)[3]).not.toHaveTextContent('%');
+      expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '2');
+      expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-weight-points', '3');
+    });
+
+    it('disables the HV pair that uses the invalid height without bridging the valid rows as raw HV', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '不正な身長を含むHVデータを表示' }));
+
+      // Only the 2021/01/01 result remains; the 2020/07/01 row (invalid current height) has no HV result.
+      expect(screen.getAllByRole('region', { name: '直近HV' })).toHaveLength(1);
+      const raw = screen.getByRole('region', { name: '直近HV' });
+      expect(raw).toHaveTextContent('算出可能な測定間隔がありません');
+      expect(raw).not.toHaveTextContent('cm/年');
+      // The one-year pair of valid measurements that does not use the invalid row is kept.
+      expect(screen.getByRole('region', { name: '12か月HV（Suwa基準）' })).toHaveTextContent('10.00 cm/年');
+    });
+
+    it('resumes the evaluations, chart point and raw HV when the invalid height is corrected', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '不正な身長を含むHVデータを表示' }));
+      expect(screen.getAllByText(/身長入力が不正です/).length).toBeGreaterThan(0);
+
+      fireEvent.click(screen.getByRole('button', { name: '不正な身長を修正したデータを表示' }));
+      expect(screen.queryByText(/身長入力が不正です/)).toBeNull();
+      expect(screen.getByLabelText('測定日 2020/07/01 の成長評価結果')).toHaveTextContent(/\d+\.\d{2}SD/);
+      expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '3');
+      expect(screen.getByRole('region', { name: '直近HV' })).toHaveTextContent('cm/年');
+    });
+
+    it('says why Suwa HV is unavailable when the best candidate height is invalid, without falling back to the next candidate', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '最良候補の身長が不正なHVデータを表示' }));
+
+      const suwa = screen.getByRole('region', { name: '12か月HV（Suwa基準）' });
+      expect(suwa).toHaveTextContent('測定の身長入力が不正なため、Suwa HVを算出しません');
+      expect(suwa).not.toHaveTextContent('cm/年');
+      expect(suwa).not.toHaveTextContent('基準SDなし');
+      expect(suwa).not.toHaveTextContent('約12か月間隔');
+      // Raw HV is unchanged: its adjacent measurement is the invalid row.
+      expect(screen.getByRole('region', { name: '直近HV' })).toHaveTextContent('算出可能な測定間隔がありません');
+    });
+
+    it('keeps the earlier raw HV across a not-entered height, unlike an invalid height', () => {
+      render(React.createElement(GrowthDashboard));
+
+      fireEvent.click(screen.getByRole('button', { name: '身長未入力を含むHVデータを表示' }));
+      // Not entered: the row is skipped as before, so the A-C pair (one year, 10 cm) is the raw HV.
+      expect(screen.getByRole('region', { name: '直近HV' })).toHaveTextContent('10.00 cm/年');
+      expect(screen.getByLabelText('測定日 2020/07/01 の成長評価結果')).not.toHaveTextContent('不正');
+
+      fireEvent.click(screen.getByRole('button', { name: '不正な身長を含むHVデータを表示' }));
+      expect(screen.getByRole('region', { name: '直近HV' })).not.toHaveTextContent('cm/年');
+      expect(screen.getByRole('region', { name: '12か月HV（Suwa基準）' })).toHaveTextContent('10.00 cm/年');
+    });
+
+    it('treats NaN, Infinity, 0, negative, a lone dot and unit-suffixed heights as invalid, but an empty height as not entered', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '不正な身長の種類別データを表示' }));
+
+      // Six invalid rows, shown in both the table and the cards.
+      expect(document.querySelectorAll('[role="status"]')).toHaveLength(12);
+      const notEntered = screen.getByLabelText('測定日 2021/07/01 の成長評価結果');
+      expect(notEntered).not.toHaveTextContent('不正');
+      expect(notEntered).toHaveTextContent(/\d+\.\d{2}SD/);
+      expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '0');
+      expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-weight-points', '7');
+    });
+
+    it('keeps BMI and the obesity index and HV when gestational information holds the SDS evaluation', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '在胎週数不正のデータを表示' }));
+
+      const card = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
+      expect(card).toHaveTextContent('在胎情報要確認：SDS未評価');
+      // 9.5 / 0.75^2 = 16.9; height-based standard weight at 75 cm is 9.37 kg -> +1.4%.
+      expect(cardCells(card)[2]).toHaveTextContent('16.9');
+      expect(cardCells(card)[3]).toHaveTextContent('1.4%');
+
+      fireEvent.click(screen.getByRole('button', { name: '在胎情報保留中のHVデータを表示' }));
+      expect(screen.getByRole('region', { name: '直近HV' })).toHaveTextContent('25.00 cm/年');
+      expect(screen.getByRole('region', { name: '12か月HV（Suwa基準）' })).toHaveTextContent('25.00 cm/年');
+    });
+
+    it('stops the obesity index and says why when the standard weight is 0 or less, in both views', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '標準体重が算出できないデータを表示' }));
+
+      const card = screen.getByLabelText('測定日 2025/06/01 の成長評価結果');
+      // Height-based mode: 50 cm is outside the existing application range (unchanged plain "not calculable").
+      expect(cardCells(card)[3]).toHaveTextContent('算出不可');
+      expect(cardCells(card)[3]).not.toHaveTextContent('標準体重を算出できません');
+
+      fireEvent.click(screen.getByRole('button', { name: '性別年齢別' }));
+      expect(screen.getAllByText(/肥満度算出不可（標準体重を算出できません）/)).toHaveLength(2);
+      expect(cardCells(card)[3]).not.toHaveTextContent('%');
+      expect(cardCells(card)[3].querySelector('.text-orange-500, .text-blue-500')).toBeNull();
+      expect(tableRow('2025/06/01')).not.toHaveTextContent('%');
+      // The valid inputs and other indices are retained.
+      expect(cardCells(card)[2]).toHaveTextContent('80.0');
+      expect(card).toHaveTextContent('50cm');
+      expect(card).toHaveTextContent('20kg');
+    });
+
+    it('keeps the existing age-based obesity index for a valid case in both views', () => {
+      render(React.createElement(GrowthDashboard));
+      fireEvent.click(screen.getByRole('button', { name: '年齢別肥満度が算出できるデータを表示' }));
+      fireEvent.click(screen.getByRole('button', { name: '性別年齢別' }));
+
+      // (40 - (0.752 * 140 - 70.461)) / 34.819 = +14.9%
+      expect(screen.getByLabelText('測定日 2020/01/01 の成長評価結果')).toHaveTextContent('14.9%');
+      expect(tableRow('2020/01/01')).toHaveTextContent('14.9%');
+    });
   });
 });

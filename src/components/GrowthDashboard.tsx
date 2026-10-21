@@ -10,6 +10,9 @@ import {
   HEIGHT_SDS_MAX_COMPLETED_MONTHS,
   calculateObesityIndex,
   calculateObesityIndexByAge,
+  calculateStandardWeight,
+  calculateStandardWeightByAge,
+  isUsableStandardWeight,
   calculateFullMonthsAge,
   getCorrectedBirthDate,
   calculateHeightVelocityResults,
@@ -31,6 +34,7 @@ import { AlertCircle, CircleHelp, Info } from 'lucide-react';
 import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CLINICAL_LIMITS } from '../lib/constants';
+import { parseMeasurementValue } from '../lib/validation-utils';
 
 export function getSuwaHVSDSClass(sds: number, sex: '男子' | '女子'): string {
   if (Math.abs(sds) > 2) {
@@ -99,16 +103,21 @@ const GrowthDashboard: React.FC = () => {
         // Corrected age is clinically applied up to 3.0 years
         const showCorrected = isPreterm && correctedAge !== null && correctedBirthDate !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
 
-        const heightVal = typeof m.height === 'string' ? parseFloat(m.height) : m.height;
-        const weightVal = typeof m.weight === 'string' ? parseFloat(m.weight) : m.weight;
+        const heightInput = parseMeasurementValue(m.height);
+        const weightInput = parseMeasurementValue(m.weight);
+        const isHeightInvalid = heightInput.status === 'invalid';
+        const isWeightInvalid = weightInput.status === 'invalid';
+        // Invalid input is kept apart from not-entered: neither is used in any calculation.
+        const heightVal = heightInput.status === 'valid' ? heightInput.value : undefined;
+        const weightVal = weightInput.status === 'valid' ? weightInput.value : undefined;
 
         // Height SDS uses 附表1 completed-month mean/SD at every age; undefined means not calculable (no LMS fallback)
         let heightSDS: number | undefined = undefined;
         const heightReferenceBirthDate = showCorrected && correctedBirthDate
           ? correctedBirthDate
           : formData.birthDate;
-        const hasHeightInput = heightVal !== undefined && Number.isFinite(heightVal);
-        if (!isStandardEvaluationHeld && heightVal !== undefined && !isNaN(heightVal)) {
+        const hasHeightInput = heightVal !== undefined;
+        if (!isStandardEvaluationHeld && heightVal !== undefined) {
           heightSDS = calculateMonthlyHeightSDS(heightVal, heightReferenceBirthDate, m.date, fuhyoTable) ?? undefined;
         }
         const isHeightSDSOutOfRange = !isStandardEvaluationHeld && hasHeightInput
@@ -118,7 +127,7 @@ const GrowthDashboard: React.FC = () => {
 
         // Calculate Weight SDS
         let weightSDS: number | undefined = undefined;
-        if (!isStandardEvaluationHeld && weightVal !== undefined && !isNaN(weightVal)) {
+        if (!isStandardEvaluationHeld && weightVal !== undefined) {
           const weightReferenceBirthDate = showCorrected && correctedBirthDate
             ? correctedBirthDate
             : formData.birthDate;
@@ -127,17 +136,23 @@ const GrowthDashboard: React.FC = () => {
 
         // Calculate BMI
         let bmi: number | undefined = undefined;
-        if (heightVal && weightVal && !isNaN(heightVal) && !isNaN(weightVal) && heightVal > 0) {
+        if (heightVal !== undefined && weightVal !== undefined) {
           const hM = heightVal / 100;
           bmi = weightVal / (hM * hM);
         }
 
-        // Calculate Obesity Index
+        // Calculate Obesity Index (chronological age; not held by gestational status)
         let obesityIndex: number | null = null;
         let obesityIndexAge: number | null = null;
-        if (heightVal && weightVal && !isNaN(heightVal) && !isNaN(weightVal)) {
+        let isStandardWeightUnusable = false;
+        let isStandardWeightByAgeUnusable = false;
+        if (heightVal !== undefined && weightVal !== undefined) {
           obesityIndex = calculateObesityIndex(weightVal, heightVal, age, sexKey);
           obesityIndexAge = calculateObesityIndexByAge(weightVal, heightVal, age, sexKey);
+          const standardWeight = calculateStandardWeight(heightVal, age, sexKey);
+          const standardWeightByAge = calculateStandardWeightByAge(heightVal, age, sexKey);
+          isStandardWeightUnusable = standardWeight !== null && !isUsableStandardWeight(standardWeight);
+          isStandardWeightByAgeUnusable = standardWeightByAge !== null && !isUsableStandardWeight(standardWeightByAge);
         }
 
         return {
@@ -152,6 +167,12 @@ const GrowthDashboard: React.FC = () => {
           isStandardEvaluationHeld,
           isHeightSDSOutOfRange,
           isHeightSDSUnavailable,
+          isHeightInvalid,
+          isWeightInvalid,
+          heightInputText: typeof m.height === 'string' ? m.height.trim() : String(m.height),
+          weightInputText: typeof m.weight === 'string' ? m.weight.trim() : String(m.weight),
+          isStandardWeightUnusable,
+          isStandardWeightByAgeUnusable,
           height: heightVal,
           weight: weightVal,
           heightSDS,
@@ -168,11 +189,12 @@ const GrowthDashboard: React.FC = () => {
   // Calculate Height Velocity (HV)
   const heightVelocity = useMemo(() => {
     const valid = processedData
-      .filter(d => d.height !== undefined && !isNaN(d.height!))
+      .filter(d => d.height !== undefined || d.isHeightInvalid)
       .map(d => ({
         date: d.date,
         age: d.age,
-        height: d.height!,
+        // NaN marks an invalid height so that no pair uses it and no distant pair is substituted.
+        height: d.height ?? Number.NaN,
       }));
     return calculateHeightVelocityResults(valid, sexKey, suwaTable);
   }, [processedData, suwaTable, sexKey]);
@@ -181,7 +203,7 @@ const GrowthDashboard: React.FC = () => {
   const heightPoints = useMemo(() => {
     const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (!d.isStandardEvaluationHeld && d.height !== undefined && !isNaN(d.height)) {
+      if (!d.isStandardEvaluationHeld && d.height !== undefined) {
         points.push({
           age: d.age,
           value: d.height,
@@ -204,7 +226,7 @@ const GrowthDashboard: React.FC = () => {
   const weightPoints = useMemo(() => {
     const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
     processedData.forEach(d => {
-      if (!d.isStandardEvaluationHeld && d.weight !== undefined && !isNaN(d.weight)) {
+      if (!d.isStandardEvaluationHeld && d.weight !== undefined) {
         points.push({
           age: d.age,
           value: d.weight,
@@ -420,7 +442,11 @@ const GrowthDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.height ? `${d.height}cm` : '-'}
-                            {d.isGestationalEvaluationPending ? (
+                            {d.isHeightInvalid ? (
+                              <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300 print:ml-1 print:text-[7pt]">
+                                身長入力が不正です（入力値: {d.heightInputText}）：身長SDS・BMI・肥満度は算出しません
+                              </span>
+                            ) : d.isGestationalEvaluationPending ? (
                               <span className="ml-2 text-xs text-amber-700 dark:text-amber-300 print:ml-1 print:text-[7pt]">在胎情報要確認：SDS未評価</span>
                             ) : d.isPretermBeforeCorrection ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
@@ -445,7 +471,11 @@ const GrowthDashboard: React.FC = () => {
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">
                             {d.weight ? `${d.weight}kg` : '-'}
-                            {d.isGestationalEvaluationPending ? (
+                            {d.isWeightInvalid ? (
+                              <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300 print:ml-1 print:text-[7pt]">
+                                体重入力が不正です（入力値: {d.weightInputText}）：体重SDS・BMI・肥満度は算出しません
+                              </span>
+                            ) : d.isGestationalEvaluationPending ? (
                               <span className="ml-2 text-xs text-amber-700 dark:text-amber-300 print:ml-1 print:text-[7pt]">在胎情報要確認：SDS未評価</span>
                             ) : d.isPretermBeforeCorrection ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
@@ -469,7 +499,11 @@ const GrowthDashboard: React.FC = () => {
                                 {currentObesity.toFixed(1)}%
                               </span>
                             ) : (
-                              <span className="text-gray-300 dark:text-zinc-600 text-[10px] print:text-[6pt]">算出不可</span>
+                              <span className="text-gray-300 dark:text-zinc-600 text-[10px] print:text-[6pt]">
+                                {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
+                                  ? '肥満度算出不可（標準体重を算出できません）'
+                                  : '算出不可'}
+                              </span>
                             )}
                           </td>
                         </tr>
@@ -514,7 +548,11 @@ const GrowthDashboard: React.FC = () => {
                         <dt className="text-gray-500 dark:text-zinc-400">身長</dt>
                         <dd className="text-right font-medium">
                           {d.height ? `${d.height}cm` : '-'}
-                          {d.isGestationalEvaluationPending ? (
+                          {d.isHeightInvalid ? (
+                            <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300">
+                              身長入力が不正です（入力値: {d.heightInputText}）：身長SDS・BMI・肥満度は算出しません
+                            </span>
+                          ) : d.isGestationalEvaluationPending ? (
                             <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">在胎情報要確認：SDS未評価</span>
                           ) : d.isPretermBeforeCorrection ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
@@ -540,7 +578,11 @@ const GrowthDashboard: React.FC = () => {
                         <dt className="text-gray-500 dark:text-zinc-400">体重</dt>
                         <dd className="text-right font-medium">
                           {d.weight ? `${d.weight}kg` : '-'}
-                          {d.isGestationalEvaluationPending ? (
+                          {d.isWeightInvalid ? (
+                            <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300">
+                              体重入力が不正です（入力値: {d.weightInputText}）：体重SDS・BMI・肥満度は算出しません
+                            </span>
+                          ) : d.isGestationalEvaluationPending ? (
                             <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">在胎情報要確認：SDS未評価</span>
                           ) : d.isPretermBeforeCorrection ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
@@ -567,7 +609,13 @@ const GrowthDashboard: React.FC = () => {
                             )}>
                               {currentObesity.toFixed(1)}%
                             </span>
-                          ) : <span className="text-[10px] text-gray-300 dark:text-zinc-600">算出不可</span>}
+                          ) : (
+                            <span className="text-[10px] text-gray-300 dark:text-zinc-600">
+                              {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
+                                ? '肥満度算出不可（標準体重を算出できません）'
+                                : '算出不可'}
+                            </span>
+                          )}
                         </dd>
                       </dl>
                     </article>
@@ -629,6 +677,11 @@ const GrowthDashboard: React.FC = () => {
                                 <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: 算出不可（基準SDなし）</div>
                               )}
                               <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">+{hv.suwa.heightDiff.toFixed(1)} cm / {hv.suwa.intervalDays}日</div>
+                            </>
+                          ) : hv.suwaUnavailableReason === 'invalid-height' ? (
+                            <>
+                              <div className="mt-1 text-lg font-bold text-gray-400 dark:text-zinc-500">—</div>
+                              <div role="status" className="mt-1 text-xs text-red-700 dark:text-red-300 print:text-[8px]">HV-SDS: 算出不可（測定の身長入力が不正なため、Suwa HVを算出しません）</div>
                             </>
                           ) : (
                             <>

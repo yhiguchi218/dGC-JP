@@ -45,19 +45,25 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(weightInput.value).toBe('15');
   });
 
-  it('converts full-width characters and filters non-numeric characters automatically (Sanitization)', () => {
+  it('converts full-width digits to half-width but keeps any other typed character instead of deleting it', () => {
     const handleDataChange = vi.fn();
     const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
 
     const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
     expect(heightInput).toBeInTheDocument();
 
-    // Simulate inputting full-width digits and extra character: 「１２３．５あ」 -> "123.5"
-    fireEvent.change(heightInput, { target: { value: '１２３．５あ' } });
-
+    fireEvent.change(heightInput, { target: { value: '１２３．５' } });
     expect(heightInput.value).toBe('123.5');
-    expect(handleDataChange).toHaveBeenCalledWith(expect.objectContaining({
+    expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
       measurements: [{ id: expect.any(String), date: expect.any(Date), height: '123.5', weight: 15 }]
+    }));
+
+    // The trailing character is not stripped to leave a different, valid number.
+    fireEvent.change(heightInput, { target: { value: '１２３．５あ' } });
+    expect(heightInput.value).toBe('123.5あ');
+    expect(heightInput).toHaveAttribute('aria-invalid', 'true');
+    expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
+      measurements: [{ id: expect.any(String), date: expect.any(Date), height: '123.5あ', weight: 15 }]
     }));
   });
 
@@ -392,6 +398,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     const fileData = {
       childId: 'imported',
       birthDate: '2021/01/01',
+      sex: 'female',
       gestationalWeeks: '35',
       gestationalDays: 4,
       measurements: [{ id: 'imported-row', date: '2021/02/01', height: 80, weight: 10 }],
@@ -414,6 +421,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     const fileData = {
       childId: 'legacy',
       birthDate: '2020/01/01',
+      sex: 'male',
       measurements: [{ id: 'legacy-row', date: '2020/02/01', height: 52, weight: 4 }],
     };
     const file = new File([JSON.stringify(fileData)], 'legacy.json', { type: 'application/json' });
@@ -431,6 +439,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     const fileData = {
       childId: 'legacy-weeks-only',
       birthDate: '2020/01/01',
+      sex: 'male',
       gestationalWeeks: 35,
       measurements: [{ id: 'legacy-weeks-only-row', date: '2020/02/01', height: 52, weight: 4 }],
     };
@@ -450,6 +459,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     const fileData = {
       childId: 'clamped',
       birthDate: '2020/01/01',
+      sex: 'female',
       gestationalWeeks: 20,
       gestationalDays: 4,
       measurements: [{ id: 'clamped-row', date: '2020/02/01', height: 52, weight: 4 }],
@@ -541,5 +551,510 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     const weightInput = container.querySelector('input[id^="weight-"]') as HTMLInputElement;
     expect(weightInput).toBeInTheDocument();
     expect(document.activeElement?.id).toBe(weightInput.id);
+  });
+
+  describe('JSON import of sex and measurement values', () => {
+    const base = { childId: 'imported', birthDate: '2020/01/01', sex: 'female', measurements: [{ id: 'r1', date: '2021/01/01', height: 80, weight: 10 }] };
+
+    const importFile = async (container: HTMLElement, data: unknown) => {
+      const file = new File([JSON.stringify(data)], 'import.json', { type: 'application/json' });
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+      await new Promise(resolve => setTimeout(resolve, 50));
+    };
+
+    const expectRejectedWithState = (handleDataChange: ReturnType<typeof vi.fn>, container: HTMLElement, reason: string) => {
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining(reason));
+      expect(handleDataChange).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('管理ID')).toHaveValue('001');
+      expect(screen.getByLabelText('生年月日')).toHaveValue('2020/01/01');
+      expect(container.querySelectorAll('input[id^="height-"]')).toHaveLength(1);
+      expect(container.querySelector('input[id^="height-"]')).toHaveValue('100');
+      expect(container.querySelector('input[id^="weight-"]')).toHaveValue('15');
+    };
+
+    it.each([
+      ['omitted', undefined, '性別が指定されていません'],
+      ['null', null, '性別が指定されていません'],
+      ['empty', '', '性別が指定されていません'],
+      ['whitespace-only', '   ', '性別が指定されていません'],
+      ['invalid', 'other', '性別の値が不正です'],
+    ])('rejects the whole import when sex is %s and keeps the current state', async (_label, sex, reason) => {
+      const handleDataChange = vi.fn();
+      vi.stubGlobal('alert', vi.fn());
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+      await importFile(container, { ...base, sex });
+
+      expectRejectedWithState(handleDataChange, container, reason);
+    });
+
+    it.each([
+      ['a boolean height', { height: true, weight: 10 }, '身長は数値または数値文字列'],
+      ['an array weight', { height: 80, weight: [10] }, '体重は数値または数値文字列'],
+      ['an object height', { height: {}, weight: 10 }, '身長は数値または数値文字列'],
+      ['a unit-suffixed height', { height: '100cm', weight: 10 }, '身長（"100cm"）が数値ではありません'],
+      ['a unit-suffixed weight', { height: 80, weight: '10kg' }, '体重（"10kg"）が数値ではありません'],
+      ['a zero height', { height: 0, weight: 10 }, '身長は正の値'],
+      ['a negative weight', { height: 80, weight: -1 }, '体重は正の値'],
+      ['neither height nor weight', { height: null, weight: '' }, '身長・体重のどちらも入力されていません'],
+    ])('rejects the whole import for %s with the row and reason, keeping the current state', async (_label, values, reason) => {
+      const handleDataChange = vi.fn();
+      vi.stubGlobal('alert', vi.fn());
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+      await importFile(container, { ...base, measurements: [base.measurements[0], { id: 'r2', date: '2021/06/01', ...values }] });
+
+      expectRejectedWithState(handleDataChange, container, `2行目: ${reason}`);
+    });
+
+    it('accepts height-only and weight-only rows and imports exactly the validated numbers', async () => {
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+      await importFile(container, {
+        ...base,
+        measurements: [
+          { id: 'h-only', date: '2021/01/01', height: ' 80.5 ' },
+          { id: 'w-only', date: '2021/02/01', weight: '10.25', height: null },
+        ],
+      });
+
+      expect(handleDataChange).toHaveBeenCalledOnce();
+      const imported = handleDataChange.mock.calls[0][0];
+      expect(imported.sex).toBe('女子');
+      expect(imported.measurements.map((m: { id: string; height?: number; weight?: number }) => [m.id, m.height, m.weight]))
+        .toEqual([['h-only', 80.5, undefined], ['w-only', undefined, 10.25]]);
+      expect(imported.measurements.every((m: { height?: unknown; weight?: unknown }) => m.height === undefined || typeof m.height === 'number')).toBe(true);
+    });
+
+    it('keeps accepting the legacy English sex values and string-typed numbers', async () => {
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+      await importFile(container, { ...base, sex: 'male', measurements: [{ date: '2021/01/01', height: '80.5', weight: '10' }] });
+
+      expect(handleDataChange).toHaveBeenCalledWith(expect.objectContaining({
+        sex: '男子',
+        measurements: [expect.objectContaining({ height: 80.5, weight: 10 })],
+      }));
+    });
+  });
+
+  describe('manual invalid height and weight input', () => {
+    const stubSave = () => {
+      const createObjectURL = vi.fn(() => 'blob:test');
+      vi.stubGlobal('alert', vi.fn());
+      vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      return createObjectURL;
+    };
+    const saveButton = () => screen.getByRole('button', { name: /現在の入力データをJSONファイル形式/ });
+
+    it.each(['0', '0.0', '.'])('keeps the typed value %j visible, explains it, and holds saving until it is corrected', (typed) => {
+      const handleDataChange = vi.fn();
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: typed } });
+
+      expect(heightInput).toHaveValue(typed);
+      expect(heightInput).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByText(/身長は正の(値を|数値で)入力してください/)).toBeInTheDocument();
+      expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
+        measurements: [expect.objectContaining({ height: typed })],
+      }));
+
+      fireEvent.click(saveButton());
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('身長の入力値が不正です'));
+      expect(createObjectURL).not.toHaveBeenCalled();
+
+      fireEvent.change(heightInput, { target: { value: '100.5' } });
+      expect(heightInput).toHaveAttribute('aria-invalid', 'false');
+      fireEvent.click(saveButton());
+      expect(createObjectURL).toHaveBeenCalledOnce();
+    });
+
+    it.each(['1e2', '-5', '1,000', '100cm', '.', '1..2'])('keeps the typed %j exactly, never converting it to another number', (typed) => {
+      const handleDataChange = vi.fn();
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: typed } });
+
+      expect(heightInput).toHaveValue(typed);
+      expect(heightInput).toHaveAttribute('aria-invalid', 'true');
+      expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
+        measurements: [expect.objectContaining({ height: typed, weight: 15 })],
+      }));
+      fireEvent.click(saveButton());
+      expect(createObjectURL).not.toHaveBeenCalled();
+
+      // valid -> invalid -> valid: saving resumes.
+      fireEvent.change(heightInput, { target: { value: '100' } });
+      expect(heightInput).toHaveAttribute('aria-invalid', 'false');
+      fireEvent.click(saveButton());
+      expect(createObjectURL).toHaveBeenCalledOnce();
+    });
+
+    it.each(['80.5', '.5', '80.', ' 80.5 '])('treats %j as a valid decimal and saves', (typed) => {
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: typed } });
+
+      expect(heightInput).toHaveValue(typed);
+      expect(heightInput).toHaveAttribute('aria-invalid', 'false');
+      fireEvent.click(saveButton());
+      expect(createObjectURL).toHaveBeenCalledOnce();
+    });
+
+    it.each(['', '   '])('treats %j as not entered, not invalid', (typed) => {
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: typed } });
+
+      expect(heightInput).toHaveAttribute('aria-invalid', 'false');
+    });
+
+    it('applies the same rule to pasted text, and Enter and blur neither change nor drop an invalid value', () => {
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+      const weightInput = container.querySelector('input[id^="weight-"]') as HTMLInputElement;
+
+      fireEvent.paste(heightInput, { clipboardData: { getData: () => '100cm' } });
+      fireEvent.change(heightInput, { target: { value: '100cm' } });
+      expect(heightInput).toHaveValue('100cm');
+      expect(heightInput).toHaveAttribute('aria-invalid', 'true');
+
+      fireEvent.keyDown(heightInput, { key: 'Enter' });
+      expect(document.activeElement).toBe(weightInput);
+      fireEvent.blur(heightInput);
+      expect(heightInput).toHaveValue('100cm');
+      expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
+        measurements: [expect.objectContaining({ height: '100cm' })],
+      }));
+    });
+
+    it('keeps an invalid weight text as typed while the valid height is retained, and holds saving', () => {
+      const handleDataChange = vi.fn();
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const weightInput = container.querySelector('input[id^="weight-"]') as HTMLInputElement;
+
+      fireEvent.change(weightInput, { target: { value: '10kg' } });
+
+      expect(weightInput).toHaveValue('10kg');
+      expect(weightInput).toHaveAttribute('aria-invalid', 'true');
+      expect(container.querySelector('input[id^="height-"]')).toHaveAttribute('aria-invalid', 'false');
+      fireEvent.click(saveButton());
+      expect(window.alert).toHaveBeenLastCalledWith(expect.stringContaining('体重の入力値が不正です'));
+      expect(createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it('treats typing an invalid character into a spare row as an edit, so that row holds saving', () => {
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      fireEvent.click(Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.trim() === '追加') as HTMLElement);
+      const [, spareHeight] = Array.from(container.querySelectorAll('input[id^="height-"]')) as HTMLInputElement[];
+
+      fireEvent.change(spareHeight, { target: { value: 'abc' } });
+
+      expect(spareHeight).toHaveValue('abc');
+      fireEvent.click(saveButton());
+      expect(window.alert).toHaveBeenLastCalledWith(expect.stringContaining('2行目'));
+      expect(createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['１２３．４', '123.4', true],
+      ['．５', '.5', true],
+      ['８０．', '80.', true],
+      ['－５', '-5', false],
+      ['＋５', '+5', false],
+      ['１ｅ２', '1e2', false],
+      ['１，０００', '1,000', false],
+      ['１００ｃｍ', '100cm', false],
+      ['１．２．３', '1.2.3', false],
+    ])('normalizes full-width %j to %j (valid: %s) without deleting any character', (typed, normalized, valid) => {
+      const handleDataChange = vi.fn();
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: typed } });
+
+      expect(heightInput).toHaveValue(normalized);
+      expect(heightInput).toHaveAttribute('aria-invalid', String(!valid));
+      expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
+        measurements: [expect.objectContaining({ height: normalized })],
+      }));
+      fireEvent.click(saveButton());
+      expect(createObjectURL).toHaveBeenCalledTimes(valid ? 1 : 0);
+    });
+
+    it('applies the same normalization to pasted full-width text', () => {
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      const weightInput = container.querySelector('input[id^="weight-"]') as HTMLInputElement;
+
+      fireEvent.paste(weightInput, { clipboardData: { getData: () => '１０．５' } });
+      fireEvent.change(weightInput, { target: { value: '１０．５' } });
+      expect(weightInput).toHaveValue('10.5');
+      expect(weightInput).toHaveAttribute('aria-invalid', 'false');
+
+      fireEvent.change(weightInput, { target: { value: '１０ｋｇ' } });
+      expect(weightInput).toHaveValue('10kg');
+      expect(weightInput).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    it('leaves the field text untouched during IME composition and normalizes it when composition ends', () => {
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.compositionStart(heightInput);
+      fireEvent.change(heightInput, { target: { value: '１２' } });
+      expect(heightInput).toHaveValue('１２');
+      expect(handleDataChange).toHaveBeenLastCalledWith(expect.objectContaining({
+        measurements: [expect.objectContaining({ height: '１２' })],
+      }));
+
+      fireEvent.compositionEnd(heightInput);
+      expect(heightInput).toHaveValue('12');
+      expect(heightInput).toHaveAttribute('aria-invalid', 'false');
+    });
+
+    it('saves normalized full-width input so that it reloads', async () => {
+      const state = { json: '' };
+      const NativeBlob = Blob;
+      class CapturingBlob extends NativeBlob {
+        constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+          state.json = parts.join('');
+          super(parts, options);
+        }
+      }
+      stubSave();
+      vi.stubGlobal('Blob', CapturingBlob);
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      fireEvent.change(container.querySelector('input[id^="height-"]') as HTMLInputElement, { target: { value: '１２３．４' } });
+      fireEvent.change(container.querySelector('input[id^="weight-"]') as HTMLInputElement, { target: { value: '１０．' } });
+      fireEvent.click(saveButton());
+      expect(JSON.parse(state.json).measurements[0]).toEqual(expect.objectContaining({ height: '123.4', weight: '10.' }));
+
+      handleDataChange.mockClear();
+      const file = new File([state.json], 'saved.json', { type: 'application/json' });
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(handleDataChange).toHaveBeenCalledOnce();
+      expect(handleDataChange.mock.calls[0][0].measurements[0]).toEqual(expect.objectContaining({ height: 123.4, weight: 10 }));
+    });
+
+    it('rejects JSON string values with a sign, exponent or full-width digits, keeping the current data', async () => {
+      const handleDataChange = vi.fn();
+      vi.stubGlobal('alert', vi.fn());
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      const file = new File([JSON.stringify({
+        birthDate: '2020/01/01', sex: 'male',
+        measurements: [{ date: '2021/01/01', height: ' +5 ', weight: '１０' }],
+      })], 'bad.json', { type: 'application/json' });
+
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('1行目'));
+      expect(handleDataChange).not.toHaveBeenCalled();
+      expect(container.querySelector('input[id^="height-"]')).toHaveValue('100');
+    });
+
+    it('treats an empty height as not entered (weight-only rows can still be saved)', () => {
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: '' } });
+
+      expect(heightInput).toHaveAttribute('aria-invalid', 'false');
+      fireEvent.click(saveButton());
+      expect(createObjectURL).toHaveBeenCalledOnce();
+    });
+
+    it('holds saving for an invalid weight and for a row with neither height nor weight', () => {
+      const createObjectURL = stubSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+      const weightInput = container.querySelector('input[id^="weight-"]') as HTMLInputElement;
+
+      fireEvent.change(weightInput, { target: { value: '0' } });
+      fireEvent.click(saveButton());
+      expect(window.alert).toHaveBeenLastCalledWith(expect.stringContaining('体重の入力値が不正です'));
+
+      fireEvent.change(weightInput, { target: { value: '' } });
+      fireEvent.change(heightInput, { target: { value: '' } });
+      fireEvent.click(saveButton());
+      expect(window.alert).toHaveBeenLastCalledWith(expect.stringContaining('どちらも未入力'));
+      expect(createObjectURL).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('saving: spare rows, reload and data retention', () => {
+    const captureSave = () => {
+      const state = { json: '', saved: 0 };
+      const NativeBlob = Blob;
+      class CapturingBlob extends NativeBlob {
+        constructor(parts: BlobPart[], options?: BlobPropertyBag) {
+          state.json = parts.join('');
+          state.saved += 1;
+          super(parts, options);
+        }
+      }
+      vi.stubGlobal('alert', vi.fn());
+      vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:test'), revokeObjectURL: vi.fn() });
+      vi.stubGlobal('Blob', CapturingBlob);
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      return state;
+    };
+    const saveButton = () => screen.getByRole('button', { name: /現在の入力データをJSONファイル形式/ });
+    const reload = async (container: HTMLElement, json: string) => {
+      const file = new File([json], 'reload.json', { type: 'application/json' });
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [file] } });
+      await new Promise(resolve => setTimeout(resolve, 50));
+    };
+    const addRow = (container: HTMLElement) => {
+      const addButton = Array.from(container.querySelectorAll('button')).find(btn => btn.textContent?.trim() === '追加') as HTMLElement;
+      fireEvent.click(addButton);
+    };
+
+    it('saves a valid row although an untouched spare input row exists, and leaves the spare row out of the file', () => {
+      const state = captureSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      addRow(container);
+      expect(container.querySelectorAll('input[id^="height-"]')).toHaveLength(2);
+
+      fireEvent.click(saveButton());
+
+      expect(window.alert).not.toHaveBeenCalled();
+      expect(state.saved).toBe(1);
+      expect(JSON.parse(state.json).measurements).toHaveLength(1);
+      // The spare row stays on screen.
+      expect(container.querySelectorAll('input[id^="height-"]')).toHaveLength(2);
+    });
+
+    it('does not turn a spare row into a measurement row merely because its date field is focused and left', () => {
+      const state = captureSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      addRow(container);
+      const dateInputs = container.querySelectorAll('input[id^="date-"]');
+      const spareDate = dateInputs[1] as HTMLInputElement;
+      fireEvent.focus(spareDate);
+      fireEvent.blur(spareDate);
+
+      fireEvent.click(saveButton());
+
+      expect(window.alert).not.toHaveBeenCalled();
+      expect(JSON.parse(state.json).measurements).toHaveLength(1);
+    });
+
+    it('holds saving, naming the row, once a spare row has been used and then emptied; nothing is dropped', () => {
+      const state = captureSave();
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+      addRow(container);
+      const [, spareHeight] = Array.from(container.querySelectorAll('input[id^="height-"]')) as HTMLInputElement[];
+      fireEvent.change(spareHeight, { target: { value: '5' } });
+      fireEvent.change(spareHeight, { target: { value: '' } });
+
+      fireEvent.click(saveButton());
+
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('2行目'));
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('どちらも未入力'));
+      expect(state.saved).toBe(0);
+      const heights = Array.from(container.querySelectorAll('input[id^="height-"]')) as HTMLInputElement[];
+      expect(heights).toHaveLength(2);
+      expect(heights[0]).toHaveValue('100');
+    });
+
+    it('holds saving for an actual row whose height and weight were both cleared, naming the row', () => {
+      const state = captureSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      fireEvent.change(container.querySelector('input[id^="height-"]') as HTMLInputElement, { target: { value: '' } });
+      fireEvent.change(container.querySelector('input[id^="weight-"]') as HTMLInputElement, { target: { value: '' } });
+
+      fireEvent.click(saveButton());
+
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('1行目'));
+      expect(state.saved).toBe(0);
+    });
+
+    it('keeps the entered data and resumes saving after an invalid value is corrected', () => {
+      const state = captureSave();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={vi.fn()} />);
+      const heightInput = container.querySelector('input[id^="height-"]') as HTMLInputElement;
+
+      fireEvent.change(heightInput, { target: { value: '0' } });
+      fireEvent.click(saveButton());
+      expect(state.saved).toBe(0);
+      expect(heightInput).toHaveValue('0');
+      expect(container.querySelector('input[id^="weight-"]')).toHaveValue('15');
+
+      fireEvent.change(heightInput, { target: { value: '99.5' } });
+      fireEvent.click(saveButton());
+      expect(state.saved).toBe(1);
+      expect(JSON.parse(state.json).measurements[0].height).toBe('99.5');
+    });
+
+    it('saves height-only, weight-only and partially typed rows, and reloads exactly what was saved', async () => {
+      const state = captureSave();
+      const handleDataChange = vi.fn();
+      const initialData = {
+        ...defaultInitialData,
+        sex: '女子' as const,
+        measurements: [
+          { id: 'h-only', date: new Date(2020, 5, 1), height: '80.', weight: undefined },
+          { id: 'w-only', date: new Date(2020, 6, 1), height: undefined, weight: '.5' },
+          { id: 'both', date: new Date(2020, 7, 1), height: 82.5, weight: '' },
+        ],
+      };
+      const { container } = render(<GrowthForm initialData={initialData} onDataChange={handleDataChange} />);
+
+      fireEvent.click(saveButton());
+      expect(state.saved).toBe(1);
+      await reload(container, state.json);
+
+      expect(handleDataChange).toHaveBeenCalledOnce();
+      const imported = handleDataChange.mock.calls[0][0];
+      expect(imported.sex).toBe('女子');
+      expect(imported.measurements.map((m: { id: string; height?: number; weight?: number }) => [m.id, m.height, m.weight]))
+        .toEqual([['h-only', 80, undefined], ['w-only', undefined, 0.5], ['both', 82.5, undefined]]);
+    });
+
+    it('reloads a file whose typed values were saved as strings, and one saved by hand with a JSON number 1e2', async () => {
+      const handleDataChange = vi.fn();
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+      await reload(container, '{"childId":"x","birthDate":"2020/01/01","sex":"male","measurements":[{"date":"2021/01/01","height":1e2,"weight":"10.5"}]}');
+
+      expect(handleDataChange).toHaveBeenCalledOnce();
+      const [row] = handleDataChange.mock.calls[0][0].measurements;
+      expect(row.height).toBe(100);
+      expect(row.weight).toBe(10.5);
+    });
+
+    it('rejects the string "1e2" and a leading "+" instead of reading part of them, keeping the current data', async () => {
+      const handleDataChange = vi.fn();
+      vi.stubGlobal('alert', vi.fn());
+      const { container } = render(<GrowthForm initialData={defaultInitialData} onDataChange={handleDataChange} />);
+
+      await reload(container, '{"birthDate":"2020/01/01","sex":"male","measurements":[{"date":"2021/01/01","height":"1e2","weight":"+5"}]}');
+
+      expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('1行目'));
+      expect(handleDataChange).not.toHaveBeenCalled();
+      expect(container.querySelector('input[id^="height-"]')).toHaveValue('100');
+    });
   });
 });
