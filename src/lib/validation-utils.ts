@@ -22,6 +22,45 @@ export type SupportedSexInput = '男子' | '女子' | 'male' | 'female';
 export type NormalizedSex = '男子' | '女子';
 const SUPPORTED_DATE_FORMATS = 'YYYY/MM/DD または YYYY-MM-DD';
 
+export type MeasurementValueIssue = 'type' | 'not-a-number' | 'non-positive' | 'non-finite';
+export type MeasurementValueParse =
+  | { status: 'missing' }
+  | { status: 'valid'; value: number }
+  | { status: 'invalid'; issue: MeasurementValueIssue };
+
+const POSITIVE_DECIMAL = /^(?:\d+(?:\.\d*)?|\.\d+)$/;
+const NEGATIVE_DECIMAL = /^-(?:\d+(?:\.\d*)?|\.\d+)$/;
+
+/**
+ * Interprets a height or weight value from JSON or the manual form.
+ *
+ * Not entered (undefined, null, empty or whitespace-only string) is `missing`, which is distinct from `invalid`.
+ * Valid values are finite numbers > 0, or strings whose whole trimmed text is a plain decimal (no sign, exponent
+ * or unit). Booleans, arrays, objects, 0, negatives, non-finite values and partially numeric text are `invalid`.
+ */
+export function parseMeasurementValue(raw: unknown): MeasurementValueParse {
+  if (raw === undefined || raw === null) return { status: 'missing' };
+
+  if (typeof raw === 'number') {
+    if (!Number.isFinite(raw)) return { status: 'invalid', issue: 'non-finite' };
+    if (raw <= 0) return { status: 'invalid', issue: 'non-positive' };
+    return { status: 'valid', value: raw };
+  }
+
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    if (text === '') return { status: 'missing' };
+    if (NEGATIVE_DECIMAL.test(text)) return { status: 'invalid', issue: 'non-positive' };
+    if (!POSITIVE_DECIMAL.test(text)) return { status: 'invalid', issue: 'not-a-number' };
+    const value = Number(text);
+    if (!Number.isFinite(value)) return { status: 'invalid', issue: 'non-finite' };
+    if (value <= 0) return { status: 'invalid', issue: 'non-positive' };
+    return { status: 'valid', value };
+  }
+
+  return { status: 'invalid', issue: 'type' };
+}
+
 /**
  * Checks whether an input is one of the supported Japanese or English sex labels accepted by import.
  */
@@ -61,7 +100,9 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
       isValid: false,
       errors,
       warnings,
+      sex: null,
       gestationalAge: { weeks: CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT, days: CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT },
+      measurementValues: [],
       parsedDates: { birthDate: null, measurements: [] },
     };
   }
@@ -106,14 +147,21 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   }
 
   // 3. Validate Sex
-  if (input.sex !== undefined) {
-    if (!isValidSex(input.sex)) {
-      errors.push({
-        field: 'sex',
-        message: `性別データが不正です（入力値: "${input.sex}"）。「男子」または「女子」を指定してください。`,
-        severity: 'error',
-      });
-    }
+  let normalizedSex: NormalizedSex | null = null;
+  if (input.sex === undefined || input.sex === null || (typeof input.sex === 'string' && input.sex.trim() === '')) {
+    errors.push({
+      field: 'sex',
+      message: '性別が指定されていません。「男子」または「女子」（male / female も可）を指定してください。',
+      severity: 'error',
+    });
+  } else if (!isValidSex(input.sex)) {
+    errors.push({
+      field: 'sex',
+      message: `性別の値が不正です（入力値: "${typeof input.sex === 'string' ? input.sex : JSON.stringify(input.sex)}"）。「男子」または「女子」（male / female も可）を指定してください。`,
+      severity: 'error',
+    });
+  } else {
+    normalizedSex = normalizeSex(input.sex);
   }
 
   // 4. Validate Gestational age
@@ -154,6 +202,9 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
   // 5. Validate measurements
   const measurementInputs = input.measurements;
   const parsedMeasurementDates: (Date | null)[] = Array.isArray(measurementInputs)
+    ? Array(measurementInputs.length).fill(null)
+    : [];
+  const measurementValues: DetailedValidationResult['measurementValues'] = Array.isArray(measurementInputs)
     ? Array(measurementInputs.length).fill(null)
     : [];
   if (!Array.isArray(measurementInputs)) {
@@ -223,59 +274,50 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
         }
       }
 
-      // Height validation
-      if (meas.height !== undefined && meas.height !== null && meas.height !== '') {
-        const heightVal = Number(meas.height);
-        if (isNaN(heightVal)) {
-          errors.push({
-            field: `measurements[${index}].height`,
-            rowIndex: rowNumber,
-            message: `${rowNumber}行目: 身長（"${meas.height}"）が数値ではありません。`,
-            severity: 'error',
-          });
-        } else if (heightVal <= 0) {
-          errors.push({
-            field: `measurements[${index}].height`,
-            rowIndex: rowNumber,
-            message: `${rowNumber}行目: 身長は正の値である必要があります（入力値: ${heightVal} cm）。`,
-            severity: 'error',
-          });
-        } else if (heightVal < CLINICAL_LIMITS.HEIGHT.MIN || heightVal > CLINICAL_LIMITS.HEIGHT.MAX) {
+      // Height / weight validation (shared rules; the validated numbers are what import uses)
+      const fields = [
+        { key: 'height' as const, label: '身長', unit: 'cm', range: CLINICAL_LIMITS.HEIGHT },
+        { key: 'weight' as const, label: '体重', unit: 'kg', range: CLINICAL_LIMITS.WEIGHT },
+      ];
+      const parsedValues: { height: number | null; weight: number | null } = { height: null, weight: null };
+      let hasInvalidValue = false;
+      fields.forEach(({ key, label, unit, range }) => {
+        const raw = meas[key];
+        const parsed = parseMeasurementValue(raw);
+        if (parsed.status === 'missing') return;
+        const field = `measurements[${index}].${key}`;
+        if (parsed.status === 'invalid') {
+          hasInvalidValue = true;
+          const shown = typeof raw === 'string' ? raw : String(raw);
+          const message = {
+            'type': `${rowNumber}行目: ${label}は数値または数値文字列で指定してください（真偽値・配列・オブジェクトは受け付けません）。`,
+            'not-a-number': `${rowNumber}行目: ${label}（"${shown}"）が数値ではありません。`,
+            'non-positive': `${rowNumber}行目: ${label}は正の値である必要があります（入力値: ${shown.trim()} ${unit}）。`,
+            'non-finite': `${rowNumber}行目: ${label}（"${shown}"）が有限の数値ではありません。`,
+          }[parsed.issue];
+          errors.push({ field, rowIndex: rowNumber, message, severity: 'error' });
+          return;
+        }
+        parsedValues[key] = parsed.value;
+        if (parsed.value < range.MIN || parsed.value > range.MAX) {
           warnings.push({
-            field: `measurements[${index}].height`,
+            field,
             rowIndex: rowNumber,
-            message: `${rowNumber}行目: 身長 (${heightVal} cm) が臨床標準範囲 (${CLINICAL_LIMITS.HEIGHT.MIN}〜${CLINICAL_LIMITS.HEIGHT.MAX} cm) 外です。`,
+            message: `${rowNumber}行目: ${label} (${parsed.value} ${unit}) が臨床標準範囲 (${range.MIN}〜${range.MAX} ${unit}) 外です。`,
             severity: 'warning',
           });
         }
-      }
+      });
 
-      // Weight validation
-      if (meas.weight !== undefined && meas.weight !== null && meas.weight !== '') {
-        const weightVal = Number(meas.weight);
-        if (isNaN(weightVal)) {
-          errors.push({
-            field: `measurements[${index}].weight`,
-            rowIndex: rowNumber,
-            message: `${rowNumber}行目: 体重（"${meas.weight}"）が数値ではありません。`,
-            severity: 'error',
-          });
-        } else if (weightVal <= 0) {
-          errors.push({
-            field: `measurements[${index}].weight`,
-            rowIndex: rowNumber,
-            message: `${rowNumber}行目: 体重は正の値である必要があります（入力値: ${weightVal} kg）。`,
-            severity: 'error',
-          });
-        } else if (weightVal < CLINICAL_LIMITS.WEIGHT.MIN || weightVal > CLINICAL_LIMITS.WEIGHT.MAX) {
-          warnings.push({
-            field: `measurements[${index}].weight`,
-            rowIndex: rowNumber,
-            message: `${rowNumber}行目: 体重 (${weightVal} kg) が臨床標準範囲 (${CLINICAL_LIMITS.WEIGHT.MIN}〜${CLINICAL_LIMITS.WEIGHT.MAX} kg) 外です。`,
-            severity: 'warning',
-          });
-        }
+      if (!hasInvalidValue && parsedValues.height === null && parsedValues.weight === null) {
+        errors.push({
+          field: `measurements[${index}]`,
+          rowIndex: rowNumber,
+          message: `${rowNumber}行目: 身長・体重のどちらも入力されていません。少なくともどちらか一方を指定してください。`,
+          severity: 'error',
+        });
       }
+      measurementValues[index] = parsedValues;
     });
   }
 
@@ -283,7 +325,9 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
     isValid: errors.length === 0,
     errors,
     warnings,
+    sex: normalizedSex,
     gestationalAge: { weeks: gestationalWeeks, days: gestationalDays },
+    measurementValues,
     parsedDates: { birthDate: parsedBirthDate, measurements: parsedMeasurementDates },
   };
 }

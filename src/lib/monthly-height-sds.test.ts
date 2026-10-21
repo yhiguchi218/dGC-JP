@@ -150,6 +150,15 @@ describe('calculateMonthlyHeightSDS (附表1 completed-month height SDS)', () =>
       expect(calculateMonthlyHeightSDS(50, birth, new Date(2000, 0, 1), [row])).toBeNull();
     });
 
+    it('returns null for a zero or negative height, but a valid height equal to the mean is a numeric 0', () => {
+      const measured = new Date(2001, 0, 1);
+      [0, -0.1, -75].forEach((height) => {
+        expect(calculateMonthlyHeightSDS(height, birth, measured, FUHYO_BOYS_HEIGHT)).toBeNull();
+      });
+      const atMean = calculateMonthlyHeightSDS(FUHYO_BOYS_HEIGHT[12][0], birth, measured, FUHYO_BOYS_HEIGHT);
+      expect(atMean === 0).toBe(true);
+    });
+
     it('does not fall back to another source when the table is unusable', () => {
       expect(calculateMonthlyHeightSDS(95, birth, new Date(2003, 0, 1), [])).toBeNull();
     });

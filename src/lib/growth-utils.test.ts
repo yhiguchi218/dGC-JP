@@ -20,7 +20,8 @@ import {
   calculateWeightSDSByCompletedMonths,
   getCorrectedBirthDate,
   isValidGestationalDays,
-  isValidGestationalWeeks
+  isValidGestationalWeeks,
+  isUsableStandardWeight
 } from './growth-utils';
 import { HVReferencePoint, SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 import { WEIGHT_BOYS_LMS, WEIGHT_GIRLS_LMS } from '../data/growth-data';
@@ -723,6 +724,262 @@ describe('Growth Utils Calculations', () => {
       [-1, 7, 1.5, Number.NaN, Infinity].forEach((days) => {
         expect(getCorrectedBirthDate(birth, 34, days)).toBeNull();
       });
+    });
+  });
+
+  describe('obesity index when the standard weight cannot be a divisor', () => {
+    it.each([0, -1, Number.NaN, Infinity, -Infinity, null])('treats standard weight %s as unusable', (standardWeight) => {
+      expect(isUsableStandardWeight(standardWeight)).toBe(false);
+    });
+
+    it('accepts a positive finite standard weight', () => {
+      expect(isUsableStandardWeight(0.001)).toBe(true);
+    });
+
+    it('returns null (not a negative or infinite index) when the age-specific standard weight is 0 or less', () => {
+      // Boys 5y: 0.386 * 50 - 23.699 < 0. The coefficients and range handling are unchanged.
+      expect(calculateStandardWeightByAge(50, 5, 'male')).toBeLessThan(0);
+      expect(calculateObesityIndexByAge(20, 50, 5, 'male')).toBeNull();
+      // Boys 17y: 0.672 * 79 - 53.642 < 0
+      expect(calculateObesityIndexByAge(40, 79, 17, 'male')).toBeNull();
+    });
+
+    it('keeps the existing result for a usable age-specific standard weight', () => {
+      expect(calculateObesityIndexByAge(40, 140, 10, 'male')).toBeCloseTo(14.88, 1);
+    });
+
+    it('keeps the existing out-of-range result for the height-based standard weight', () => {
+      expect(calculateObesityIndex(20, 60, 5, 'male')).toBeNull();
+    });
+
+    it.each([0, -1, Number.NaN, Infinity])('returns null for invalid weight %s', (weight) => {
+      expect(calculateObesityIndex(weight, 110, 5, 'male')).toBeNull();
+      expect(calculateObesityIndexByAge(weight, 140, 10, 'male')).toBeNull();
+    });
+
+    it.each([0, -1, Number.NaN, Infinity])('returns null for invalid height %s', (height) => {
+      expect(calculateObesityIndex(20, height, 5, 'male')).toBeNull();
+      expect(calculateObesityIndexByAge(20, height, 10, 'male')).toBeNull();
+    });
+  });
+
+  describe('height velocity with an invalid (non-positive or non-finite) height', () => {
+    const date = (month: number) => new Date(2025, month, 1);
+    const pointsWith = (invalid: number) => [
+      { date: date(0), age: 5, height: 120 },
+      { date: date(6), age: 5.5, height: invalid },
+      { date: date(12), age: 6, height: 126 },
+    ];
+
+    it.each([Number.NaN, 0, -5, Infinity])('disables raw HV for the pair that uses the invalid height %s, without reconnecting distant points', (invalid) => {
+      const [latest] = calculateHeightVelocityResults(pointsWith(invalid), 'male', SUWA_HV_BOYS);
+      // The adjacent raw pair is invalid; the valid points one year apart are not silently reconnected as raw HV.
+      expect(latest.currentDate).toEqual(date(12));
+      expect(latest.raw).toBeNull();
+    });
+
+    it('keeps the unaffected Suwa pair that does not use the invalid height', () => {
+      const [result] = calculateHeightVelocityResults(pointsWith(Number.NaN), 'male', SUWA_HV_BOYS);
+      expect(result.raw).toBeNull();
+      expect(result.suwa?.startDate).toEqual(date(0));
+      expect(result.suwa?.velocity).toBe(6);
+    });
+
+    it('reports Suwa as unavailable (not as a missing pair) for an invalid current height, with no raw HV', () => {
+      const results = calculateHeightVelocityResults([
+        { date: date(0), age: 5, height: 120 },
+        { date: date(12), age: 6, height: 0 },
+      ], 'male', SUWA_HV_BOYS);
+      expect(results).toHaveLength(1);
+      expect(results[0].raw).toBeNull();
+      expect(results[0].suwa).toBeNull();
+      expect(results[0].suwaUnavailableReason).toBe('invalid-height');
+    });
+
+    it('does not use an invalid earlier height as a Suwa partner, reports why, and keeps the valid raw pair', () => {
+      const [latest] = calculateHeightVelocityResults([
+        { date: date(0), age: 5, height: -1 },
+        { date: date(6), age: 5.5, height: 123 },
+        { date: date(12), age: 6, height: 126 },
+      ], 'male', SUWA_HV_BOYS);
+      expect(latest.suwa).toBeNull();
+      expect(latest.suwaUnavailableReason).toBe('invalid-height');
+      expect(latest.raw?.startDate).toEqual(date(6));
+      expect(latest.raw?.velocity).toBe(6);
+    });
+
+    it('keeps an invalid height as a Suwa candidate when choosing the best one', () => {
+      const points = [
+        { age: 5, height: Number.NaN },
+        { age: 5.04, height: 120 },
+        { age: 6, height: 126 },
+      ];
+      // The invalid point is exactly one year earlier, so it is the best candidate.
+      expect(findBestSuwaPair(2, points)).toBe(0);
+      expect(findBestSuwaPair(2, [points[0], points[2], points[2]])).toBe(0);
+    });
+
+    it('leaves all-valid results unchanged', () => {
+      const [result] = calculateHeightVelocityResults([
+        { date: date(0), age: 5, height: 120 },
+        { date: date(12), age: 6, height: 126 },
+      ], 'male', SUWA_HV_BOYS);
+      expect(result.raw?.velocity).toBe(6);
+      expect(result.suwa?.velocity).toBe(6);
+    });
+  });
+
+  describe('height velocity sequences with an invalid or not-entered height', () => {
+    const birth = new Date(2019, 0, 1);
+    const at = (year: number, month: number) => {
+      const date = new Date(year, month, 1);
+      return { date, age: calculateDecimalAge(birth, date) as number };
+    };
+    const A = at(2024, 0);
+    const B = at(2024, 6);
+    const C = at(2025, 0);
+    const D = at(2025, 7);
+    const run = (heights: Array<number | null>, dates = [A, B, C, D]) => calculateHeightVelocityResults(
+      dates.flatMap((p, i) => (heights[i] === null ? [] : [{ ...p, height: heights[i] as number }])),
+      'male',
+      SUWA_HV_BOYS
+    );
+    const forDate = (results: ReturnType<typeof run>, point: { date: Date }) => results.find(r => r.currentDate === point.date);
+
+    it('A,B valid: yields exactly what the unchanged selection rules give (reference results)', () => {
+      const results = run([120, 123, 126, 130]);
+
+      // B has neither a raw pair (0.497 y < 0.5 y) nor a Suwa pair, so it has no result.
+      expect(forDate(results, B)).toBeUndefined();
+      const c = forDate(results, C)!;
+      expect(c.raw?.startDate).toBe(B.date);
+      expect(c.raw?.velocity).toBeCloseTo(3 / (C.age - B.age), 10);
+      expect(c.suwa?.startDate).toBe(A.date);
+      expect(c.suwa?.velocity).toBeCloseTo(6 / (C.age - A.age), 10);
+      expect(c.suwa?.sds).toBeCloseTo(calculateHVSDS(c.suwa!.velocity, (A.age + C.age) / 2, 'male', SUWA_HV_BOYS)!, 12);
+      const d = forDate(results, D)!;
+      expect(d.raw?.startDate).toBe(C.date);
+      expect(d.raw?.velocity).toBeCloseTo(4 / (D.age - C.age), 10);
+      expect(d.suwa).toBeNull();
+    });
+
+    it('A valid, B invalid, C valid: C has no raw HV (no A-C reconnection), and the independent A-C Suwa pair is unchanged', () => {
+      const reference = forDate(run([120, 123, 126, 130]), C)!;
+      for (const invalid of [0, -3, Number.NaN, Infinity]) {
+        const c = forDate(run([120, invalid, 126, 130]), C)!;
+        expect(c.raw).toBeNull();
+        expect(c.suwa).toEqual(reference.suwa);
+      }
+    });
+
+    it('A valid, B invalid, C valid, D valid: the valid C-D raw evaluation is kept', () => {
+      const reference = forDate(run([120, 123, 126, 130]), D)!;
+      const d = forDate(run([120, 0, 126, 130]), D)!;
+      expect(d.raw).toEqual(reference.raw);
+      expect(d.raw?.startDate).toBe(C.date);
+      expect(forDate(run([120, 0, 126, 130]), B)).toBeUndefined();
+    });
+
+    it('A valid, B valid, C invalid: the A-B evaluation is kept and C has none', () => {
+      const yearApart = [at(2024, 0), at(2025, 0), at(2025, 6)];
+      const results = run([120, 126, 0], yearApart);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].currentDate).toBe(yearApart[1].date);
+      expect(results[0].raw?.velocity).toBeCloseTo(6 / (yearApart[1].age - yearApart[0].age), 10);
+      expect(results[0].suwa?.startDate).toBe(yearApart[0].date);
+    });
+
+    it('A valid, B not entered, C valid: keeps the earlier treatment (A-C raw), unlike an invalid B', () => {
+      const missing = forDate(run([120, null, 126, 130]), C)!;
+      const invalid = forDate(run([120, 0, 126, 130]), C)!;
+
+      expect(missing.raw?.startDate).toBe(A.date);
+      expect(missing.raw?.velocity).toBeCloseTo(6 / (C.age - A.age), 10);
+      expect(invalid.raw).toBeNull();
+      expect(missing.suwa).toEqual(invalid.suwa);
+    });
+  });
+
+  describe('Suwa candidate selection with invalid heights (best candidate decides; no fallback)', () => {
+    const birth = new Date(2019, 0, 1);
+    const at = (year: number, month: number, day: number) => {
+      const date = new Date(year, month, day);
+      return { date, age: calculateDecimalAge(birth, date) as number };
+    };
+    const A = at(2024, 0, 1);
+    const B = at(2024, 0, 16);
+    const C = at(2025, 0, 16);
+    const run = (heights: Array<number | null>, dates = [A, B, C]) => calculateHeightVelocityResults(
+      dates.flatMap((p, i) => (heights[i] === null ? [] : [{ ...p, height: heights[i] as number }])),
+      'male',
+      SUWA_HV_BOYS
+    );
+    const last = (results: ReturnType<typeof run>) => results[results.length - 1];
+
+    it('uses real age rounding: A and B are both candidates for C, and B is the best one', () => {
+      expect(isSuwaHVInterval(C.age - A.age)).toBe(true);
+      expect(isSuwaHVInterval(C.age - B.age)).toBe(true);
+      expect(Math.abs(C.age - B.age - 1)).toBeLessThan(Math.abs(C.age - A.age - 1));
+      expect(findBestSuwaPair(2, [A, B, C].map(p => ({ age: p.age, height: 100 })))).toBe(1);
+    });
+
+    it('best candidate invalid, next-best valid: Suwa HV and HV-SDS are unavailable and A-C is not substituted', () => {
+      for (const invalid of [0, -1, Number.NaN, Infinity]) {
+        const c = last(run([120, invalid, 126]));
+        expect(c.currentDate).toBe(C.date);
+        expect(c.suwa).toBeNull();
+        expect(c.suwaUnavailableReason).toBe('invalid-height');
+      }
+    });
+
+    it('best candidate valid, another candidate invalid: the valid best candidate is used', () => {
+      // A (invalid) is the farther candidate; B (valid) is the best.
+      const c = last(run([0, 123, 126]));
+      expect(c.suwa?.startDate).toBe(B.date);
+      expect(c.suwa?.velocity).toBeCloseTo(3 / (C.age - B.age), 10);
+      expect(c.suwa?.sds).toBeCloseTo(calculateHVSDS(c.suwa!.velocity, (B.age + C.age) / 2, 'male', SUWA_HV_BOYS)!, 12);
+      expect(c.suwaUnavailableReason).toBeNull();
+    });
+
+    it('an invalid row outside the candidate window does not affect the normal selection', () => {
+      const early = at(2023, 0, 1);
+      const results = calculateHeightVelocityResults([
+        { ...early, height: 0 },
+        { ...A, height: 120 },
+        { ...C, height: 126 },
+      ], 'male', SUWA_HV_BOYS);
+      const c = results[results.length - 1];
+      expect(c.suwa?.startDate).toBe(A.date);
+      expect(c.suwaUnavailableReason).toBeNull();
+    });
+
+    it('an invalid current height makes Suwa unavailable even when the best candidate is valid', () => {
+      const c = last(run([120, 123, 0]));
+      expect(c.suwa).toBeNull();
+      expect(c.suwaUnavailableReason).toBe('invalid-height');
+    });
+
+    it('a not-entered height is skipped as before: the remaining best candidate is used, with no unavailable reason', () => {
+      const c = last(run([120, null, 126]));
+      expect(c.suwa?.startDate).toBe(A.date);
+      expect(c.suwa?.velocity).toBeCloseTo(6 / (C.age - A.age), 10);
+      expect(c.suwaUnavailableReason).toBeNull();
+    });
+
+    it('correcting the invalid height returns to the ordinary best-candidate selection', () => {
+      const c = last(run([120, 123, 126]));
+      expect(c.suwa?.startDate).toBe(B.date);
+      expect(c.suwaUnavailableReason).toBeNull();
+    });
+
+    it('keeps the raw HV of a pair unrelated to the invalid candidate', () => {
+      const D = at(2025, 7, 16);
+      const results = run([120, 0, 126, 130], [A, B, C, D]);
+      const d = results[results.length - 1];
+      expect(d.currentDate).toBe(D.date);
+      expect(d.raw?.startDate).toBe(C.date);
+      expect(d.raw?.velocity).toBeCloseTo(4 / (D.age - C.age), 10);
     });
   });
 

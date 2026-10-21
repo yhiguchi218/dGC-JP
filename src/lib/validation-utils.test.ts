@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateGrowthJSON, parseDateValue, isValidSex, normalizeSex } from './validation-utils';
+import { validateGrowthJSON, parseDateValue, isValidSex, normalizeSex, parseMeasurementValue } from './validation-utils';
 
 describe('JSON Detailed Validation Utils', () => {
   it('should validate valid data successfully', () => {
@@ -136,6 +136,7 @@ describe('JSON Detailed Validation Utils', () => {
   it('defaults only omitted gestational fields for legacy JSON', () => {
     const result = validateGrowthJSON({
       birthDate: '2020/01/01',
+      sex: '男子',
       measurements: [],
     });
 
@@ -146,6 +147,7 @@ describe('JSON Detailed Validation Utils', () => {
   it.each([0, 6])('accepts valid gestational days as numeric values: %i', (gestationalDays) => {
     const result = validateGrowthJSON({
       birthDate: '2020/01/01',
+      sex: '男子',
       gestationalWeeks: 35,
       gestationalDays,
       measurements: [],
@@ -158,6 +160,7 @@ describe('JSON Detailed Validation Utils', () => {
   it('accepts the specified 35-week-4-day gestational age as numeric values', () => {
     const result = validateGrowthJSON({
       birthDate: '2020/01/01',
+      sex: '男子',
       gestationalWeeks: 35,
       gestationalDays: 4,
       measurements: [],
@@ -173,6 +176,7 @@ describe('JSON Detailed Validation Utils', () => {
   ])('accepts integer week %i with the existing clamp warning', (gestationalWeeks, clampedGestation) => {
     const result = validateGrowthJSON({
       birthDate: '2020/01/01',
+      sex: '男子',
       gestationalWeeks,
       gestationalDays: 5,
       measurements: [],
@@ -250,6 +254,7 @@ describe('JSON Detailed Validation Utils', () => {
     const data = {
       childId: '001',
       birthDate: '2000/01/01',
+      sex: '女子',
       gestationalWeeks: 20, // < 22w
       measurements: [
         { date: '2022/01/01', height: 250, weight: 150 }, // age 22y (>18y), extreme height & weight
@@ -262,6 +267,148 @@ describe('JSON Detailed Validation Utils', () => {
     expect(res.warnings.some(w => w.message.includes('18歳を超えています'))).toBe(true);
     expect(res.warnings.some(w => w.message.includes('身長 (250 cm) が臨床標準範囲'))).toBe(true);
     expect(res.warnings.some(w => w.message.includes('体重 (150 kg) が臨床標準範囲'))).toBe(true);
+  });
+
+  describe('sex is required (no implicit male default)', () => {
+    const base = { birthDate: '2020/01/01', measurements: [{ date: '2021/01/01', height: 80, weight: 10 }] };
+
+    it('rejects an omitted sex with a "not specified" reason', () => {
+      const res = validateGrowthJSON(base);
+      expect(res.isValid).toBe(false);
+      expect(res.sex).toBeNull();
+      expect(res.errors.find(e => e.field === 'sex')?.message).toContain('性別が指定されていません');
+    });
+
+    it.each([null, '', '   ', '\t'])('rejects a blank sex %j as not specified', (sex) => {
+      const res = validateGrowthJSON({ ...base, sex });
+      expect(res.isValid).toBe(false);
+      expect(res.errors.find(e => e.field === 'sex')?.message).toContain('性別が指定されていません');
+    });
+
+    it.each(['unknown', 'Male', ' 男子', '男', 0, true, [], {}])('rejects an invalid sex %j with an "invalid value" reason', (sex) => {
+      const res = validateGrowthJSON({ ...base, sex });
+      expect(res.isValid).toBe(false);
+      expect(res.sex).toBeNull();
+      expect(res.errors.find(e => e.field === 'sex')?.message).toContain('性別の値が不正です');
+    });
+
+    it.each([['男子', '男子'], ['女子', '女子'], ['male', '男子'], ['female', '女子']])('keeps accepting %s and reports %s', (sex, expected) => {
+      const res = validateGrowthJSON({ ...base, sex });
+      expect(res.isValid).toBe(true);
+      expect(res.sex).toBe(expected);
+    });
+  });
+
+  describe('measurement value rules (height and weight)', () => {
+    const validate = (measurements: unknown[]) => validateGrowthJSON({ birthDate: '2020/01/01', sex: '男子', measurements });
+    const row = (extra: Record<string, unknown>) => ({ date: '2021/01/01', ...extra });
+
+    it.each([
+      ['positive numbers', 80.5, 10.2, 80.5, 10.2],
+      ['numeric strings', '80.5', '10.2', 80.5, 10.2],
+      ['strings with surrounding whitespace', '  80.5 ', '\t10.2\n', 80.5, 10.2],
+      ['saved partial-typing forms', '80.', '.5', 80, 0.5],
+    ])('accepts %s and returns the normalized numbers', (_label, height, weight, expectedHeight, expectedWeight) => {
+      const res = validate([row({ height, weight })]);
+      expect(res.isValid).toBe(true);
+      expect(res.measurementValues).toEqual([{ height: expectedHeight, weight: expectedWeight }]);
+    });
+
+    it.each([
+      ['height only', { height: 80 }, { height: 80, weight: null }],
+      ['weight only', { weight: 10 }, { height: null, weight: 10 }],
+      ['null/blank for the other value', { height: 80, weight: null }, { height: 80, weight: null }],
+      ['blank strings for the other value', { height: '  ', weight: 10 }, { height: null, weight: 10 }],
+    ])('accepts %s', (_label, values, expected) => {
+      const res = validate([row(values)]);
+      expect(res.isValid).toBe(true);
+      expect(res.measurementValues).toEqual([expected]);
+    });
+
+    it.each([
+      ['both omitted', {}],
+      ['both null', { height: null, weight: null }],
+      ['both empty strings', { height: '', weight: '' }],
+      ['both whitespace-only', { height: ' ', weight: '\t' }],
+    ])('rejects a row where %s, naming the row', (_label, values) => {
+      const res = validate([row({ height: 70, weight: 8 }), row(values)]);
+      expect(res.isValid).toBe(false);
+      expect(res.errors.some(e => e.rowIndex === 2 && e.message.includes('2行目: 身長・体重のどちらも入力されていません'))).toBe(true);
+    });
+
+    it.each([
+      ['boolean', true],
+      ['false', false],
+      ['array', [5]],
+      ['empty array', []],
+      ['object', {}],
+    ])('rejects a %s height without coercion', (_label, height) => {
+      const res = validate([row({ height, weight: 10 })]);
+      expect(res.isValid).toBe(false);
+      expect(res.errors.some(e => e.field === 'measurements[0].height' && e.message.includes('数値または数値文字列'))).toBe(true);
+    });
+
+    it.each(['100cm', '10kg', '100abc', '1e2', '+5', ' +5 ', ' 1e2 ', '１２３', '１．５', '1,5', '1 0', '０', '0x10', 'Infinity', 'NaN', '-'])('rejects non-decimal text %j', (text) => {
+      const res = validate([row({ height: text, weight: 10 })]);
+      expect(res.isValid).toBe(false);
+      expect(res.errors.some(e => e.field === 'measurements[0].height')).toBe(true);
+    });
+
+    it.each([0, -1, -0.5, '0', '0.0', '-5', '00'])('rejects zero and negative value %j for both fields', (value) => {
+      const asHeight = validate([row({ height: value, weight: 10 })]);
+      const asWeight = validate([row({ height: 80, weight: value })]);
+      expect(asHeight.isValid).toBe(false);
+      expect(asHeight.errors.some(e => e.field === 'measurements[0].height' && e.message.includes('正の値'))).toBe(true);
+      expect(asWeight.isValid).toBe(false);
+      expect(asWeight.errors.some(e => e.field === 'measurements[0].weight' && e.message.includes('正の値'))).toBe(true);
+    });
+
+    it('rejects values that are not finite after parsing', () => {
+      const huge = '9'.repeat(400);
+      const fromText = validate([row({ height: huge, weight: 10 })]);
+      const fromJson = validateGrowthJSON(JSON.parse('{"birthDate":"2020/01/01","sex":"男子","measurements":[{"date":"2021/01/01","height":1e999,"weight":10}]}'));
+      expect(fromText.isValid).toBe(false);
+      expect(fromJson.isValid).toBe(false);
+    });
+
+    it('distinguishes the JSON number 1e2 (parsed to 100, accepted) from the string "1e2" (rejected)', () => {
+      const text = (height: string) => `{"birthDate":"2020/01/01","sex":"男子","measurements":[{"date":"2021/01/01","height":${height}}]}`;
+      const asNumber = validateGrowthJSON(JSON.parse(text('1e2')));
+      const asString = validateGrowthJSON(JSON.parse(text('"1e2"')));
+
+      expect(asNumber.isValid).toBe(true);
+      expect(asNumber.measurementValues).toEqual([{ height: 100, weight: null }]);
+      expect(asString.isValid).toBe(false);
+      expect(asString.errors.some(e => e.field === 'measurements[0].height')).toBe(true);
+    });
+
+    it('rejects a row with one valid and one invalid value instead of keeping the valid one', () => {
+      const res = validate([row({ height: 80, weight: 'abc' })]);
+      expect(res.isValid).toBe(false);
+      expect(res.errors.every(e => e.field !== 'measurements[0]')).toBe(true);
+      expect(res.errors.some(e => e.field === 'measurements[0].weight')).toBe(true);
+    });
+
+    it('rejects the whole file when only a later row is invalid', () => {
+      const res = validate([row({ height: 70, weight: 8 }), row({ height: 75, weight: 9 }), row({ height: true })]);
+      expect(res.isValid).toBe(false);
+      expect(res.errors.some(e => e.rowIndex === 3)).toBe(true);
+      expect(res.errors.every(e => e.rowIndex === 3)).toBe(true);
+    });
+
+    it('keeps the clinical-range warnings for valid values', () => {
+      const res = validate([row({ height: '250', weight: '150' })]);
+      expect(res.isValid).toBe(true);
+      expect(res.warnings.filter(w => w.field.startsWith('measurements[0]')).length).toBe(2);
+    });
+  });
+
+  describe('parseMeasurementValue', () => {
+    it('distinguishes not entered from invalid', () => {
+      [undefined, null, '', '  '].forEach(v => expect(parseMeasurementValue(v)).toEqual({ status: 'missing' }));
+      [0, '0', -1, Number.NaN, Infinity, true, [], {}, '12abc'].forEach(v => expect(parseMeasurementValue(v).status).toBe('invalid'));
+      expect(parseMeasurementValue('12.5')).toEqual({ status: 'valid', value: 12.5 });
+    });
   });
 
   describe('parseDateValue helper', () => {
