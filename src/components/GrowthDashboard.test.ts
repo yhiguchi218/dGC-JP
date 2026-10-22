@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 /// <reference types="@testing-library/jest-dom" />
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import GrowthDashboard, { getSuwaHVSDSClass } from './GrowthDashboard';
+import * as growthUtils from '../lib/growth-utils';
 
 expect.extend(matchers);
 
@@ -33,6 +34,36 @@ vi.mock('./GrowthChart', () => ({
 }));
 
 vi.mock('./ThemeToggle', () => ({ ThemeToggle: () => null }));
+
+const obesityMockState = vi.hoisted(() => ({ mode: null as null | 'infant' | 'rounding-school' }));
+
+vi.mock('../lib/growth-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/growth-utils')>();
+  return {
+    ...actual,
+    calculateObesityIndex: vi.fn((weight: number, height: number, age: number, sex: 'male' | 'female') => {
+      if (obesityMockState.mode === 'infant') {
+        if (weight === 9.5 && height === 75 && sex === 'male') {
+          return 12.34;
+        }
+      }
+      if (obesityMockState.mode === 'rounding-school') {
+        if (weight === 25 && height === 140 && sex === 'male') {
+          return 19.96;
+        }
+      }
+      return actual.calculateObesityIndex(weight, height, age, sex);
+    }),
+    calculateObesityIndexByAge: vi.fn((weight: number, height: number, age: number, sex: 'male' | 'female') => {
+      if (obesityMockState.mode === 'rounding-school') {
+        if (weight === 25 && height === 140 && sex === 'male') {
+          return -19.96;
+        }
+      }
+      return actual.calculateObesityIndexByAge(weight, height, age, sex);
+    }),
+  };
+});
 
 vi.mock('./GrowthForm', () => ({
   default: ({ onDataChange }: { onDataChange: (data: unknown) => void }) => (
@@ -358,6 +389,28 @@ vi.mock('./GrowthForm', () => ({
           ],
         }),
       }, '在胎情報保留中のHVデータを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'infant-obesity-classification',
+          birthDate: new Date(2024, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [{ id: 'infant', date: new Date(2024, 6, 1), height: 75, weight: 9.5 }],
+        }),
+      }, '乳児肥満度の区分データを表示')
+      , React.createElement('button', {
+        type: 'button',
+        onClick: () => onDataChange({
+          childId: 'school-age-obesity-classification',
+          birthDate: new Date(2010, 0, 1),
+          sex: '男子',
+          gestationalWeeks: 40,
+          gestationalDays: 0,
+          measurements: [{ id: 'school-age', date: new Date(2020, 0, 1), height: 140, weight: 25 }],
+        }),
+      }, '肥満度区分の学童データを表示')
     )
   ),
 }));
@@ -375,6 +428,21 @@ describe('Suwa HV-SDS display styling', () => {
 });
 
 describe('GrowthDashboard responsive results content', () => {
+  const cardCells = (card: HTMLElement) => Array.from(card.querySelectorAll('dd'));
+  const tableRow = (date: string) => screen.getByRole('cell', { name: date }).closest('tr') as HTMLElement;
+  const tableObesityCell = (row: HTMLElement) => row.querySelectorAll('td')[5] as HTMLElement;
+  const expectObesityBasis = (card: HTMLElement, basis: '身長値ベース' | '年齢別ベース') => {
+    expect(within(card).getByText(`肥満度（${basis}）`, { selector: 'dt' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: new RegExp(basis) })).toBeInTheDocument();
+  };
+
+  afterEach(() => {
+    obesityMockState.mode = null;
+    vi.restoreAllMocks();
+    vi.mocked(growthUtils.calculateObesityIndex).mockClear();
+    vi.mocked(growthUtils.calculateObesityIndexByAge).mockClear();
+  });
+
   it('provides an accessible link to the clinician guide', () => {
     render(React.createElement(GrowthDashboard));
 
@@ -608,6 +676,76 @@ describe('GrowthDashboard responsive results content', () => {
     expect(measurementCard).toHaveTextContent('肥満度（年齢別ベース）');
   });
 
+  it('shows an infant note with a calculable value but no classification label or obesity-color classes', () => {
+    obesityMockState.mode = 'infant';
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '乳児肥満度の区分データを表示' }));
+
+    const card = screen.getByLabelText('測定日 2024/07/01 の成長評価結果');
+    const table = tableRow('2024/07/01');
+
+    expect(cardCells(card)[3]).toHaveTextContent('12.3%');
+    expect(cardCells(card)[3]).toHaveTextContent('参考値・乳児の肥満判定には用いません');
+    expect(cardCells(card)[3]).not.toHaveTextContent('太り');
+    expect(cardCells(card)[3].querySelector('.text-red-600, .text-orange-500, .text-yellow-600, .text-blue-500, .text-blue-700')).toBeNull();
+
+    expect(table).toHaveTextContent('12.3%');
+    expect(table).toHaveTextContent('参考値・乳児の肥満判定には用いません');
+    expect(table).not.toHaveTextContent('太り');
+    expect(table.querySelector('.text-red-600, .text-orange-500, .text-yellow-600, .text-blue-500, .text-blue-700')).toBeNull();
+  });
+
+  it('shows underweight classification only in age-based mode for school-age data in both table and card', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '肥満度区分の学童データを表示' }));
+
+    const card = screen.getByLabelText('測定日 2020/01/01 の成長評価結果');
+    const table = tableRow('2020/01/01');
+
+    expectObesityBasis(card, '身長値ベース');
+    expect(cardCells(card)[3]).toHaveTextContent('-25.0%');
+    expect(cardCells(card)[3]).not.toHaveTextContent('やせ');
+    expect(tableObesityCell(table)).toHaveTextContent('-25.0%');
+    expect(tableObesityCell(table)).not.toHaveTextContent('やせ');
+
+    fireEvent.click(screen.getByRole('button', { name: '性別年齢別' }));
+
+    expectObesityBasis(card, '年齢別ベース');
+    expect(cardCells(card)[3]).toHaveTextContent('-28.2%');
+    expect(cardCells(card)[3]).toHaveTextContent('軽度やせ');
+    expect(cardCells(card)[3].querySelector('.text-blue-500, .text-blue-700')).not.toBeNull();
+    expect(tableObesityCell(table)).toHaveTextContent('-28.2%');
+    expect(tableObesityCell(table)).toHaveTextContent('軽度やせ');
+    expect(tableObesityCell(table).querySelector('.text-blue-500, .text-blue-700')).not.toBeNull();
+  });
+
+  it('keeps classification on raw values, not rounded display values, for table and card', () => {
+    obesityMockState.mode = 'rounding-school';
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '肥満度区分の学童データを表示' }));
+
+    const card = screen.getByLabelText('測定日 2020/01/01 の成長評価結果');
+    const table = tableRow('2020/01/01');
+
+    expectObesityBasis(card, '身長値ベース');
+    expect(cardCells(card)[3]).toHaveTextContent('20.0%');
+    expect(cardCells(card)[3]).not.toHaveTextContent('軽度肥満');
+    expect(cardCells(card)[3].querySelector('.text-yellow-700, .text-orange-600, .text-red-700')).toBeNull();
+    expect(tableObesityCell(table)).toHaveTextContent('20.0%');
+    expect(tableObesityCell(table)).not.toHaveTextContent('軽度肥満');
+    expect(tableObesityCell(table).querySelector('.text-yellow-700, .text-orange-600, .text-red-700')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: '性別年齢別' }));
+
+    expectObesityBasis(card, '年齢別ベース');
+    expect(cardCells(card)[3]).toHaveTextContent('-20.0%');
+    expect(cardCells(card)[3]).not.toHaveTextContent('軽度やせ');
+    expect(cardCells(card)[3].querySelector('.text-blue-500, .text-blue-700')).toBeNull();
+    expect(tableObesityCell(table)).toHaveTextContent('-20.0%');
+    expect(tableObesityCell(table)).not.toHaveTextContent('軽度やせ');
+    expect(tableObesityCell(table).querySelector('.text-blue-500, .text-blue-700')).toBeNull();
+  });
+
   it('calculates height SDS from the 附表1 monthly mean and SD at school age and at 210 months', () => {
     render(React.createElement(GrowthDashboard));
     fireEvent.click(screen.getByRole('button', { name: '附表1の月齢範囲境界のデータを表示' }));
@@ -765,10 +903,19 @@ describe('GrowthDashboard responsive results content', () => {
     expect(pending).not.toHaveTextContent('附表1の対象月齢外');
   });
 
+  it('includes the infant reference note in the table used for print rendering', () => {
+    obesityMockState.mode = 'infant';
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '乳児肥満度の区分データを表示' }));
+
+    const printTable = document.querySelector('div.hidden.overflow-x-auto.md\\:block.print\\:block table');
+    expect(printTable).not.toBeNull();
+    expect(within(printTable as HTMLElement).getByText('参考値・乳児の肥満判定には用いません')).toBeInTheDocument();
+  });
+
   describe('invalid and unusable inputs', () => {
     const tableRow = (dateText: string) => Array.from(document.querySelectorAll('tbody tr'))
       .find(row => row.textContent?.includes(dateText)) as HTMLElement;
-    const cardCells = (card: HTMLElement) => card.querySelectorAll('dd');
 
     it('withholds height-dependent evaluations for an invalid height in both views, and keeps the independent weight SDS', () => {
       render(React.createElement(GrowthDashboard));
