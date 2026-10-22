@@ -40,3 +40,14 @@ console.log('C3 weightSDS node 0 (3.2 kg)', weightSdsAtNode(WEIGHT_BOYS_LMS, 0, 
 // C4: leap-day birth 2020-02-29 boy 32w0d; 2023-02-28 uses corrected birth 2020-04-25 (34 months); 2023-03-01 actual birth (36 months)
 console.log('C4 row34', FUHYO_BOYS_HEIGHT[34], 'SDS(90)', heightSds(FUHYO_BOYS_HEIGHT, 34, 90), 'row36', FUHYO_BOYS_HEIGHT[36], 'SDS(90)', heightSds(FUHYO_BOYS_HEIGHT, 36, 90));
 console.log('weight node ages (boys)', WEIGHT_BOYS_LMS.map(r => r.age).filter(a => a === 0 || a === 10 || a === 17.5).join(','));
+
+// C5: boy, birth 2020-01-01, gestational weeks NaN (SDS held at chronological age <= 3). Rows 2021-01-01 (75 cm, 9.5 kg), 2022-01-01 (85 cm, 12 kg).
+// Chronological ages: 2020-01-01 -> 2021-01-01 is 366 days = 1 year; -> 2022-01-01 = 2 years. Interval = 1.0 year (365 days between rows).
+const infantStd = (h: number) => 0.00206 * h * h - 0.1166 * h + 6.5273;
+for (const [h, w] of [[75, 9.5], [85, 12]] as const) {
+  const sw = infantStd(h);
+  console.log(`C5 ${h} cm ${w} kg: BMI ${w / (h / 100) ** 2} std ${sw} obesity ${((w - sw) / sw) * 100}`);
+}
+// Raw HV = (85 - 75) / (2.0 - 1.0) = 10 cm/yr, 365 days. Suwa pair: interval 1.0 within [0.95, 1.05]; midpoint age 1.5 is a table node.
+const suwa15 = { mean: 10.3, sd: 0.93 }; // SUWA_HV_BOYS node age 1.5 as listed in src/data/suwa-hv-data.ts
+console.log('C5 HV 10 cm/yr, midpoint 1.5, HV-SDS', (10 - suwa15.mean) / suwa15.sd);

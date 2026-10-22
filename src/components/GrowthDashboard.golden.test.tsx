@@ -173,4 +173,49 @@ describe('GrowthDashboard golden wiring (real calculation path)', () => {
     expect(points(harness.weight)).toHaveLength(3);
     expect(points(harness.weight).every(p => Number.isFinite(p.zScore))).toBe(true);
   });
+
+  it('C5 invalid gestational weeks (age <= 3): SDS and chart points are held, but BMI, height-based obesity and Raw/Suwa HV remain', () => {
+    load('男子', new Date(2020, 0, 1), Number.NaN, [
+      { date: new Date(2021, 0, 1), height: 75, weight: 9.5 },
+      { date: new Date(2022, 0, 1), height: 85, weight: 12 },
+    ]);
+    // Ages 1 and 2 (366 / 365 day age years). Infant polynomial (70 <= h < 120):
+    //   75 cm: 0.00206*75^2 - 0.1166*75 + 6.5273 = 9.3698 kg -> (9.5 - 9.3698) / 9.3698 = 1.3896 %; BMI 9.5 / 0.75^2 = 16.889
+    //   85 cm: 0.00206*85^2 - 0.1166*85 + 6.5273 = 11.4998 kg -> (12 - 11.4998) / 11.4998 = 4.3496 %; BMI 12 / 0.85^2 = 16.609
+    const rows: Array<[string, string, string, string, string]> = [
+      ['2021/01/01', '75cm', '9.5kg', '16.9', '1.4%'],
+      ['2022/01/01', '85cm', '12kg', '16.6', '4.3%'],
+    ];
+    for (const [date, height, weight, bmi, obesity] of rows) {
+      const t = tableCells(date);
+      expect(t[2]).toHaveTextContent(height);
+      expect(t[2]).toHaveTextContent('在胎情報要確認：SDS未評価');
+      expect(t[3]).toHaveTextContent(weight);
+      expect(t[3]).toHaveTextContent('在胎情報要確認：SDS未評価');
+      expect(t[4]).toHaveTextContent(bmi);
+      expect(t[5]).toHaveTextContent(obesity);
+      const c = cardCells(date);
+      expect(c[0]).toHaveTextContent(height);
+      expect(c[0]).toHaveTextContent('在胎情報要確認：SDS未評価');
+      expect(c[1]).toHaveTextContent(weight);
+      expect(c[1]).toHaveTextContent('在胎情報要確認：SDS未評価');
+      expect(c[2]).toHaveTextContent(bmi);
+      expect(c[3]).toHaveTextContent(obesity);
+      for (const el of [tableRow(date), card(date)]) {
+        expect(el).not.toHaveTextContent(/\d\.\d{2}SD/);
+      }
+    }
+    expect(points(harness.height)).toHaveLength(0);
+    expect(points(harness.weight)).toHaveLength(0);
+
+    // Raw HV: (85 - 75) / (2.0 - 1.0) = 10.00 cm/yr over 365 days.
+    // Suwa: interval 1.0 within [0.95, 1.05]; midpoint 1.5 is a boys table node (mean 10.3, SD 0.93) -> (10 - 10.3) / 0.93 = -0.3226
+    const raw = screen.getByRole('region', { name: '直近HV' });
+    expect(raw).toHaveTextContent('10.00 cm/年');
+    expect(raw).toHaveTextContent('+10.0 cm / 365日');
+    const suwa = screen.getByRole('region', { name: '12か月HV（Suwa基準）' });
+    expect(suwa).toHaveTextContent('10.00 cm/年');
+    expect(suwa).toHaveTextContent('HV-SDS: -0.32');
+    expect(suwa).toHaveTextContent('+10.0 cm / 365日');
+  });
 });
