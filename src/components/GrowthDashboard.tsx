@@ -35,6 +35,18 @@ import { format, differenceInMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CLINICAL_LIMITS } from '../lib/constants';
 import { parseMeasurementValue } from '../lib/validation-utils';
+import { getObesityClassification } from '../lib/obesity-classification';
+
+function ObesityValue({ value, age, method }: { value: number; age: number; method: 'height' | 'age' }) {
+  const classification = getObesityClassification(age, value, method);
+  return (
+    <>
+      <span className={cn(classification?.colorClass)}>{value.toFixed(1)}%</span>
+      {classification?.category && <span className={cn('ml-1 text-xs', classification.colorClass)}>（{classification.category}）</span>}
+      {classification?.note && <span className="block text-[10px] font-normal text-gray-500 dark:text-zinc-400">{classification.note}</span>}
+    </>
+  );
+}
 
 export function getSuwaHVSDSClass(sds: number, sex: '男子' | '女子'): string {
   if (Math.abs(sds) > 2) {
@@ -493,11 +505,7 @@ const GrowthDashboard: React.FC = () => {
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">{d.bmi?.toFixed(1) || '-'}</td>
                           <td className="px-4 py-3 text-center print:px-1 print:py-0.5 print:text-[8pt]">
                             {currentObesity !== null ? (
-                              <span className={cn(
-                                currentObesity > 20 ? "text-orange-500 dark:text-orange-400 font-bold" : currentObesity < -20 ? "text-blue-500 dark:text-blue-400 font-bold" : ""
-                              )}>
-                                {currentObesity.toFixed(1)}%
-                              </span>
+                              <ObesityValue value={currentObesity} age={d.age} method={obesityMode} />
                             ) : (
                               <span className="text-gray-300 dark:text-zinc-600 text-[10px] print:text-[6pt]">
                                 {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
@@ -604,11 +612,7 @@ const GrowthDashboard: React.FC = () => {
                         </dt>
                         <dd className="text-right font-medium">
                           {currentObesity !== null ? (
-                            <span className={cn(
-                              currentObesity > 20 ? "text-orange-500 dark:text-orange-400 font-bold" : currentObesity < -20 ? "text-blue-500 dark:text-blue-400 font-bold" : ""
-                            )}>
-                              {currentObesity.toFixed(1)}%
-                            </span>
+                            <ObesityValue value={currentObesity} age={d.age} method={obesityMode} />
                           ) : (
                             <span className="text-[10px] text-gray-300 dark:text-zinc-600">
                               {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
@@ -716,6 +720,7 @@ const GrowthDashboard: React.FC = () => {
                 <p>※ 身長SDSは附表1の満月齢別平均・標準偏差（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線はIsojima 2016のLMS基準によるため、表示SDSと曲線上の位置は一致しない場合があります。−2.5SD・−3SD線もLMS基準による計算線です。</p>
                 <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
                 <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
+                <p>※ 肥満度の区分は丸め前の値で判定するため、表示値と区分の境界が一致しない場合があります。</p>
               </div>
 
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40 text-[9px] text-amber-700/80 dark:text-amber-300/70">

@@ -10,7 +10,7 @@ and clinical interpretation as safety-sensitive behavior.
 The human maintainer defines the clinical specification and has final
 responsibility for implementation decisions.
 
----
+***
 
 ## Read Before Changing Behavior
 
@@ -22,7 +22,7 @@ Consult the relevant repository documentation before modifying behavior:
 
 Do not silently contradict these documents.
 
----
+***
 
 ## Scope Discipline
 
@@ -38,7 +38,7 @@ Do not silently contradict these documents.
 If another issue is discovered while working, report it separately instead of
 fixing it opportunistically.
 
----
+***
 
 ## Clinical Safety Rules
 
@@ -67,7 +67,7 @@ requests changing them:
 
 When touching these areas, inspect the associated tests and `HAZARD_LOG.md`.
 
----
+***
 
 ## Reference Data and Licensing
 
@@ -82,7 +82,7 @@ licensing status.
 
 Do not add stronger licensing or reuse claims without verified evidence.
 
----
+***
 
 ## UI and Accessibility
 
@@ -100,7 +100,7 @@ In particular:
 
 UI-only work must not alter clinical calculations or data semantics.
 
----
+***
 
 ## Performance Changes
 
@@ -119,7 +119,7 @@ Do not rewrite the D3 rendering architecture, introduce measurement hashing,
 or make similar broad optimizations solely because an automated reviewer
 suggests them.
 
----
+***
 
 ## Automated Review Findings
 
@@ -140,7 +140,7 @@ If a proposed fix would alter clinical data, thresholds, interpretation,
 persistence behavior, or reference-data semantics, stop and explain the
 implication before implementing it.
 
----
+***
 
 ## Tests
 
@@ -155,7 +155,7 @@ Prefer testing outcomes and semantics over internal implementation structure.
 Do not weaken, delete, or rewrite an existing test merely to make a new
 implementation pass unless the specification itself has intentionally changed.
 
----
+***
 
 ## Standard Validation
 
