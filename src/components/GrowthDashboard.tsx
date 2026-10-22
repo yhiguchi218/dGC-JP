@@ -3,18 +3,7 @@ import GrowthChart, { CHART_PRESETS, ChartPreset } from './GrowthChart';
 import GrowthForm, { MeasurementEntry } from './GrowthForm';
 import { ThemeToggle } from './ThemeToggle';
 import { 
-  calculateDecimalAge, 
-  calculateCorrectedAge, 
-  calculateMonthlyHeightSDS,
-  calculateWeightSDSByCompletedMonths,
-  HEIGHT_SDS_MAX_COMPLETED_MONTHS,
-  calculateObesityIndex,
-  calculateObesityIndexByAge,
-  calculateStandardWeight,
-  calculateStandardWeightByAge,
-  isUsableStandardWeight,
   calculateFullMonthsAge,
-  getCorrectedBirthDate,
   calculateHeightVelocityResults,
   isValidGestationalDays,
   isValidGestationalWeeks
@@ -31,10 +20,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CircleHelp, Info } from 'lucide-react';
-import { format, differenceInMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CLINICAL_LIMITS } from '../lib/constants';
-import { parseMeasurementValue } from '../lib/validation-utils';
+import { evaluateMeasurement } from '../lib/measurement-evaluation';
 import { getObesityClassification } from '../lib/obesity-classification';
 
 function ObesityValue({ value, age, method }: { value: number; age: number; method: 'height' | 'age' }) {
@@ -98,105 +87,18 @@ const GrowthDashboard: React.FC = () => {
   const processedData = useMemo(() => {
     return formData.measurements
       .map(m => {
-        const age = calculateDecimalAge(formData.birthDate, m.date);
-        if (age === null) return null;
-
-        const canCalculateCorrection = isPreterm && hasValidGestationalDays;
-        const correctedAge = canCalculateCorrection
-          ? calculateCorrectedAge(formData.birthDate, m.date, formData.gestationalWeeks, formData.gestationalDays)
-          : age;
-        const correctedBirthDate = canCalculateCorrection
-          ? getCorrectedBirthDate(formData.birthDate, formData.gestationalWeeks, formData.gestationalDays)
-          : null;
-        const isPretermBeforeCorrection = canCalculateCorrection && correctedBirthDate !== null && correctedAge === null;
-        const isGestationalEvaluationPending = age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS
-          && (!hasValidGestationalWeeks || (isPreterm && !hasValidGestationalDays));
-        const isStandardEvaluationHeld = isGestationalEvaluationPending || isPretermBeforeCorrection;
-        // Corrected age is clinically applied up to 3.0 years
-        const showCorrected = isPreterm && correctedAge !== null && correctedBirthDate !== null && age <= CLINICAL_LIMITS.AGE.PRETERM_CORRECTION_MAX_YEARS;
-
-        const heightInput = parseMeasurementValue(m.height);
-        const weightInput = parseMeasurementValue(m.weight);
-        const isHeightInvalid = heightInput.status === 'invalid';
-        const isWeightInvalid = weightInput.status === 'invalid';
-        // Invalid input is kept apart from not-entered: neither is used in any calculation.
-        const heightVal = heightInput.status === 'valid' ? heightInput.value : undefined;
-        const weightVal = weightInput.status === 'valid' ? weightInput.value : undefined;
-
-        // Height SDS uses 附表1 completed-month mean/SD at every age; undefined means not calculable (no LMS fallback)
-        let heightSDS: number | undefined = undefined;
-        const heightReferenceBirthDate = showCorrected && correctedBirthDate
-          ? correctedBirthDate
-          : formData.birthDate;
-        const hasHeightInput = heightVal !== undefined;
-        if (!isStandardEvaluationHeld && heightVal !== undefined) {
-          heightSDS = calculateMonthlyHeightSDS(heightVal, heightReferenceBirthDate, m.date, fuhyoTable) ?? undefined;
-        }
-        const isHeightSDSOutOfRange = !isStandardEvaluationHeld && hasHeightInput
-          && differenceInMonths(m.date, heightReferenceBirthDate) > HEIGHT_SDS_MAX_COMPLETED_MONTHS;
-        const isHeightSDSUnavailable = !isStandardEvaluationHeld && hasHeightInput
-          && !isHeightSDSOutOfRange && heightSDS === undefined;
-
-        // Calculate Weight SDS
-        let weightSDS: number | undefined = undefined;
-        if (!isStandardEvaluationHeld && weightVal !== undefined) {
-          const weightReferenceBirthDate = showCorrected && correctedBirthDate
-            ? correctedBirthDate
-            : formData.birthDate;
-          weightSDS = calculateWeightSDSByCompletedMonths(weightVal, weightReferenceBirthDate, m.date, weightTable) ?? undefined;
-        }
-
-        // Calculate BMI
-        let bmi: number | undefined = undefined;
-        if (heightVal !== undefined && weightVal !== undefined) {
-          const hM = heightVal / 100;
-          bmi = weightVal / (hM * hM);
-        }
-
-        // Calculate Obesity Index (chronological age; not held by gestational status)
-        let obesityIndex: number | null = null;
-        let obesityIndexAge: number | null = null;
-        let isStandardWeightUnusable = false;
-        let isStandardWeightByAgeUnusable = false;
-        if (heightVal !== undefined && weightVal !== undefined) {
-          obesityIndex = calculateObesityIndex(weightVal, heightVal, age, sexKey);
-          obesityIndexAge = calculateObesityIndexByAge(weightVal, heightVal, age, sexKey);
-          const standardWeight = calculateStandardWeight(heightVal, age, sexKey);
-          const standardWeightByAge = calculateStandardWeightByAge(heightVal, age, sexKey);
-          isStandardWeightUnusable = standardWeight !== null && !isUsableStandardWeight(standardWeight);
-          isStandardWeightByAgeUnusable = standardWeightByAge !== null && !isUsableStandardWeight(standardWeightByAge);
-        }
-
-        return {
-          id: m.id,
-          date: m.date,
-          age,
-          correctedAge: correctedAge ?? age,
-          correctedBirthDate,
-          showCorrected,
-          isPretermBeforeCorrection,
-          isGestationalEvaluationPending,
-          isStandardEvaluationHeld,
-          isHeightSDSOutOfRange,
-          isHeightSDSUnavailable,
-          isHeightInvalid,
-          isWeightInvalid,
-          heightInputText: typeof m.height === 'string' ? m.height.trim() : String(m.height),
-          weightInputText: typeof m.weight === 'string' ? m.weight.trim() : String(m.weight),
-          isStandardWeightUnusable,
-          isStandardWeightByAgeUnusable,
-          height: heightVal,
-          weight: weightVal,
-          heightSDS,
-          weightSDS,
-          bmi,
-          obesityIndex,
-          obesityIndexAge
-        };
+        return evaluateMeasurement(m, {
+          birthDate: formData.birthDate,
+          sexKey,
+          gestationalWeeks: formData.gestationalWeeks,
+          gestationalDays: formData.gestationalDays,
+          fuhyoHeightTable: fuhyoTable,
+          weightTable,
+        });
       })
       .filter((d): d is NonNullable<typeof d> => d !== null)
       .sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [formData, heightTable, weightTable, fuhyoTable, isPreterm, sexKey]);
+  }, [formData, weightTable, fuhyoTable, sexKey]);
 
   // Calculate Height Velocity (HV)
   const heightVelocity = useMemo(() => {
