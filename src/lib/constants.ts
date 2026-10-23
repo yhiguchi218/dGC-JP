@@ -56,6 +56,19 @@ export const FILE_LIMITS = {
   MAX_JSON_SIZE_BYTES: 2 * 1024 * 1024, // 2MB
 } as const;
 
+/** Growth reference identifiers; these exact strings are saved in the JSON file. */
+export const GROWTH_REFERENCES = ['japanese', 'achondroplasia-clarity'] as const;
+export type GrowthReference = (typeof GROWTH_REFERENCES)[number];
+export const DEFAULT_GROWTH_REFERENCE: GrowthReference = 'japanese';
+export const GROWTH_REFERENCE_LABELS: Record<GrowthReference, string> = {
+  japanese: '日本人基準',
+  'achondroplasia-clarity': '軟骨無形成症（CLARITY・米国）',
+};
+
+export function isGrowthReference(value: unknown): value is GrowthReference {
+  return typeof value === 'string' && (GROWTH_REFERENCES as readonly string[]).includes(value);
+}
+
 export interface ValidationIssue {
   field: string;
   message: string;
@@ -69,6 +82,8 @@ export interface DetailedValidationResult {
   warnings: ValidationIssue[];
   /** Normalized sex; null when absent or rejected. */
   sex: '男子' | '女子' | null;
+  /** Growth reference; 'japanese' when the field is omitted, null when it is present but rejected. */
+  growthReference: GrowthReference | null;
   gestationalAge: {
     weeks: number;
     days: number;

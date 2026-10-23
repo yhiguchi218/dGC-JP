@@ -8,7 +8,7 @@ import { format, parse, isValid } from 'date-fns';
 import { PlusCircle, Trash2, Save, FileUp, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateDecimalAge, isValidGestationalDays, isValidGestationalWeeks } from '../lib/growth-utils';
-import { CLINICAL_LIMITS, FILE_LIMITS } from '../lib/constants';
+import { CLINICAL_LIMITS, DEFAULT_GROWTH_REFERENCE, FILE_LIMITS, type GrowthReference } from '../lib/constants';
 import { validateGrowthJSON, parseMeasurementValue, MeasurementValueParse } from '../lib/validation-utils';
 
 const describeInvalidValue = (label: string, range: string, result: MeasurementValueParse) =>
@@ -54,9 +54,12 @@ interface GrowthFormProps {
     gestationalDays: number;
     measurements: MeasurementEntry[];
   }) => void;
+  /** Selected growth reference; owned by the dashboard and saved to / restored from the JSON file. */
+  growthReference?: GrowthReference;
+  onGrowthReferenceChange?: (growthReference: GrowthReference) => void;
 }
 
-const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) => {
+const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData, growthReference = DEFAULT_GROWTH_REFERENCE, onGrowthReferenceChange }) => {
   const [childId, setChildId] = useState(initialData?.childId || '001');
   const [birthDate, setBirthDate] = useState<Date>(initialData?.birthDate || new Date(2020, 0, 1));
   const [sex, setSex] = useState<'男子' | '女子'>(initialData?.sex || '男子');
@@ -170,6 +173,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
       childId,
       birthDate: format(birthDate, "yyyy/MM/dd"),
       sex,
+      growthReference,
       gestationalWeeks,
       gestationalDays,
       measurements: rowsToSave.map(({ m }) => ({
@@ -244,6 +248,11 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
           alert('ファイルの読み込みに失敗しました: 性別を確認してください。');
           return;
         }
+        const loadedGrowthReference = validation.growthReference;
+        if (loadedGrowthReference === null) {
+          alert('ファイルの読み込みに失敗しました: 成長基準を確認してください。');
+          return;
+        }
 
         const loadedBirthDate = parsedDates.birthDate;
         const importedMeasurements = importData.measurements as unknown[];
@@ -270,6 +279,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
         setGestationalDaysInput(String(validation.gestationalAge.days));
         setMeasurements(loadedMeasurements);
         setSpareRowIds(new Set());
+        onGrowthReferenceChange?.(loadedGrowthReference);
 
         onDataChange({
           childId: loadedChildId,

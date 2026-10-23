@@ -4,6 +4,8 @@ import { toPng } from 'html-to-image';
 import { Printer, Download } from 'lucide-react';
 import { LMSPoint, interpolateLMS, calculateMeasurementFromZ } from '../lib/growth-utils';
 import { calculatePointVisualMode, getChartThemeColors } from '../lib/chart-utils';
+import { getAchondroplasiaSdLine } from '../lib/achondroplasia-growth';
+import { DEFAULT_GROWTH_REFERENCE, GROWTH_REFERENCE_LABELS, type GrowthReference } from '../lib/constants';
 import { useTheme } from '../context/ThemeContext';
 import { Button } from '@/components/ui/button';
 
@@ -13,6 +15,10 @@ export interface ChartPreset {
   xRange: [number, number]; // [min, max] in years
   yHeightRange: [number, number]; // [min, max] in cm
   yWeightRange: [number, number]; // [min, max] in kg
+  /** Right-axis tick spacing; when omitted the chart's existing per-preset spacing applies. */
+  weightTickStep?: number;
+  /** Largest right-axis tick that is labelled; when omitted the chart's existing per-preset limit applies. */
+  maxWeightLabel?: number;
 }
 
 export const CHART_PRESETS: ChartPreset[] = [
@@ -39,7 +45,44 @@ export const CHART_PRESETS: ChartPreset[] = [
   }
 ];
 
+// Achondroplasia (CLARITY) ranges: same ids/names as above. The ranges are chosen so the height lines sit above
+// the weight lines at every age (CLARITY heights and weights are numerically close, so the Japanese ranges would
+// overlap them). Both axes start at 0 (no negative ticks) and have the same number of grid intervals, so the
+// horizontal grid lines and right-axis ticks stay aligned. Ranges are fixed per preset and common to both sexes; they do
+// not depend on the entered measurements.
+export const ACHONDROPLASIA_CHART_PRESETS: ChartPreset[] = [
+  {
+    id: '0〜24ヶ月',
+    name: '0〜24ヶ月',
+    xRange: [0, 2],
+    yHeightRange: [0, 100],
+    yWeightRange: [0, 30],
+    weightTickStep: 3,
+    maxWeightLabel: 30,
+  },
+  {
+    id: '0歳〜6歳',
+    name: '0歳〜6歳',
+    xRange: [0, 6],
+    yHeightRange: [0, 110],
+    yWeightRange: [0, 55],
+    weightTickStep: 5,
+    maxWeightLabel: 55,
+  },
+  {
+    id: '0歳〜18歳',
+    name: '0歳〜18歳',
+    xRange: [0, 18],
+    yHeightRange: [0, 150],
+    yWeightRange: [0, 150],
+    weightTickStep: 10,
+    maxWeightLabel: 150,
+  }
+];
+
 interface GrowthChartProps {
+  /** Defaults to the Japanese reference. */
+  growthReference?: GrowthReference;
   sex: '男子' | '女子';
   heightLmsTable: LMSPoint[];
   weightLmsTable: LMSPoint[];
@@ -61,6 +104,7 @@ interface GrowthChartProps {
 }
 
 const GrowthChart: React.FC<GrowthChartProps> = ({
+  growthReference = DEFAULT_GROWTH_REFERENCE,
   sex,
   heightLmsTable,
   weightLmsTable,
@@ -75,6 +119,8 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const { theme } = useTheme();
+  const isAchondroplasia = growthReference === 'achondroplasia-clarity';
+  const referenceLabel = GROWTH_REFERENCE_LABELS[growthReference];
 
   useEffect(() => {
     const handleBeforePrint = () => setIsPrinting(true);
@@ -106,7 +152,9 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       });
       
       const link = document.createElement('a');
-      link.download = `成長曲線-${sex}-${preset.name}.png`;
+      link.download = isAchondroplasia
+        ? `成長曲線-${referenceLabel}-${sex}-${preset.name}.png`
+        : `成長曲線-${sex}-${preset.name}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -245,12 +293,12 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       .style('font-family', 'var(--font-mono)')
       .style('fill', colors.axisTitle);
 
-    const weightTickStep = preset.id === '0〜24ヶ月' ? 5 : 10;
-    const maxWeightLabel = preset.id === '0〜24ヶ月' 
-      ? 20 
-      : (preset.id === '0歳〜6歳' 
-        ? 60 
-        : (sex === '女子' ? 100 : 120));
+    const weightTickStep = preset.weightTickStep ?? (preset.id === '0〜24ヶ月' ? 5 : 10);
+    const maxWeightLabel = preset.maxWeightLabel ?? (preset.id === '0〜24ヶ月'
+      ? 20
+      : (preset.id === '0歳〜6歳'
+        ? 60
+        : (sex === '女子' ? 100 : 120)));
     
     // Right Weight Y-Axis
     const weightAxis = g.append('g')
@@ -309,18 +357,28 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
 
     const step = (preset.xRange[1] - preset.xRange[0]) / 100;
     const ages = d3.range(preset.xRange[0], preset.xRange[1] + step, step);
-    
+    const sexKey = sex === '男子' ? 'male' : 'female';
+
+    // Japanese: LMS inverse on interpolated ages with a smooth curve.
+    // Achondroplasia (CLARITY): one point per completed month from the supplementary table, joined by straight lines.
+    const buildSdLine = (indicator: 'height' | 'weight', sds: number): Array<{ age: number; value: number }> => {
+      if (isAchondroplasia) {
+        return getAchondroplasiaSdLine(sexKey, indicator, sds)
+          .filter(p => p.age >= preset.xRange[0] && p.age <= preset.xRange[1]);
+      }
+      const table = indicator === 'height' ? heightLmsTable : weightLmsTable;
+      return ages.map(age => ({ age, value: calculateMeasurementFromZ(sds, interpolateLMS(age, table)) }));
+    };
+    const lineCurve = isAchondroplasia ? d3.curveLinear : d3.curveNatural;
+
     // Height SD Curves
     const heightSDSLevels = [-3, -2.5, -2, -1, 0, 1, 2];
     heightSDSLevels.forEach(sds => {
-      const lineData = ages.map(age => {
-        const lms = interpolateLMS(age, heightLmsTable);
-        return { age, value: calculateMeasurementFromZ(sds, lms) };
-      });
+      const lineData = buildSdLine('height', sds);
       const line = d3.line<{ age: number; value: number }>()
         .x(d => xScale(d.age))
         .y(d => yScaleHeight(d.value))
-        .curve(d3.curveNatural);
+        .curve(lineCurve);
       
       const isExtra = sds === -2.5 || sds === -3;
       
@@ -355,22 +413,22 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       }
     });
 
-    // Weight SD Curves
-    sdsLevels.forEach(sds => {
-      const lineData = ages.map(age => {
-        const lms = interpolateLMS(age, weightLmsTable);
-        return { age, value: calculateMeasurementFromZ(sds, lms) };
-      });
+    // Weight SD Curves (the achondroplasia reference also shows -2.5/-3 SD, as dashed lines like height)
+    const weightSDSLevels = isAchondroplasia ? heightSDSLevels : sdsLevels;
+    weightSDSLevels.forEach(sds => {
+      const lineData = buildSdLine('weight', sds);
       const line = d3.line<{ age: number; value: number }>()
         .x(d => xScale(d.age))
         .y(d => yScaleWeight(d.value))
-        .curve(d3.curveNatural);
+        .curve(lineCurve);
+      const isExtra = sds === -2.5 || sds === -3;
       g.append('path')
         .datum(lineData)
         .attr('fill', 'none')
         .attr('stroke', sds === 0 ? colors.genderColor : colors.genderLightColor)
         .attr('stroke-width', sds === 0 ? Math.max(1.5, width * 0.003) : Math.max(0.8, width * 0.0015))
         .attr('stroke-opacity', sds === 0 ? 1 : 0.85)
+        .attr('stroke-dasharray', isExtra ? '4,4' : null)
         .attr('d', line);
 
       // Add label immediately beneath the line, contained inside the chart fields
@@ -452,13 +510,13 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         .style('font-weight', 'bold')
         .text(marker);
     });
-  }, [preset, heightLmsTable, weightLmsTable, heightPoints, weightPoints, xScale, yScaleHeight, yScaleWeight, innerHeight, innerWidth, margin, width, height, colors, isSafari]);
+  }, [preset, heightLmsTable, weightLmsTable, heightPoints, weightPoints, xScale, yScaleHeight, yScaleWeight, innerHeight, innerWidth, margin, width, height, colors, isSafari, isAchondroplasia, sex]);
 
   return (
     <div id="printable-chart-area-wrapper" className="bg-white dark:bg-zinc-900 p-3 md:p-6 rounded-xl shadow-md border border-gray-100 dark:border-zinc-800 print:shadow-none print:border-none print:p-0 print:m-0 print:overflow-visible transition-colors">
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4 print:hidden">
         <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-zinc-100">
-          {sex} 成長曲線 ({preset.name})
+          {sex} 成長曲線 ({preset.name}){isAchondroplasia && ` ${referenceLabel}`}
         </h3>
         <div className="flex gap-2">
           <Button 
@@ -493,22 +551,39 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
         <div ref={containerRef} className="relative w-full bg-gray-50 dark:bg-zinc-950/70 rounded-lg p-1 md:p-4 print:bg-white print:p-0 print:break-inside-avoid transition-colors">
           <div id="chart-description" className="sr-only">
             <h4>成長曲線データの詳細</h4>
-            <p>このグラフは、日本人の標準成長曲線（{preset.name}）を表示しています。</p>
-            <p>青色（男子）またはピンク色（女子）の実線は中央値（0SD）、他の実線は基準偏差の範囲を示しています。</p>
+            {isAchondroplasia ? (
+              <>
+                <p>このグラフは、軟骨無形成症の成長基準（{referenceLabel}、{preset.name}）を表示しています。</p>
+                <p>青色（男子）またはピンク色（女子）の実線は平均（0SD）、他の線は各満月齢の平均とSDから算出したSD線（−3.0・−2.5SDは点線）で、満月齢ごとの点を直線で結んでいます。</p>
+                <p>SDSは満月齢の行で計算するため、月の途中の測定点は背景線の位置と一致しない場合があります。</p>
+              </>
+            ) : (
+              <>
+                <p>このグラフは、日本人の標準成長曲線（{preset.name}）を表示しています。</p>
+                <p>青色（男子）またはピンク色（女子）の実線は中央値（0SD）、他の実線は基準偏差の範囲を示しています。</p>
+              </>
+            )}
             <p>通常測定点は丸記号、在胎週数補正後の測定値は緑色の丸記号、標準偏差から極端に離れた異常値はオレンジ色の三角記号でプロットされます。</p>
             <p>測定データ点数: 身長 {heightPoints.length} 件, 体重 {weightPoints.length} 件。</p>
           </div>
-          <svg 
-            ref={svgRef} 
-            width={width} 
-            height={height} 
-            viewBox={`0 0 ${width} ${height}`} 
+          <svg
+            ref={svgRef}
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
             className="w-full h-auto block"
             role="img"
-            aria-label={`${sex}の成長曲線（${preset.name}）。標準成長曲線基準線、および入力された測定データのプロットを表示しています。`}
+            aria-label={isAchondroplasia
+              ? `${sex}の成長曲線（${referenceLabel}、${preset.name}）。SD線、および入力された測定データのプロットを表示しています。`
+              : `${sex}の成長曲線（${preset.name}）。標準成長曲線基準線、および入力された測定データのプロットを表示しています。`}
             aria-describedby="chart-description"
           />
         </div>
+        {isAchondroplasia && (
+          <p className="mt-2 text-xs font-medium text-gray-700 dark:text-zinc-300 print:mt-1 print:text-[8pt] print:text-gray-800" data-testid="chart-reference-label">
+            成長基準: {referenceLabel}
+          </p>
+        )}
         
         <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 dark:text-zinc-400 border-t border-gray-100 dark:border-zinc-800 pt-4 print:hidden">
           <div className="flex items-center gap-2">
@@ -525,7 +600,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 md:w-4 h-0.5 bg-gray-300 dark:bg-zinc-600 border-t border-dashed border-gray-400 dark:border-zinc-500"></span>
-            <span>身長 -2.5/-3.0SD (点線)</span>
+            <span>{isAchondroplasia ? '身長・体重 -2.5/-3.0SD (点線)' : '身長 -2.5/-3.0SD (点線)'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className={`${sex === '男子' ? 'text-blue-600 dark:text-blue-400' : 'text-pink-600 dark:text-pink-400'} font-bold`}>●</span>

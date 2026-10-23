@@ -1,5 +1,5 @@
 import { format, isValid, parse, isAfter } from 'date-fns';
-import { CLINICAL_LIMITS, DetailedValidationResult, ValidationIssue } from './constants';
+import { CLINICAL_LIMITS, DEFAULT_GROWTH_REFERENCE, DetailedValidationResult, GROWTH_REFERENCES, GrowthReference, isGrowthReference, ValidationIssue } from './constants';
 import { calculateDecimalAge, isValidGestationalDays, isValidGestationalWeeks } from './growth-utils';
 
 export interface RawMeasurementInput {
@@ -13,6 +13,7 @@ export interface RawGrowthJSONInput {
   childId?: unknown;
   birthDate?: unknown;
   sex?: unknown;
+  growthReference?: unknown;
   gestationalWeeks?: unknown;
   gestationalDays?: unknown;
   measurements?: unknown;
@@ -101,6 +102,7 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
       errors,
       warnings,
       sex: null,
+      growthReference: null,
       gestationalAge: { weeks: CLINICAL_LIMITS.GESTATION_WEEKS.DEFAULT, days: CLINICAL_LIMITS.GESTATION_DAYS.DEFAULT },
       measurementValues: [],
       parsedDates: { birthDate: null, measurements: [] },
@@ -162,6 +164,22 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
     });
   } else {
     normalizedSex = normalizeSex(input.sex);
+  }
+
+  // 3b. Validate growth reference: omitted means the Japanese reference (legacy files); anything else
+  // that is not an exact identifier (null, empty string, unknown text, other types) rejects the whole load.
+  let growthReference: GrowthReference | null = null;
+  if (input.growthReference === undefined) {
+    growthReference = DEFAULT_GROWTH_REFERENCE;
+  } else if (isGrowthReference(input.growthReference)) {
+    growthReference = input.growthReference;
+  } else {
+    const shown = typeof input.growthReference === 'string' ? input.growthReference : JSON.stringify(input.growthReference);
+    errors.push({
+      field: 'growthReference',
+      message: `成長基準（growthReference）の値が不正です（入力値: ${typeof input.growthReference === 'string' ? `"${shown}"` : shown}）。${GROWTH_REFERENCES.map(id => `"${id}"`).join(' または ')} を指定するか、項目を省略してください。`,
+      severity: 'error',
+    });
   }
 
   // 4. Validate Gestational age
@@ -326,6 +344,7 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
     errors,
     warnings,
     sex: normalizedSex,
+    growthReference,
     gestationalAge: { weeks: gestationalWeeks, days: gestationalDays },
     measurementValues,
     parsedDates: { birthDate: parsedBirthDate, measurements: parsedMeasurementDates },
