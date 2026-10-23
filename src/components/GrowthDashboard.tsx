@@ -5,6 +5,9 @@ import { ThemeToggle } from './ThemeToggle';
 import { 
   calculateFullMonthsAge,
   calculateHeightVelocityResults,
+  formatMonthsAsAge,
+  formatReferenceAgeLimit,
+  HEIGHT_SDS_MAX_COMPLETED_MONTHS,
   isValidGestationalDays,
   isValidGestationalWeeks
 } from '../lib/growth-utils';
@@ -25,6 +28,12 @@ import { cn } from '@/lib/utils';
 import { CLINICAL_LIMITS } from '../lib/constants';
 import { evaluateMeasurement } from '../lib/measurement-evaluation';
 import { getObesityClassification } from '../lib/obesity-classification';
+
+const HEIGHT_RANGE_NOTICE = `身長SDSは基準表の対象範囲外です（満${formatMonthsAsAge(HEIGHT_SDS_MAX_COMPLETED_MONTHS)}まで）。`;
+
+function weightReferenceNotice(limitAge: number): string {
+  return `体重SDSは${formatReferenceAgeLimit(limitAge)}の基準値を使用した参考値です。`;
+}
 
 function ObesityValue({ value, age, method }: { value: number; age: number; method: 'height' | 'age' }) {
   const classification = getObesityClassification(age, value, method);
@@ -368,7 +377,7 @@ const GrowthDashboard: React.FC = () => {
                               </span>
                             ) : d.isHeightSDSOutOfRange ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
-                                身長SDS算出不可（附表1の対象月齢外）
+                                {HEIGHT_RANGE_NOTICE}
                               </span>
                             ) : d.isHeightSDSUnavailable ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
@@ -396,12 +405,19 @@ const GrowthDashboard: React.FC = () => {
                                 SDS算出対象外（40週0日相当前）
                               </span>
                             ) : d.weightSDS !== undefined && (
-                              <span className={cn(
-                                "ml-2 text-xs print:ml-1 print:text-[7pt]",
-                                Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
-                              )}>
-                                ({d.weightSDS.toFixed(2)}SD)
-                              </span>
+                              <>
+                                <span className={cn(
+                                  "ml-2 text-xs print:ml-1 print:text-[7pt]",
+                                  Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
+                                )}>
+                                  ({d.weightSDS.toFixed(2)}SD)
+                                </span>
+                                {d.weightSDSReferenceLimitAge !== null && (
+                                  <span className="block text-[11px] font-normal text-gray-500 dark:text-zinc-400 print:text-[6.5pt]">
+                                    {weightReferenceNotice(d.weightSDSReferenceLimitAge)}
+                                  </span>
+                                )}
+                              </>
                             )}
                           </td>
                           <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">{d.bmi?.toFixed(1) || '-'}</td>
@@ -470,7 +486,7 @@ const GrowthDashboard: React.FC = () => {
                             </span>
                           ) : d.isHeightSDSOutOfRange ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
-                              身長SDS算出不可（附表1の対象月齢外）
+                              {HEIGHT_RANGE_NOTICE}
                             </span>
                           ) : d.isHeightSDSUnavailable ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
@@ -499,12 +515,19 @@ const GrowthDashboard: React.FC = () => {
                               SDS算出対象外（40週0日相当前）
                             </span>
                           ) : d.weightSDS !== undefined && (
-                            <span className={cn(
-                              "ml-2 text-xs",
-                              Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
-                            )}>
-                              {d.weightSDS.toFixed(2)}SD
-                            </span>
+                            <>
+                              <span className={cn(
+                                "ml-2 text-xs",
+                                Math.abs(d.weightSDS) > 2 ? "text-red-500 dark:text-red-400 font-bold" : "text-gray-500 dark:text-zinc-400"
+                              )}>
+                                {d.weightSDS.toFixed(2)}SD
+                              </span>
+                              {d.weightSDSReferenceLimitAge !== null && (
+                                <span className="block text-[11px] font-normal text-gray-500 dark:text-zinc-400">
+                                  {weightReferenceNotice(d.weightSDSReferenceLimitAge)}
+                                </span>
+                              )}
+                            </>
                           )}
                         </dd>
                         <dt className="text-gray-500 dark:text-zinc-400">BMI</dt>
@@ -578,7 +601,14 @@ const GrowthDashboard: React.FC = () => {
                             <>
                               <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-zinc-100 print:text-sm">{hv.suwa.velocity.toFixed(2)} cm/年</div>
                               {hv.suwa.sds !== null ? (
-                                <div className={cn("mt-1 text-xs print:text-[8px]", getSuwaHVSDSClass(hv.suwa.sds, formData.sex))}>HV-SDS: {hv.suwa.sds.toFixed(2)}</div>
+                                <>
+                                  <div className={cn("mt-1 text-xs print:text-[8px]", getSuwaHVSDSClass(hv.suwa.sds, formData.sex))}>HV-SDS: {hv.suwa.sds.toFixed(2)}</div>
+                                  {hv.suwa.referenceLimitAge !== null && (
+                                    <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">
+                                      HV-SDSは{formatReferenceAgeLimit(hv.suwa.referenceLimitAge)}の基準値を使用した参考値です。
+                                    </div>
+                                  )}
+                                </>
                               ) : (
                                 <div className="mt-1 text-xs text-gray-500 dark:text-zinc-400 print:text-[8px]">HV-SDS: 算出不可（基準SDなし）</div>
                               )}

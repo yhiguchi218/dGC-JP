@@ -757,7 +757,7 @@ describe('GrowthDashboard responsive results content', () => {
     const lastMonth = screen.getByLabelText('測定日 2017/07/31 の成長評価結果');
     expect(lastMonth).toHaveTextContent('176.6cm');
     expect(lastMonth).toHaveTextContent('1.00SD');
-    expect(lastMonth).not.toHaveTextContent('算出不可（附表1の対象月齢外）');
+    expect(lastMonth).not.toHaveTextContent('身長SDSは基準表の対象範囲外です');
   });
 
   it('keeps raw values, weight SDS and the chart point at 211 months while showing why height SDS is unavailable', () => {
@@ -767,7 +767,7 @@ describe('GrowthDashboard responsive results content', () => {
     const beyond = screen.getByLabelText('測定日 2017/08/01 の成長評価結果');
     expect(beyond).toHaveTextContent('171cm');
     expect(beyond).toHaveTextContent('61kg');
-    expect(beyond).toHaveTextContent('身長SDS算出不可（附表1の対象月齢外）');
+    expect(beyond).toHaveTextContent('身長SDSは基準表の対象範囲外です（満17歳6か月まで）。');
     expect(beyond).not.toHaveTextContent('在胎情報要確認');
     expect(beyond).not.toHaveTextContent('40週0日相当前');
     // The only SD shown is the LMS-based weight SDS; height SDS is not shown as 0.
@@ -872,7 +872,7 @@ describe('GrowthDashboard responsive results content', () => {
       fireEvent.click(screen.getByRole('button', { name: '附表1の月齢範囲境界のデータを表示' }));
 
       const height = firstHeightCell(screen.getByLabelText('測定日 2017/08/01 の成長評価結果'));
-      expect(height).toHaveTextContent('身長SDS算出不可（附表1の対象月齢外）');
+      expect(height).toHaveTextContent('身長SDSは基準表の対象範囲外です（満17歳6か月まで）。');
       expect(height).not.toHaveTextContent('入力値・基準値要確認');
     });
 
@@ -888,7 +888,7 @@ describe('GrowthDashboard responsive results content', () => {
       const height = firstHeightCell(screen.getByLabelText('測定日 2021/01/01 の成長評価結果'));
       expect(height).toHaveTextContent('75cm');
       expect(height).toHaveTextContent('身長SDS算出不可（入力値・基準値要確認）');
-      expect(height).not.toHaveTextContent('附表1の対象月齢外');
+      expect(height).not.toHaveTextContent('基準表の対象範囲外');
       expect(height).not.toHaveTextContent(/-?\d+\.\d{2}SD/);
       expect(screen.getByTestId('growth-chart')).toHaveAttribute('data-height-points', '4');
     });
@@ -900,7 +900,7 @@ describe('GrowthDashboard responsive results content', () => {
 
     const pending = screen.getByLabelText('測定日 2021/01/01 の成長評価結果');
     expect(pending).toHaveTextContent('在胎情報要確認：SDS未評価');
-    expect(pending).not.toHaveTextContent('附表1の対象月齢外');
+    expect(pending).not.toHaveTextContent('基準表の対象範囲外');
   });
 
   it('includes the infant reference note in the table used for print rendering', () => {

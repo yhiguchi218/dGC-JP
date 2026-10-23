@@ -266,7 +266,11 @@ type HeightVelocityInterval = {
 export type HeightVelocityResult = {
   currentDate: Date;
   raw: HeightVelocityInterval | null;
-  suwa: (HeightVelocityInterval & { sds: number | null }) | null;
+  /**
+   * `referenceLimitAge` is set only when an HV-SDS was calculated from the table's last row because the
+   * selected pair's midpoint age exceeds that row's age (display flag; the SDS itself is unchanged).
+   */
+  suwa: (HeightVelocityInterval & { sds: number | null; referenceLimitAge: number | null }) | null;
   /** Set when a Suwa pair exists by timing but the current or best-candidate height is invalid; distinct from a missing reference SD. */
   suwaUnavailableReason: 'invalid-height' | null;
 };
@@ -317,10 +321,15 @@ export function calculateHeightVelocityResults(
       currentDate: current.date,
       raw: rawHV ? toInterval(rawPrevious, rawHV) : null,
       suwa: suwaPrevious && suwaHV
-        ? {
-            ...toInterval(suwaPrevious, suwaHV),
-            sds: calculateHVSDS(suwaHV.velocity, suwaHV.midpointAge, sex, suwaTable),
-          }
+        ? (() => {
+            const sds = calculateHVSDS(suwaHV.velocity, suwaHV.midpointAge, sex, suwaTable);
+            const lastAge = suwaTable.length > 0 ? suwaTable[suwaTable.length - 1].age : null;
+            return {
+              ...toInterval(suwaPrevious, suwaHV),
+              sds,
+              referenceLimitAge: sds !== null && lastAge !== null && suwaHV.midpointAge > lastAge ? lastAge : null,
+            };
+          })()
         : null,
       suwaUnavailableReason: suwaInvalid ? 'invalid-height' as const : null,
     };
@@ -535,6 +544,16 @@ export function calculateFullMonthsAge(birthDate: Date, measurementDate: Date): 
 
 /** Last completed month covered by 附表1 (17y6m); 211 months (17y7m) and later have no height SDS. */
 export const HEIGHT_SDS_MAX_COMPLETED_MONTHS = 210;
+
+/** Formats a whole number of months as e.g. "17歳6か月" for reference-limit notices. */
+export function formatMonthsAsAge(months: number): string {
+  return `${Math.floor(months / 12)}歳${months % 12}か月`;
+}
+
+/** Formats a reference-table age in years (a multiple of 0.25) as e.g. "17歳3か月". */
+export function formatReferenceAgeLimit(ageYears: number): string {
+  return formatMonthsAsAge(Math.round(ageYears * 12));
+}
 
 /**
  * Calculates height SDS from the 附表1 completed-month mean and SD: (height - mean) / SD.
