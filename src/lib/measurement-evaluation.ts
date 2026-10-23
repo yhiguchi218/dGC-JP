@@ -57,6 +57,8 @@ export interface MeasurementEvaluation {
   weight: number | undefined;
   heightSDS: number | undefined;
   weightSDS: number | undefined;
+  /** Age (years) of the last weight LMS row when the SDS used it as a clamped reference; otherwise null. */
+  weightSDSReferenceLimitAge: number | null;
   bmi: number | undefined;
   obesityIndex: number | null;
   obesityIndexAge: number | null;
@@ -113,11 +115,19 @@ export function evaluateMeasurement(
 
   // Calculate Weight SDS
   let weightSDS: number | undefined = undefined;
+  let weightSDSReferenceLimitAge: number | null = null;
   if (!isStandardEvaluationHeld && weightVal !== undefined) {
     const weightReferenceBirthDate = showCorrected && correctedBirthDate
       ? correctedBirthDate
       : birthDate;
     weightSDS = calculateWeightSDSByCompletedMonths(weightVal, weightReferenceBirthDate, m.date, weightTable) ?? undefined;
+    // Display flag only: marks a result that used the table's last LMS row via the existing endpoint clamp.
+    if (weightSDS !== undefined && weightTable.length > 0) {
+      const lastAge = weightTable[weightTable.length - 1].age;
+      if (differenceInMonths(m.date, weightReferenceBirthDate) / 12 > lastAge) {
+        weightSDSReferenceLimitAge = lastAge;
+      }
+    }
   }
 
   // Calculate BMI
@@ -164,6 +174,7 @@ export function evaluateMeasurement(
     heightSDS,
     weightSDS,
     bmi,
+    weightSDSReferenceLimitAge,
     obesityIndex,
     obesityIndexAge,
   };

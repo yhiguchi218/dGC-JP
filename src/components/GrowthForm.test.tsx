@@ -294,7 +294,7 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
     expect(screen.getByText(/測定日が生年月日より前です/)).toBeInTheDocument();
   });
 
-  it('displays warning when age > 18', () => {
+  it('does not show the old blanket age warning for measurements over 18 years', () => {
     const handleDataChange = vi.fn();
     const dataOverAge = {
       ...defaultInitialData,
@@ -304,7 +304,8 @@ describe('GrowthForm Component Integration / E2E Tests', () => {
       ]
     };
     render(<GrowthForm initialData={dataOverAge} onDataChange={handleDataChange} />);
-    expect(screen.getByText(/18歳を超えています/)).toBeInTheDocument();
+    expect(screen.queryByText(/18歳を超えています/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/17\.5歳のデータを参照します/)).not.toBeInTheDocument();
   });
 
   it.each([

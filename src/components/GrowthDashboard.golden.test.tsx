@@ -96,7 +96,7 @@ describe('GrowthDashboard golden wiring (real calculation path)', () => {
     ] as const) {
       expect(heightCell).toHaveTextContent('160cm');
       expect(heightCell).not.toHaveTextContent(/\d\.\d{2}SD/);
-      expect(container).toHaveTextContent('身長SDS算出不可（附表1の対象月齢外）');
+      expect(container).toHaveTextContent('身長SDSは基準表の対象範囲外です（満17歳6か月まで）。');
     }
     const h = points(harness.height);
     expect(h).toHaveLength(2);

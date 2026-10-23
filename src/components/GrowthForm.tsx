@@ -520,7 +520,6 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                 <div key={m.id} className={cn(
                   "grid grid-cols-1 gap-6 p-6 md:p-8 border-2 rounded-xl relative group items-end bg-white dark:bg-zinc-900 shadow-sm transition-colors",
                   age === null ? "border-red-500 bg-red-50/10 dark:bg-red-950/20" : 
-                  age > CLINICAL_LIMITS.AGE.MAX ? "border-amber-400 bg-amber-50/10 dark:bg-amber-950/20" : 
                   "border-gray-100 dark:border-zinc-800"
                 )}>
                   {age === null && (
@@ -531,16 +530,6 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData }) =>
                       className="col-span-full text-red-900 dark:text-red-200 font-bold bg-red-100 dark:bg-red-950/60 p-2 rounded border-l-4 border-red-600 flex items-center gap-1 text-xs"
                     >
                       <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 測定日が生年月日より前です
-                    </div>
-                  )}
-                  {age !== null && age > CLINICAL_LIMITS.AGE.MAX && (
-                    <div 
-                      role="alert"
-                      aria-live="polite"
-                      aria-atomic="true"
-                      className="col-span-full text-amber-900 dark:text-amber-200 font-bold bg-amber-100 dark:bg-amber-950/60 p-2 rounded border-l-4 border-amber-800 flex items-center gap-1 text-xs"
-                    >
-                      <Info className="h-3 w-3 shrink-0" aria-hidden="true" /> 18歳を超えています（17.5歳のデータを参照します）
                     </div>
                   )}
                   <div className="space-y-2">
