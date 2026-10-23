@@ -15,8 +15,13 @@ import {
   isValidGestationalWeeks,
   LMSPoint,
 } from './growth-utils';
-import { CLINICAL_LIMITS } from './constants';
+import { CLINICAL_LIMITS, DEFAULT_GROWTH_REFERENCE, type GrowthReference } from './constants';
 import { parseMeasurementValue } from './validation-utils';
+import {
+  calculateAchondroplasiaHeightSDS,
+  calculateAchondroplasiaWeightSDS,
+  resolveAchondroplasiaReference,
+} from './achondroplasia-growth';
 
 export interface MeasurementEvaluationInput {
   id: string;
@@ -26,6 +31,8 @@ export interface MeasurementEvaluationInput {
 }
 
 export interface MeasurementEvaluationContext {
+  /** Defaults to the Japanese reference. */
+  growthReference?: GrowthReference;
   birthDate: Date;
   sexKey: 'male' | 'female';
   gestationalWeeks: number;
@@ -36,6 +43,7 @@ export interface MeasurementEvaluationContext {
 }
 
 export interface MeasurementEvaluation {
+  growthReference: GrowthReference;
   id: string;
   date: Date;
   age: number;
@@ -47,6 +55,10 @@ export interface MeasurementEvaluation {
   isStandardEvaluationHeld: boolean;
   isHeightSDSOutOfRange: boolean;
   isHeightSDSUnavailable: boolean;
+  /** Achondroplasia (CLARITY) reference only; always false for the Japanese reference. */
+  isWeightSDSOutOfRange: boolean;
+  /** Achondroplasia (CLARITY) reference only; always false for the Japanese reference. */
+  isWeightSDSUnavailable: boolean;
   isHeightInvalid: boolean;
   isWeightInvalid: boolean;
   heightInputText: string;
@@ -70,6 +82,8 @@ export function evaluateMeasurement(
   ctx: MeasurementEvaluationContext
 ): MeasurementEvaluation | null {
   const { birthDate, sexKey, gestationalWeeks, gestationalDays, fuhyoHeightTable, weightTable } = ctx;
+  const growthReference = ctx.growthReference ?? DEFAULT_GROWTH_REFERENCE;
+  const isAchondroplasia = growthReference === 'achondroplasia-clarity';
   const hasValidGestationalWeeks = isValidGestationalWeeks(gestationalWeeks);
   const isPreterm = hasValidGestationalWeeks && gestationalWeeks < CLINICAL_LIMITS.GESTATION_WEEKS.PRETERM_THRESHOLD;
   const hasValidGestationalDays = isValidGestationalDays(gestationalDays);
@@ -98,6 +112,68 @@ export function evaluateMeasurement(
   // Invalid input is kept apart from not-entered: neither is used in any calculation.
   const heightVal = heightInput.status === 'valid' ? heightInput.value : undefined;
   const weightVal = weightInput.status === 'valid' ? weightInput.value : undefined;
+
+  if (isAchondroplasia) {
+    // CLARITY mean/SD reference. The age limit and the completed-month row come from one resolution step,
+    // using the same reference birth date (corrected while correction applies) as the Japanese path.
+    // BMI and the Japanese obesity indices are not part of this reference and are not calculated.
+    let heightSDS: number | undefined = undefined;
+    let weightSDS: number | undefined = undefined;
+    let isHeightSDSOutOfRange = false;
+    let isHeightSDSUnavailable = false;
+    let isWeightSDSOutOfRange = false;
+    let isWeightSDSUnavailable = false;
+    if (!isStandardEvaluationHeld && (heightVal !== undefined || weightVal !== undefined)) {
+      const referenceBirthDate = showCorrected && correctedBirthDate ? correctedBirthDate : birthDate;
+      const reference = resolveAchondroplasiaReference(referenceBirthDate, m.date, sexKey);
+      if (reference.status === 'ok') {
+        if (heightVal !== undefined) {
+          heightSDS = calculateAchondroplasiaHeightSDS(heightVal, reference.row) ?? undefined;
+          isHeightSDSUnavailable = heightSDS === undefined;
+        }
+        if (weightVal !== undefined) {
+          weightSDS = calculateAchondroplasiaWeightSDS(weightVal, reference.row) ?? undefined;
+          isWeightSDSUnavailable = weightSDS === undefined;
+        }
+      } else if (reference.status === 'out-of-range') {
+        isHeightSDSOutOfRange = heightVal !== undefined;
+        isWeightSDSOutOfRange = weightVal !== undefined;
+      } else {
+        isHeightSDSUnavailable = heightVal !== undefined;
+        isWeightSDSUnavailable = weightVal !== undefined;
+      }
+    }
+    return {
+      growthReference,
+      id: m.id,
+      date: m.date,
+      age,
+      correctedAge: correctedAge ?? age,
+      correctedBirthDate,
+      showCorrected,
+      isPretermBeforeCorrection,
+      isGestationalEvaluationPending,
+      isStandardEvaluationHeld,
+      isHeightSDSOutOfRange,
+      isHeightSDSUnavailable,
+      isWeightSDSOutOfRange,
+      isWeightSDSUnavailable,
+      isHeightInvalid,
+      isWeightInvalid,
+      heightInputText: typeof m.height === 'string' ? m.height.trim() : String(m.height),
+      weightInputText: typeof m.weight === 'string' ? m.weight.trim() : String(m.weight),
+      isStandardWeightUnusable: false,
+      isStandardWeightByAgeUnusable: false,
+      height: heightVal,
+      weight: weightVal,
+      heightSDS,
+      weightSDS,
+      weightSDSReferenceLimitAge: null,
+      bmi: undefined,
+      obesityIndex: null,
+      obesityIndexAge: null,
+    };
+  }
 
   // Height SDS uses 附表1 completed-month mean/SD at every age; undefined means not calculable (no LMS fallback)
   let heightSDS: number | undefined = undefined;
@@ -152,6 +228,7 @@ export function evaluateMeasurement(
   }
 
   return {
+    growthReference,
     id: m.id,
     date: m.date,
     age,
@@ -163,6 +240,8 @@ export function evaluateMeasurement(
     isStandardEvaluationHeld,
     isHeightSDSOutOfRange,
     isHeightSDSUnavailable,
+    isWeightSDSOutOfRange: false,
+    isWeightSDSUnavailable: false,
     isHeightInvalid,
     isWeightInvalid,
     heightInputText: typeof m.height === 'string' ? m.height.trim() : String(m.height),

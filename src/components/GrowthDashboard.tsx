@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import GrowthChart, { CHART_PRESETS, ChartPreset } from './GrowthChart';
+import GrowthChart, { ACHONDROPLASIA_CHART_PRESETS, CHART_PRESETS, ChartPreset } from './GrowthChart';
 import GrowthForm, { MeasurementEntry } from './GrowthForm';
 import { ThemeToggle } from './ThemeToggle';
 import { 
@@ -20,16 +20,29 @@ import {
 import { FUHYO_BOYS_HEIGHT, FUHYO_GIRLS_HEIGHT } from '../data/fuhyo-growth-data';
 import { SUWA_HV_BOYS, SUWA_HV_GIRLS } from '../data/suwa-hv-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CircleHelp, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CLINICAL_LIMITS } from '../lib/constants';
+import {
+  CLINICAL_LIMITS,
+  DEFAULT_GROWTH_REFERENCE,
+  GROWTH_REFERENCES,
+  GROWTH_REFERENCE_LABELS,
+  isGrowthReference,
+  type GrowthReference,
+} from '../lib/constants';
 import { evaluateMeasurement } from '../lib/measurement-evaluation';
 import { getObesityClassification } from '../lib/obesity-classification';
 
 const HEIGHT_RANGE_NOTICE = `身長SDSは基準表の対象範囲外です（満${formatMonthsAsAge(HEIGHT_SDS_MAX_COMPLETED_MONTHS)}まで）。`;
+
+const ACHONDROPLASIA_DESCRIPTION = 'CLARITY基準：身長は共通SD、体重は平均の上下で異なるSDを使用します。背景線は補足表から算出したSD線です。';
+const ACHONDROPLASIA_COMPLETED_MONTH_NOTICE = 'SDSは満月齢の行で計算するため、月の途中の測定点は背景線の位置と一致しない場合があります。';
+
+function achondroplasiaRangeNotice(indicator: '身長' | '体重'): string {
+  return `${indicator}SDSはCLARITY基準の対象範囲外です（${CLINICAL_LIMITS.AGE.MAX}.0歳まで）。`;
+}
 
 function weightReferenceNotice(limitAge: number): string {
   return `体重SDSは${formatReferenceAgeLimit(limitAge)}の基準値を使用した参考値です。`;
@@ -58,6 +71,14 @@ export function getSuwaHVSDSClass(sds: number, sex: '男子' | '女子'): string
 
 const GrowthDashboard: React.FC = () => {
   const [selectedPreset, setSelectedPreset] = useState<ChartPreset>(CHART_PRESETS[2]); // Default to 0-18y
+  const [growthReference, setGrowthReference] = useState<GrowthReference>(DEFAULT_GROWTH_REFERENCE);
+  const isAchondroplasia = growthReference === 'achondroplasia-clarity';
+  const referenceLabel = GROWTH_REFERENCE_LABELS[growthReference];
+  const chartPresets = isAchondroplasia ? ACHONDROPLASIA_CHART_PRESETS : CHART_PRESETS;
+  const activePreset = chartPresets.find(p => p.id === selectedPreset.id) ?? chartPresets[2];
+  const heightInvalidNotice = isAchondroplasia ? '身長SDSは算出しません' : '身長SDS・BMI・肥満度は算出しません';
+  const weightInvalidNotice = isAchondroplasia ? '体重SDSは算出しません' : '体重SDS・BMI・肥満度は算出しません';
+  const heightRangeNotice = isAchondroplasia ? achondroplasiaRangeNotice('身長') : HEIGHT_RANGE_NOTICE;
   const [obesityMode, setObesityMode] = useState<'height' | 'age'>('height');
   const [formData, setFormData] = useState<{
     childId: string;
@@ -97,6 +118,7 @@ const GrowthDashboard: React.FC = () => {
     return formData.measurements
       .map(m => {
         return evaluateMeasurement(m, {
+          growthReference,
           birthDate: formData.birthDate,
           sexKey,
           gestationalWeeks: formData.gestationalWeeks,
@@ -107,10 +129,11 @@ const GrowthDashboard: React.FC = () => {
       })
       .filter((d): d is NonNullable<typeof d> => d !== null)
       .sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [formData, weightTable, fuhyoTable, sexKey]);
+  }, [formData, weightTable, fuhyoTable, sexKey, growthReference]);
 
-  // Calculate Height Velocity (HV)
-  const heightVelocity = useMemo(() => {
+  // Calculate Height Velocity (HV); the Japanese-reference HV (Suwa) is not part of the achondroplasia reference
+  const heightVelocity = useMemo<ReturnType<typeof calculateHeightVelocityResults>>(() => {
+    if (isAchondroplasia) return [];
     const valid = processedData
       .filter(d => d.height !== undefined || d.isHeightInvalid)
       .map(d => ({
@@ -120,7 +143,7 @@ const GrowthDashboard: React.FC = () => {
         height: d.height ?? Number.NaN,
       }));
     return calculateHeightVelocityResults(valid, sexKey, suwaTable);
-  }, [processedData, suwaTable, sexKey]);
+  }, [processedData, suwaTable, sexKey, isAchondroplasia]);
 
   // Points for D3 Chart
   const heightPoints = useMemo(() => {
@@ -177,9 +200,22 @@ const GrowthDashboard: React.FC = () => {
           <p className="text-gray-500 dark:text-zinc-400 text-sm mt-1">日本版デジタル成長曲線プラットフォーム</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <Badge variant="outline" className="px-3 py-1 bg-gray-50 dark:bg-zinc-800 text-gray-700 dark:text-zinc-300 border-gray-200 dark:border-zinc-700">
-            フェーズ 1: スタンドアロン版
-          </Badge>
+          <div className="flex items-center gap-2">
+            <label htmlFor="growth-reference-select" className="text-sm font-medium text-gray-700 dark:text-zinc-300">成長基準</label>
+            <select
+              id="growth-reference-select"
+              value={growthReference}
+              aria-describedby={isAchondroplasia ? 'growth-reference-description' : undefined}
+              onChange={(e) => {
+                if (isGrowthReference(e.target.value)) setGrowthReference(e.target.value);
+              }}
+              className="h-10 rounded-md border border-gray-200 bg-white px-2 text-sm text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus-visible:ring-blue-400"
+            >
+              {GROWTH_REFERENCES.map(id => (
+                <option key={id} value={id}>{GROWTH_REFERENCE_LABELS[id]}</option>
+              ))}
+            </select>
+          </div>
           <a
             href="https://github.com/yhiguchi218/dGC-JP/blob/main/USER_GUIDE.md"
             target="_blank"
@@ -193,10 +229,21 @@ const GrowthDashboard: React.FC = () => {
         </div>
       </header>
 
+      {isAchondroplasia && (
+        <p id="growth-reference-description" className="-mt-4 text-xs text-gray-600 dark:text-zinc-400 print:hidden">
+          {ACHONDROPLASIA_DESCRIPTION}
+        </p>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start print:block">
         {/* Left Column: Input Forms */}
         <div id="input-section" className="lg:col-span-4 space-y-6 scroll-mt-4 lg:sticky lg:top-8 print:hidden">
-          <GrowthForm onDataChange={setFormData} initialData={formData} />
+          <GrowthForm
+            onDataChange={setFormData}
+            initialData={formData}
+            growthReference={growthReference}
+            onGrowthReferenceChange={setGrowthReference}
+          />
         </div>
 
         {/* Right Column: Chart and Results */}
@@ -236,50 +283,66 @@ const GrowthDashboard: React.FC = () => {
                 </span>
               </div>
             </div>
+            {isAchondroplasia && (
+              <p className="mt-2 text-xs text-gray-800">
+                <span className="text-gray-500 text-[9px] uppercase tracking-wider mr-1">成長基準</span>
+                <span className="font-bold text-gray-950">{referenceLabel}</span>
+              </p>
+            )}
           </div>
 
           <div id="chart-section" className="flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-zinc-900 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-zinc-800 gap-4 scroll-mt-4 print:hidden transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <span className="text-sm font-medium text-gray-700 dark:text-zinc-300">表示範囲:</span>
-              <Select 
-                value={selectedPreset.id} 
+              <Select
+                value={activePreset.id}
                 onValueChange={(id) => {
-                  const preset = CHART_PRESETS.find(p => p.id === id);
+                  const preset = chartPresets.find(p => p.id === id);
                   if (preset) setSelectedPreset(preset);
                 }}
               >
                 <SelectTrigger className="w-full sm:w-[260px] bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 text-gray-900 dark:text-zinc-100">
                   <SelectValue placeholder="表示範囲を選択">
-                    {selectedPreset.name}
+                    {activePreset.name}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700">
-                  {CHART_PRESETS.map(p => (
+                  {chartPresets.map(p => (
                     <SelectItem key={p.id} value={p.id} className="text-gray-900 dark:text-zinc-100 focus:bg-gray-100 dark:focus:bg-zinc-700">{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="text-xs sm:text-[10px] text-gray-400 dark:text-zinc-500 sm:max-w-[300px] sm:text-right">
-              ※ 背景曲線はIsojima 2016のLMS基準（表の点の間はアプリが補間）で描画しています（身長SDSは附表1の満月齢別平均・SD、体重SDSは満月齢を年換算しLMS基準値を補間して算出）。
+              {isAchondroplasia
+                ? `※ 背景線は補足表の満月齢ごとの平均・SDから算出したSD線を直線で結んだものです（論文のパーセンタイル曲線の再現ではありません）。${ACHONDROPLASIA_COMPLETED_MONTH_NOTICE}`
+                : '※ 背景曲線はIsojima 2016のLMS基準（表の点の間はアプリが補間）で描画しています（身長SDSは附表1の満月齢別平均・SD、体重SDSは満月齢を年換算しLMS基準値を補間して算出）。'}
             </div>
           </div>
 
           <div className="print:m-0 print:p-0">
-            <GrowthChart 
-              sex={formData.sex} 
-              heightLmsTable={heightTable} 
-              weightLmsTable={weightTable} 
-              heightPoints={heightPoints} 
-              weightPoints={weightPoints} 
-              preset={selectedPreset}
+            <GrowthChart
+              growthReference={growthReference}
+              sex={formData.sex}
+              heightLmsTable={heightTable}
+              weightLmsTable={weightTable}
+              heightPoints={heightPoints}
+              weightPoints={weightPoints}
+              preset={activePreset}
             />
           </div>
 
           <Card id="results-section" className="border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 scroll-mt-4 print:shadow-none print:border-none print:m-0 print:p-0 transition-colors">
-            <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">評価結果</div>
+            <div className="hidden print:block font-bold text-sm border-b pb-1 mb-2">
+              評価結果
+              {isAchondroplasia && <span className="ml-2 text-[9px] font-normal">（成長基準: {referenceLabel}）</span>}
+            </div>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 print:hidden">
-              <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100 print:text-base">評価結果</CardTitle>
+              <CardTitle className="text-xl font-semibold text-gray-900 dark:text-zinc-100 print:text-base">
+                評価結果
+                {isAchondroplasia && <span className="ml-2 text-xs font-normal text-gray-600 dark:text-zinc-400">（成長基準: {referenceLabel}）</span>}
+              </CardTitle>
+              {!isAchondroplasia && (
               <div role="group" aria-label="肥満度の算出基準" className="flex bg-gray-100 dark:bg-zinc-800 p-1 rounded-md text-[10px] md:text-xs print:hidden">
                 <button 
                   onClick={() => setObesityMode('height')}
@@ -302,12 +365,15 @@ const GrowthDashboard: React.FC = () => {
                   性別年齢別
                 </button>
               </div>
+              )}
             </CardHeader>
             <CardContent>
               <div role="region" aria-labelledby="results-title" className="hidden overflow-x-auto md:block print:block">
                 <table className="w-full text-sm text-left">
                   <caption className="sr-only" id="results-title">
-                    お子さんの成長データ評価結果。各行は測定日ごとの測定値、年齢、身長SDS、体重SDS、BMI、肥満度を表示しています。
+                    {isAchondroplasia
+                      ? `お子さんの成長データ評価結果（成長基準: ${referenceLabel}）。各行は測定日ごとの測定値、年齢、身長SDS、体重SDSを表示しています。`
+                      : 'お子さんの成長データ評価結果。各行は測定日ごとの測定値、年齢、身長SDS、体重SDS、BMI、肥満度を表示しています。'}
                   </caption>
                   <thead className="text-xs text-gray-700 dark:text-zinc-300 uppercase bg-gray-50 dark:bg-zinc-800/60 print:bg-transparent print:border-b">
                     <tr>
@@ -324,20 +390,24 @@ const GrowthDashboard: React.FC = () => {
                         体重 (SDS)
                         <span className="sr-only">標準偏差値。</span>
                       </th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
-                        BMI
-                        <span className="sr-only">ボディマス指数。</span>
-                      </th>
-                      <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
-                        肥満度
-                        <span className={cn(
-                          "ml-1 text-[8px] normal-case px-1 rounded",
-                          formData.sex === '男子' ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300' : 'bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300'
-                        )}>
-                          {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
-                        </span>
-                        <span className="sr-only">パーセント。</span>
-                      </th>
+                      {!isAchondroplasia && (
+                        <>
+                          <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
+                            BMI
+                            <span className="sr-only">ボディマス指数。</span>
+                          </th>
+                          <th className="px-4 py-3 print:px-1 print:py-0.5 print:text-[7pt]" scope="col">
+                            肥満度
+                            <span className={cn(
+                              "ml-1 text-[8px] normal-case px-1 rounded",
+                              formData.sex === '男子' ? 'bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300' : 'bg-pink-100 dark:bg-pink-950/70 text-pink-700 dark:text-pink-300'
+                            )}>
+                              {obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}
+                            </span>
+                            <span className="sr-only">パーセント。</span>
+                          </th>
+                        </>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-zinc-800">
@@ -367,7 +437,7 @@ const GrowthDashboard: React.FC = () => {
                             {d.height ? `${d.height}cm` : '-'}
                             {d.isHeightInvalid ? (
                               <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300 print:ml-1 print:text-[7pt]">
-                                身長入力が不正です（入力値: {d.heightInputText}）：身長SDS・BMI・肥満度は算出しません
+                                身長入力が不正です（入力値: {d.heightInputText}）：{heightInvalidNotice}
                               </span>
                             ) : d.isGestationalEvaluationPending ? (
                               <span className="ml-2 text-xs text-amber-700 dark:text-amber-300 print:ml-1 print:text-[7pt]">在胎情報要確認：SDS未評価</span>
@@ -377,7 +447,7 @@ const GrowthDashboard: React.FC = () => {
                               </span>
                             ) : d.isHeightSDSOutOfRange ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
-                                {HEIGHT_RANGE_NOTICE}
+                                {heightRangeNotice}
                               </span>
                             ) : d.isHeightSDSUnavailable ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
@@ -396,13 +466,21 @@ const GrowthDashboard: React.FC = () => {
                             {d.weight ? `${d.weight}kg` : '-'}
                             {d.isWeightInvalid ? (
                               <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300 print:ml-1 print:text-[7pt]">
-                                体重入力が不正です（入力値: {d.weightInputText}）：体重SDS・BMI・肥満度は算出しません
+                                体重入力が不正です（入力値: {d.weightInputText}）：{weightInvalidNotice}
                               </span>
                             ) : d.isGestationalEvaluationPending ? (
                               <span className="ml-2 text-xs text-amber-700 dark:text-amber-300 print:ml-1 print:text-[7pt]">在胎情報要確認：SDS未評価</span>
                             ) : d.isPretermBeforeCorrection ? (
                               <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
                                 SDS算出対象外（40週0日相当前）
+                              </span>
+                            ) : d.isWeightSDSOutOfRange ? (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
+                                {achondroplasiaRangeNotice('体重')}
+                              </span>
+                            ) : d.isWeightSDSUnavailable ? (
+                              <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400 print:ml-1 print:text-[7pt]">
+                                体重SDS算出不可（入力値・基準値要確認）
                               </span>
                             ) : d.weightSDS !== undefined && (
                               <>
@@ -420,18 +498,22 @@ const GrowthDashboard: React.FC = () => {
                               </>
                             )}
                           </td>
-                          <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">{d.bmi?.toFixed(1) || '-'}</td>
-                          <td className="px-4 py-3 text-center print:px-1 print:py-0.5 print:text-[8pt]">
-                            {currentObesity !== null ? (
-                              <ObesityValue value={currentObesity} age={d.age} method={obesityMode} />
-                            ) : (
-                              <span className="text-gray-300 dark:text-zinc-600 text-[10px] print:text-[6pt]">
-                                {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
-                                  ? '肥満度算出不可（標準体重を算出できません）'
-                                  : '算出不可'}
-                              </span>
-                            )}
-                          </td>
+                          {!isAchondroplasia && (
+                            <>
+                              <td className="px-4 py-3 print:px-1 print:py-0.5 print:text-[8pt]">{d.bmi?.toFixed(1) || '-'}</td>
+                              <td className="px-4 py-3 text-center print:px-1 print:py-0.5 print:text-[8pt]">
+                                {currentObesity !== null ? (
+                                  <ObesityValue value={currentObesity} age={d.age} method={obesityMode} />
+                                ) : (
+                                  <span className="text-gray-300 dark:text-zinc-600 text-[10px] print:text-[6pt]">
+                                    {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
+                                      ? '肥満度算出不可（標準体重を算出できません）'
+                                      : '算出不可'}
+                                  </span>
+                                )}
+                              </td>
+                            </>
+                          )}
                         </tr>
                       );
                     })}
@@ -449,6 +531,9 @@ const GrowthDashboard: React.FC = () => {
                     >
                       <div className="border-b border-gray-100 pb-3 dark:border-zinc-800">
                         <div className="font-semibold">{format(d.date, 'yyyy/MM/dd')}</div>
+                        {isAchondroplasia && (
+                          <div className="mt-0.5 text-xs text-gray-600 dark:text-zinc-400">成長基準: {referenceLabel}</div>
+                        )}
                         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="font-semibold">{d.age.toFixed(4)}歳</span>
                           {d.showCorrected && d.correctedBirthDate && (
@@ -476,7 +561,7 @@ const GrowthDashboard: React.FC = () => {
                           {d.height ? `${d.height}cm` : '-'}
                           {d.isHeightInvalid ? (
                             <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300">
-                              身長入力が不正です（入力値: {d.heightInputText}）：身長SDS・BMI・肥満度は算出しません
+                              身長入力が不正です（入力値: {d.heightInputText}）：{heightInvalidNotice}
                             </span>
                           ) : d.isGestationalEvaluationPending ? (
                             <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">在胎情報要確認：SDS未評価</span>
@@ -486,7 +571,7 @@ const GrowthDashboard: React.FC = () => {
                             </span>
                           ) : d.isHeightSDSOutOfRange ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
-                              {HEIGHT_RANGE_NOTICE}
+                              {heightRangeNotice}
                             </span>
                           ) : d.isHeightSDSUnavailable ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
@@ -506,13 +591,21 @@ const GrowthDashboard: React.FC = () => {
                           {d.weight ? `${d.weight}kg` : '-'}
                           {d.isWeightInvalid ? (
                             <span role="status" className="ml-2 text-xs text-red-700 dark:text-red-300">
-                              体重入力が不正です（入力値: {d.weightInputText}）：体重SDS・BMI・肥満度は算出しません
+                              体重入力が不正です（入力値: {d.weightInputText}）：{weightInvalidNotice}
                             </span>
                           ) : d.isGestationalEvaluationPending ? (
                             <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">在胎情報要確認：SDS未評価</span>
                           ) : d.isPretermBeforeCorrection ? (
                             <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
                               SDS算出対象外（40週0日相当前）
+                            </span>
+                          ) : d.isWeightSDSOutOfRange ? (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
+                              {achondroplasiaRangeNotice('体重')}
+                            </span>
+                          ) : d.isWeightSDSUnavailable ? (
+                            <span className="ml-2 text-xs text-gray-500 dark:text-zinc-400">
+                              体重SDS算出不可（入力値・基準値要確認）
                             </span>
                           ) : d.weightSDS !== undefined && (
                             <>
@@ -530,22 +623,26 @@ const GrowthDashboard: React.FC = () => {
                             </>
                           )}
                         </dd>
-                        <dt className="text-gray-500 dark:text-zinc-400">BMI</dt>
-                        <dd className="text-right font-medium">{d.bmi?.toFixed(1) || '-'}</dd>
-                        <dt className="text-gray-500 dark:text-zinc-400">
-                          肥満度（{obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}）
-                        </dt>
-                        <dd className="text-right font-medium">
-                          {currentObesity !== null ? (
-                            <ObesityValue value={currentObesity} age={d.age} method={obesityMode} />
-                          ) : (
-                            <span className="text-[10px] text-gray-300 dark:text-zinc-600">
-                              {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
-                                ? '肥満度算出不可（標準体重を算出できません）'
-                                : '算出不可'}
-                            </span>
-                          )}
-                        </dd>
+                        {!isAchondroplasia && (
+                          <>
+                            <dt className="text-gray-500 dark:text-zinc-400">BMI</dt>
+                            <dd className="text-right font-medium">{d.bmi?.toFixed(1) || '-'}</dd>
+                            <dt className="text-gray-500 dark:text-zinc-400">
+                              肥満度（{obesityMode === 'height' ? '身長値ベース' : '年齢別ベース'}）
+                            </dt>
+                            <dd className="text-right font-medium">
+                              {currentObesity !== null ? (
+                                <ObesityValue value={currentObesity} age={d.age} method={obesityMode} />
+                              ) : (
+                                <span className="text-[10px] text-gray-300 dark:text-zinc-600">
+                                  {(obesityMode === 'height' ? d.isStandardWeightUnusable : d.isStandardWeightByAgeUnusable)
+                                    ? '肥満度算出不可（標準体重を算出できません）'
+                                    : '算出不可'}
+                                </span>
+                              )}
+                            </dd>
+                          </>
+                        )}
                       </dl>
                     </article>
                   );
@@ -649,21 +746,43 @@ const GrowthDashboard: React.FC = () => {
               </div>
               
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40">
-                <p>※ 身長SDSは附表1の満月齢別平均・標準偏差（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線はIsojima 2016のLMS基準によるため、表示SDSと曲線上の位置は一致しない場合があります。−2.5SD・−3SD線もLMS基準による計算線です。</p>
-                <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
-                <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
-                <p>※ 肥満度の区分は丸め前の値で判定するため、表示値と区分の境界が一致しない場合があります。</p>
+                {isAchondroplasia ? (
+                  <>
+                    <p>※ {ACHONDROPLASIA_DESCRIPTION}米国のCLARITY研究（軟骨無形成症の米国コホート）の補足表1（平均・SD）に基づくもので、日本人の軟骨無形成症児を対象とした基準ではありません。LMS法ではありません。</p>
+                    <p>※ 身長SDS＝（身長−平均）÷共通SD。体重SDSは、平均より大きい場合は上側SD、平均以下の場合は下側SDで算出します（論文Methods）。身長の共通SDの使用は本アプリの採用仕様です。</p>
+                    <p>※ 基準行は満月齢で選択し（0〜{CLINICAL_LIMITS.AGE.MAX}.0歳）、月内の補間や最終行の流用は行いません。{ACHONDROPLASIA_COMPLETED_MONTH_NOTICE}</p>
+                    <p>※ 背景線（−3.0・−2.5SD線を含む）は補足表の平均・SDから算出したSD線であり、論文のパーセンタイル曲線の再現ではありません。</p>
+                    <p>※ 早産児の修正年齢の適用（3.0歳まで）は本アプリの現行方針です。論文で検証されたものではなく、論文では2歳未満の早産児のデータは基準から除外されています。</p>
+                    <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
+                  </>
+                ) : (
+                  <>
+                    <p>※ 身長SDSは附表1の満月齢別平均・標準偏差（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線はIsojima 2016のLMS基準によるため、表示SDSと曲線上の位置は一致しない場合があります。−2.5SD・−3SD線もLMS基準による計算線です。</p>
+                    <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
+                    <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
+                    <p>※ 肥満度の区分は丸め前の値で判定するため、表示値と区分の境界が一致しない場合があります。</p>
+                  </>
+                )}
               </div>
 
               <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/40 text-[9px] text-amber-700/80 dark:text-amber-300/70">
                 <p className="font-semibold mb-1">参考文献・出典:</p>
-                <ul className="list-disc list-inside space-y-0.5">
-                  <li>身長SDS（附表1・満月齢0〜210か月）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">日本小児内分泌学会 附表1（身長の平均・標準偏差を参照）</a></li>
-                  <li>背景曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
-                  <li>肥満度計算: Clin Pediatr Endocrinol 25:77-82, 2016</li>
-                  <li>体重SDS計算: Clin Pediatr Endocrinol 25:71-76, 2016</li>
-                  <li>成長率計算: Clin Pediatr Endocrinol 1(1):5-13, 1992</li>
-                </ul>
+                {isAchondroplasia ? (
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>身長・体重の基準（CLARITY・米国）: Hoover-Fong J, et al. Orphanet J Rare Dis 2021;16:522.{' '}
+                      <a href="https://doi.org/10.1186/s13023-021-02141-4" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">doi:10.1186/s13023-021-02141-4</a>
+                      （補足表1の平均・SDを利用。論文：CC BY 4.0／公開データ：別途指定がない限りCC0 1.0）
+                    </li>
+                  </ul>
+                ) : (
+                  <ul className="list-disc list-inside space-y-0.5">
+                    <li>身長SDS（附表1・満月齢0〜210か月）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">日本小児内分泌学会 附表1（身長の平均・標準偏差を参照）</a></li>
+                    <li>背景曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
+                    <li>肥満度計算: Clin Pediatr Endocrinol 25:77-82, 2016</li>
+                    <li>体重SDS計算: Clin Pediatr Endocrinol 25:71-76, 2016</li>
+                    <li>成長率計算: Clin Pediatr Endocrinol 1(1):5-13, 1992</li>
+                  </ul>
+                )}
               </div>
             </div>
           </div>
@@ -689,7 +808,7 @@ const GrowthDashboard: React.FC = () => {
       >
         {processedData.length > 0 && (
           <p>
-            データが更新されました。現在 {processedData.length} 件の測定データがあります。最新の測定データ（測定日: {format(processedData[processedData.length - 1].date, 'yyyy年MM月dd日')}）は、
+            データが更新されました。{isAchondroplasia ? `成長基準: ${referenceLabel}。` : ''}現在 {processedData.length} 件の測定データがあります。最新の測定データ（測定日: {format(processedData[processedData.length - 1].date, 'yyyy年MM月dd日')}）は、
             {processedData[processedData.length - 1].height ? `身長 ${processedData[processedData.length - 1].height}センチメートル` : ''}
             {processedData[processedData.length - 1].heightSDS !== undefined ? ` (標準偏差SDS: ${processedData[processedData.length - 1].heightSDS.toFixed(2)})` : ''}、
             {processedData[processedData.length - 1].weight ? `体重 ${processedData[processedData.length - 1].weight}キログラム` : ''}
