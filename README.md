@@ -45,7 +45,7 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 - **成長曲線背景・体重SDS**: Isojima et al., *Clin Pediatr Endocrinol.* 2016;25:71-76. [DOI: 10.1297/cpe.25.71](https://doi.org/10.1297/cpe.25.71)
 - **肥満度計算**: *Clin Pediatr Endocrinol.* 2016;25:77-82. [DOI: 10.1297/cpe.25.77](https://doi.org/10.1297/cpe.25.77)
 - **身長速度SDS**: Suwa S, Tachibana K, Maesaka H, Tanaka T, Yokoya S. *Clin Pediatr Endocrinol.* 1992;1(1):5-13. [DOI: 10.1297/cpe.1.5](https://doi.org/10.1297/cpe.1.5)（Table 3・4の身長速度 mean/SD）
-- **軟骨無形成症の身長・体重基準（CLARITY・米国）**: Hoover-Fong JE, et al. *Orphanet J Rare Dis.* 2021;16:522. [DOI: 10.1186/s13023-021-02141-4](https://doi.org/10.1186/s13023-021-02141-4)（補足表1の平均・SDを利用。論文はCC BY 4.0。補足ファイル自体の利用条件は個別に確認していません）
+- **軟骨無形成症の身長・体重基準（CLARITY・米国）**: Hoover-Fong JE, et al. *Orphanet J Rare Dis.* 2021;16:522. [DOI: 10.1186/s13023-021-02141-4](https://doi.org/10.1186/s13023-021-02141-4)（補足表1の平均・SDを利用。論文本文はCC BY 4.0。論文のRights and permissionsには、公開データに対して別途の指定がない限りCC0 1.0が適用されると記載されており、補足表1の掲載欄に個別の制限記載はありません。本アプリはこの公開データへのCC0条項を根拠に数値を利用しています。詳細は [DATA_SOURCES.md](DATA_SOURCES.md) を参照）
 
 ## プライバシーとセキュリティ
 

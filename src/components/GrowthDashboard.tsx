@@ -771,7 +771,7 @@ const GrowthDashboard: React.FC = () => {
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>身長・体重の基準（CLARITY・米国）: Hoover-Fong J, et al. Orphanet J Rare Dis 2021;16:522.{' '}
                       <a href="https://doi.org/10.1186/s13023-021-02141-4" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">doi:10.1186/s13023-021-02141-4</a>
-                      （補足表1の平均・SDを利用。CC BY 4.0）
+                      （補足表1の平均・SDを利用。論文：CC BY 4.0／公開データ：別途指定がない限りCC0 1.0）
                     </li>
                   </ul>
                 ) : (
