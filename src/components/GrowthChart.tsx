@@ -585,14 +585,14 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
           </p>
         )}
         
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 dark:text-zinc-400 border-t border-gray-100 dark:border-zinc-800 pt-4 print:hidden">
+        <div data-testid="chart-legend" className="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 text-[10px] md:text-xs text-gray-600 dark:text-zinc-400 border-t border-gray-100 dark:border-zinc-800 pt-4 print:hidden">
           <div className="flex items-center gap-2">
             <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600 dark:bg-blue-500' : 'bg-pink-600 dark:bg-pink-500'}`}></span>
-            <span>身長 中央値 (0SD)</span>
+            <span>{isAchondroplasia ? '身長 平均 (0SD)' : '身長 中央値 (0SD)'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className={`w-3 md:w-4 h-0.5 ${sex === '男子' ? 'bg-blue-600 dark:bg-blue-500' : 'bg-pink-600 dark:bg-pink-500'}`}></span>
-            <span>体重 中央値 (0SD)</span>
+            <span>{isAchondroplasia ? '体重 平均 (0SD)' : '体重 中央値 (0SD)'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3 md:w-4 h-0.5 bg-gray-300 dark:bg-zinc-600"></span>
