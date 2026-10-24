@@ -22,6 +22,20 @@ import {
   calculateAchondroplasiaWeightSDS,
   resolveAchondroplasiaReference,
 } from './achondroplasia-growth';
+import { calculateWeightForHeightSDS } from './achondroplasia-weight-for-height';
+
+/**
+ * CLARITY weight-for-height outcome. `not-applicable` is the Japanese reference (no such indicator); `not-entered`
+ * means height or weight was left empty; `invalid-input` means either entered value is not a usable number;
+ * `out-of-range` is a height outside the reference's valid height range; `unavailable` is a reference defect.
+ */
+export type WeightForHeightStatus =
+  | 'not-applicable'
+  | 'not-entered'
+  | 'invalid-input'
+  | 'ok'
+  | 'out-of-range'
+  | 'unavailable';
 
 export interface MeasurementEvaluationInput {
   id: string;
@@ -71,6 +85,9 @@ export interface MeasurementEvaluation {
   weightSDS: number | undefined;
   /** Age (years) of the last weight LMS row when the SDS used it as a clamped reference; otherwise null. */
   weightSDSReferenceLimitAge: number | null;
+  /** CLARITY weight-for-height SDS from this row's own height and weight; independent of age and gestational holds. */
+  weightForHeightSDS: number | undefined;
+  weightForHeightStatus: WeightForHeightStatus;
   bmi: number | undefined;
   obesityIndex: number | null;
   obesityIndexAge: number | null;
@@ -143,6 +160,19 @@ export function evaluateMeasurement(
         isWeightSDSUnavailable = weightVal !== undefined;
       }
     }
+    // Weight-for-height uses only this row's height and weight (selected by sex and height, never by age), so it is
+    // not held by the gestational/corrected-age status that holds the age-based SDS.
+    let weightForHeightSDS: number | undefined = undefined;
+    let weightForHeightStatus: WeightForHeightStatus;
+    if (isHeightInvalid || isWeightInvalid) {
+      weightForHeightStatus = 'invalid-input';
+    } else if (heightVal === undefined || weightVal === undefined) {
+      weightForHeightStatus = 'not-entered';
+    } else {
+      const result = calculateWeightForHeightSDS(heightVal, weightVal, sexKey);
+      weightForHeightStatus = result.status;
+      if (result.status === 'ok') weightForHeightSDS = result.sds;
+    }
     return {
       growthReference,
       id: m.id,
@@ -169,6 +199,8 @@ export function evaluateMeasurement(
       heightSDS,
       weightSDS,
       weightSDSReferenceLimitAge: null,
+      weightForHeightSDS,
+      weightForHeightStatus,
       bmi: undefined,
       obesityIndex: null,
       obesityIndexAge: null,
@@ -252,6 +284,8 @@ export function evaluateMeasurement(
     weight: weightVal,
     heightSDS,
     weightSDS,
+    weightForHeightSDS: undefined,
+    weightForHeightStatus: 'not-applicable',
     bmi,
     weightSDSReferenceLimitAge,
     obesityIndex,
