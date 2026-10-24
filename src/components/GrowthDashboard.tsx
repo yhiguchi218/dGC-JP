@@ -54,6 +54,9 @@ type ChartView = 'age' | 'weight-for-height';
 
 const WEIGHT_FOR_HEIGHT_NOTICE = '身長別体重SDSは、同じ測定行の身長と体重から算出する指標で、年齢別の体重SDSとは別です。年齢・修正年齢・在胎情報は使用しません。補足表2の身長ごとの平均・SDを身長間で直線補間して算出します（直線補間は本アプリの採用仕様です）。';
 
+const AGE_AXIS_OUTLIER_MARKER_NOTE = 'SDSが±5を超える点、または身長・体重が縦軸の表示範囲を超える点は▲で表示します。縦軸範囲外の点は上下端に表示し、横軸の年齢範囲外の点は表示しません。';
+const WEIGHT_FOR_HEIGHT_OUTLIER_MARKER_NOTE = 'SDSが±5を超える点、またはSDSを算出できない点は、グラフの表示範囲内では▲で表示します。表示範囲外の点は端に移動せず、描画せずに注記します。';
+
 /** Weight-for-height SDS of one measurement (CLARITY only). Neutral styling: no abnormal colour or classification. */
 function WeightForHeightSdsValue({ d, sexKey }: {
   d: Pick<MeasurementEvaluation, 'weightForHeightSDS' | 'weightForHeightStatus'>;
@@ -855,7 +858,7 @@ const GrowthDashboard: React.FC = () => {
               <div>
                 <p className="font-bold underline mb-1">重要：ご利用にあたっての免責事項</p>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>本ツールは教育・研究用であり、確定診断には使用しないでください。</li>
+                  <li>本ツールは教育・研究・臨床補助用であり、確定診断には使用しないでください。</li>
                   <li>計算結果の最終的な判断は、必ず主治医の責任において行ってください。</li>
                   <li><strong>プライバシー保護:</strong> 入力された患者データはブラウザ内でのみ一時的に処理され、外部サーバーへ送信・蓄積されることはありません。</li>
                   <li><strong>データ保持:</strong> セキュリティのため、ブラウザをリロード（再読み込み）すると入力データはすべて消去されます。必要に応じて「データ保存」ボタンからJSON形式でバックアップをダウンロードしてください。</li>
@@ -871,13 +874,13 @@ const GrowthDashboard: React.FC = () => {
                     <p>※ {WEIGHT_FOR_HEIGHT_NOTICE}対象の身長は男子50〜140cm、女子50〜134cmで、範囲外は算出しません（外挿・端値の流用なし）。平均より重い場合は上側SD、平均以下の場合は下側SDを使用します。</p>
                     <p>※ 背景線（−3.0・−2.5SD線を含む）は補足表の平均・SDから算出したSD線であり、論文のパーセンタイル曲線の再現ではありません。</p>
                     <p>※ 早産児の修正年齢の適用（3.0歳まで）は本アプリの現行方針です。論文で検証されたものではなく、論文では2歳未満の早産児のデータは基準から除外されています。</p>
-                    <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
+                    <p data-testid="outlier-marker-note">※ {isWeightForHeightView ? WEIGHT_FOR_HEIGHT_OUTLIER_MARKER_NOTE : AGE_AXIS_OUTLIER_MARKER_NOTE}</p>
                   </>
                 ) : (
                   <>
                     <p>※ 身長SDSは附表1の満月齢別平均・標準偏差（満月齢0〜210か月）で算出し、満月齢211か月（17歳7か月）以降は算出しません。背景曲線はIsojima 2016のLMS基準によるため、表示SDSと曲線上の位置は一致しない場合があります。−2.5SD・−3SD線もLMS基準による計算線です。</p>
-                    <p>※ 基準値外（±5SD超）の場合は外挿値として計算され、グラフ上は「▲」で表示されます。</p>
-                    <p>※ 肥満度（身長別）は主に乳幼児用、肥満度（年齢別）は5-17歳の学童期用です。</p>
+                    <p data-testid="outlier-marker-note">※ {AGE_AXIS_OUTLIER_MARKER_NOTE}</p>
+                    <p>※ 肥満度（身長別）は性別・身長別標準体重（幼児・学童）、肥満度（年齢別）は5〜17歳の性別・年齢別・身長別標準体重に基づきます。</p>
                     <p>※ 肥満度の区分は丸め前の値で判定するため、表示値と区分の境界が一致しない場合があります。</p>
                   </>
                 )}
@@ -889,7 +892,7 @@ const GrowthDashboard: React.FC = () => {
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>身長・体重の基準（CLARITY・米国）: Hoover-Fong J, et al. Orphanet J Rare Dis 2021;16:522.{' '}
                       <a href="https://doi.org/10.1186/s13023-021-02141-4" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">doi:10.1186/s13023-021-02141-4</a>
-                      （補足表1の平均・SDを利用。論文：CC BY 4.0／公開データ：別途指定がない限りCC0 1.0）
+                      （補足表1（年齢別身長・体重）および補足表2（身長別体重）の平均・SDを利用。論文：CC BY 4.0／公開データ：別途指定がない限りCC0 1.0）
                     </li>
                     <li>身長別体重の基準（CLARITY・米国）: 同論文の補足表2（Additional file 3）の身長ごとの平均・SDを利用。</li>
                   </ul>
@@ -897,9 +900,11 @@ const GrowthDashboard: React.FC = () => {
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>身長SDS（附表1・満月齢0〜210か月）: <a href="https://jspe.umin.jp/medical/files/fuhyo1.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900 dark:hover:text-amber-100">日本小児内分泌学会 附表1（身長の平均・標準偏差を参照）</a></li>
                     <li>背景曲線: Clin Pediatr Endocrinol 25:71-76, 2016</li>
-                    <li>肥満度計算: Clin Pediatr Endocrinol 25:77-82, 2016</li>
+                    <li>肥満度（身長別）：Itoほか．Clin Pediatr Endocrinol 2016;25:77–82，Table 2</li>
+                    <li>肥満度（年齢別）：生魚ほか．小児保健研究 2010;69:6–13，表1</li>
+                    <li>やせ・高度のやせの区分（年齢別のみ）：生魚ほか．小児保健研究 2010;69:6–13，表1</li>
                     <li>体重SDS計算: Clin Pediatr Endocrinol 25:71-76, 2016</li>
-                    <li>成長率計算: Clin Pediatr Endocrinol 1(1):5-13, 1992</li>
+                    <li>身長速度の標準化評価（HV-SDS）: Clin Pediatr Endocrinol 1(1):5-13, 1992</li>
                   </ul>
                 )}
               </div>

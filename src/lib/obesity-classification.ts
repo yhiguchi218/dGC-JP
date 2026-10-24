@@ -72,9 +72,9 @@ export function getObesityClassification(
     // Underweight side - Only for Age-Specific method ('age')
     if (method === 'age') {
       if (index <= -30) {
-        return { category: '高度やせ', colorClass: 'text-blue-700 dark:text-blue-400 font-bold' };
+        return { category: '高度のやせ', colorClass: 'text-blue-700 dark:text-blue-400 font-bold' };
       } else if (index <= -20) {
-        return { category: '軽度やせ', colorClass: 'text-blue-500 dark:text-blue-300 font-bold' };
+        return { category: 'やせ', colorClass: 'text-blue-500 dark:text-blue-300 font-bold' };
       }
     }
 

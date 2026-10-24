@@ -56,6 +56,9 @@ afterEach(() => {
 });
 
 const ACH_ID = 'achondroplasia-clarity';
+const AGE_AXIS_MARKER_NOTE = 'SDSが±5を超える点、または身長・体重が縦軸の表示範囲を超える点は▲で表示します。縦軸範囲外の点は上下端に表示し、横軸の年齢範囲外の点は表示しません。';
+const WFH_MARKER_NOTE = 'SDSが±5を超える点、またはSDSを算出できない点は、グラフの表示範囲内では▲で表示します。表示範囲外の点は端に移動せず、描画せずに注記します。';
+const markerNote = () => screen.getByTestId('outlier-marker-note');
 const referenceSelect = () => screen.getByLabelText('成長基準') as HTMLSelectElement;
 const selectReference = (value: string) => fireEvent.change(referenceSelect(), { target: { value } });
 const viewGroup = () => screen.queryByRole('group', { name: '表示するグラフ' });
@@ -94,6 +97,7 @@ describe('GrowthDashboard: weight-for-height chart switch', () => {
     renderScenario(MIXED);
     expect(viewGroup()).toBeNull();
     expect(screen.getByTestId('age-chart')).toBeInTheDocument();
+    expect(markerNote()).toHaveTextContent(AGE_AXIS_MARKER_NOTE);
 
     selectReference(ACH_ID);
     expect(viewGroup()).not.toBeNull();
@@ -101,6 +105,7 @@ describe('GrowthDashboard: weight-for-height chart switch', () => {
     expect(screen.getByRole('button', { name: '身長別体重' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByTestId('age-chart')).toBeInTheDocument();
     expect(screen.queryByTestId('wfh-chart-svg')).toBeNull();
+    expect(markerNote()).toHaveTextContent(AGE_AXIS_MARKER_NOTE);
   });
 
   it('swaps the chart without changing the reference, the entered data or the form props', () => {
@@ -116,11 +121,15 @@ describe('GrowthDashboard: weight-for-height chart switch', () => {
     expect(JSON.stringify(state.formProps)).toBe(formBefore);
     expect(container.querySelector('#results-section')!.textContent).toBe(resultsBefore);
     expect(screen.getByRole('button', { name: '身長別体重' })).toHaveAttribute('aria-pressed', 'true');
+    expect(markerNote()).toHaveTextContent(WFH_MARKER_NOTE);
+    expect(markerNote()).not.toHaveTextContent('上下端に表示');
 
     clickView('身長・体重');
     expect(screen.getByTestId('age-chart')).toBeInTheDocument();
     expect(screen.queryByTestId('wfh-chart-svg')).toBeNull();
     expect(JSON.stringify(state.formProps)).toBe(formBefore);
+    expect(markerNote()).toHaveTextContent(AGE_AXIS_MARKER_NOTE);
+    expect(markerNote()).not.toHaveTextContent('端に移動せず');
   });
 
   it('does not use the age presets in the weight-for-height view, and the form data holds no chart-view field', () => {
