@@ -1,6 +1,6 @@
 export const APP_VERSION = '0.1.0-dev';
 export const REFERENCE_VERSION = 'Japan 2000 Growth Standard';
-export const CALCULATION_ENGINE_VERSION = '2026-10';
+export const CALCULATION_ENGINE_VERSION = '2026-11';
 
 export const CLINICAL_REFERENCES = {
   HEIGHT_WEIGHT_LMS: 'Isojima et al. (2016) / MHLW 2000 National Survey',
