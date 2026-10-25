@@ -23,7 +23,7 @@ The MIT License in this repository applies to dGC-JP code and documentation. It 
 
 ## Achondroplasia Height and Weight Reference (CLARITY, US cohort)
 
-- **Source**: Hoover-Fong JE, Schulze KJ, Alade AY, et al. *Growth in achondroplasia including stature, weight, weight-for-height and head circumference from CLARITY: achondroplasia natural history study - a multi-center retrospective cohort study of achondroplasia in the US.* *Orphanet J Rare Dis.* 2021;16:522. DOI: [10.1186/s13023-021-02141-4](https://doi.org/10.1186/s13023-021-02141-4).
+- **Source**: Hoover-Fong JE, Schulze KJ, Alade AY, et al. *Growth in achondroplasia including stature, weight, weight-for-height and head circumference from CLARITY: achondroplasia natural history study - a multi-center retrospective cohort study of achondroplasia in the US.* *Orphanet J Rare Dis.* 2021;16:522. DOI: [10.1186/s13023-021-02141-4](https://doi.org/10.1186/s13023-021-02141-4). dGC-JP uses the means and SDs of Table S1 (補足表1, height and weight by age) and Table S2 (補足表2, weight for height; see the section below).
 - **File used**: Additional file 2 (Table S1), `13023_2021_2141_MOESM2_ESM.csv`. URL: `https://media.springernature.com/original/springer-static/esm/art%3A10.1186%2Fs13023-021-02141-4/MediaObjects/13023_2021_2141_MOESM2_ESM.csv`. Retrieved 2026-10-23. SHA-256 of the original file: `9cbe7ca560fabf0722792a2100e7afc1af1dc6dc34882302e1b5bdd069fe5e6c`.
 - **Used in dGC-JP** (selectable alternative to the Japanese reference; the Japanese references above are unchanged): Columns `Sex (M=0, F = 1)`, `age (months)`, `ht mean`, `htsd`, `wt_mean`, `wt sd lower`, `wt sd upper`, for completed months 0 through 216 (18.0 years), 217 rows per sex, in `src/data/achondroplasia-clarity-data.ts`. Values are copied as the CSV text with no re-rounding or manual correction. The other columns (including `ht sd lower/upper`, `wt_sd`, head circumference, sample sizes) are not used.
 - **Nature of the reference**: Mean and SD by completed month. It is **not an LMS table**, and no pseudo-LMS values are derived from it. The cohort is US (CLARITY) achondroplasia; it is not a Japanese achondroplasia reference.
@@ -68,8 +68,27 @@ The MIT License in this repository applies to dGC-JP code and documentation. It 
 
 ## Obesity Index Formulae
 
-- **Source**: *Clin Pediatr Endocrinol.* 2016;25:77-82. DOI: [10.1297/cpe.25.77](https://doi.org/10.1297/cpe.25.77). The implementation also identifies JSPE/Japanese Ministry of Health and Welfare pediatric standard-weight equations as its source basis.
-- **Used in dGC-JP**: Height- and age-based standard-weight equations used to calculate the obesity index.
-- **Article/publication license**: The DOI resolves to the publisher/Crossref record. The publication license was not independently confirmed in this repository review.
-- **Numerical-data redistribution**: dGC-JP implements formulae rather than a separate source table. Any rights or reuse requirements for the published equations should be independently confirmed.
+The two obesity-index methods use different sources. Obesity index (%) = (measured weight - standard weight) / standard weight x 100 in both methods.
+
+### Height-based standard weight (肥満度（身長別）)
+
+- **Source**: Ito Y, Fujieda K, Okuno A. Weight-for-height charts for Japanese children based on the year 2000 Report of School Health Statistics Research. *Clin Pediatr Endocrinol.* 2016;25(2):77-82, Table 2. [J-STAGE](https://www.jstage.jst.go.jp/article/cpe/25/2/25_2016-0001/_article); DOI: [10.1297/cpe.25.77](https://doi.org/10.1297/cpe.25.77). Table 2 contains both the infant (幼児) and the school-age (学童) sex- and height-specific standard-weight equations. The implementation also identifies JSPE/Japanese Ministry of Health and Welfare pediatric standard-weight equations as its source basis.
+- **Used in dGC-JP**: `calculateStandardWeight` (infant equation under 6 years, school-age equations from 6 years) for the height-based obesity index.
+- **Not covered by this source**: The age-based coefficients below. This article alone is not cited as the source of both methods.
+
+### Age-based standard weight (肥満度（年齢別）)
+
+- **Source**: 生魚（澤村）薫、橋本令子、村田光範．学校保健における新しい体格判定基準の検討―新基準と旧基準の比較および新基準による肥満傾向児並びに痩身傾向児の出現頻度にみられる1980年度から2006年度にかけての年次推移について―．小児保健研究．2010;69(1):6-13, 表1 (p.7). (Ikiuo K, Hashimoto R, Murata M. *Shoni Hoken Kenkyu* 2010;69(1):6-13, Table 1.)
+- **Used in dGC-JP**: `AGE_SPECIFIC_COEFFS` in `calculateStandardWeightByAge` (completed years 5-17, by sex): standard weight (kg) = a x height (cm) - b.
+- **Comparison with the source (AI comparison, provided to this change)**: ChatGPT compared an image of Table 1 from the source PDF with `AGE_SPECIFIC_COEFFS` at commit `47b45cb` and reported that all 52 values (13 ages x 2 coefficients x 2 sexes) match. This is an AI comparison supplied by the maintainer; it was not repeated by the agent that edited this document, and it is not a human double entry or an independent third-party audit. The coefficients were not modified. The source PDF is not included in this repository.
+
+### Underweight categories (age-based method only)
+
+- **Source**: The same Table 1 (p.7) of 生魚 et al. 2010 defines やせ as an obesity index of -20% or less and 高度のやせ as -30% or less (thresholds confirmed against the source by the maintainer).
+- **Used in dGC-JP**: `getObesityClassification` with the age-based method at 6 to under 18 years: -30% or less → 「高度のやせ」; above -30% and -20% or less → 「やせ」. The display labels use the source terms. No underweight category is shown for the height-based method, under 6 years or at 18 years and over. The categories on the obesity side keep their existing sources (see `USER_GUIDE.md`).
+
+### Rights notes (both methods)
+
+- **Article/publication license**: The DOI of the height-based source resolves to the publisher/Crossref record. The publication licenses were not independently confirmed in this repository review.
+- **Numerical-data redistribution**: dGC-JP implements formulae and coefficients rather than a separate source table. Any rights or reuse requirements for the published equations and coefficients should be independently confirmed.
 - **Notes**: Citation and public availability do not themselves determine reuse rights.

@@ -712,10 +712,12 @@ describe('GrowthDashboard responsive results content', () => {
 
     expectObesityBasis(card, '年齢別ベース');
     expect(cardCells(card)[3]).toHaveTextContent('-28.2%');
-    expect(cardCells(card)[3]).toHaveTextContent('軽度やせ');
+    expect(cardCells(card)[3]).toHaveTextContent('（やせ）');
+    expect(cardCells(card)[3]).not.toHaveTextContent('高度のやせ');
     expect(cardCells(card)[3].querySelector('.text-blue-500, .text-blue-700')).not.toBeNull();
     expect(tableObesityCell(table)).toHaveTextContent('-28.2%');
-    expect(tableObesityCell(table)).toHaveTextContent('軽度やせ');
+    expect(tableObesityCell(table)).toHaveTextContent('（やせ）');
+    expect(tableObesityCell(table)).not.toHaveTextContent('高度のやせ');
     expect(tableObesityCell(table).querySelector('.text-blue-500, .text-blue-700')).not.toBeNull();
   });
 
@@ -739,10 +741,10 @@ describe('GrowthDashboard responsive results content', () => {
 
     expectObesityBasis(card, '年齢別ベース');
     expect(cardCells(card)[3]).toHaveTextContent('-20.0%');
-    expect(cardCells(card)[3]).not.toHaveTextContent('軽度やせ');
+    expect(cardCells(card)[3]).not.toHaveTextContent('やせ');
     expect(cardCells(card)[3].querySelector('.text-blue-500, .text-blue-700')).toBeNull();
     expect(tableObesityCell(table)).toHaveTextContent('-20.0%');
-    expect(tableObesityCell(table)).not.toHaveTextContent('軽度やせ');
+    expect(tableObesityCell(table)).not.toHaveTextContent('やせ');
     expect(tableObesityCell(table).querySelector('.text-blue-500, .text-blue-700')).toBeNull();
   });
 

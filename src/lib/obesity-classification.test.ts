@@ -66,11 +66,11 @@ describe('getObesityClassification (age in years)', () => {
 
   it.each([
     [-19.99, ''],
-    [-20.0, '軽度やせ'],
-    [-20.01, '軽度やせ'],
-    [-29.99, '軽度やせ'],
-    [-30.0, '高度やせ'],
-    [-30.01, '高度やせ'],
+    [-20.0, 'やせ'],
+    [-20.01, 'やせ'],
+    [-29.99, 'やせ'],
+    [-30.0, '高度のやせ'],
+    [-30.01, '高度のやせ'],
   ])('applies age-specific underweight thresholds in school-age only: %f', (index, expected) => {
     expect(cat(10, index, 'age')).toBe(expected);
   });
