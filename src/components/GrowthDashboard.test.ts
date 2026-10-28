@@ -6,6 +6,7 @@ import React from 'react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import GrowthDashboard, { getSuwaHVSDSClass } from './GrowthDashboard';
 import * as growthUtils from '../lib/growth-utils';
+import { APP_VERSION } from '../lib/version';
 
 expect.extend(matchers);
 
@@ -1047,5 +1048,42 @@ describe('GrowthDashboard responsive results content', () => {
       expect(screen.getByLabelText('測定日 2020/01/01 の成長評価結果')).toHaveTextContent('14.9%');
       expect(tableRow('2020/01/01')).toHaveTextContent('14.9%');
     });
+  });
+});
+describe('GrowthDashboard chart point identity and version display', () => {
+  const weightChartPoints = () => JSON.parse(screen.getByTestId('growth-chart').getAttribute('data-weight-point-values') ?? '[]');
+
+  it('passes the source measurement row id with each chart point without changing its values', () => {
+    render(React.createElement(GrowthDashboard));
+
+    expect(weightChartPoints()).toEqual([
+      expect.objectContaining({ measurementId: '1', value: 3.3, isCorrected: false }),
+      expect.objectContaining({ measurementId: '2', value: 9.5, isCorrected: false }),
+      expect.objectContaining({ measurementId: '3', value: 12, isCorrected: false }),
+      expect.objectContaining({ measurementId: '4', value: 14.2, isCorrected: false }),
+    ]);
+  });
+
+  it('gives a corrected-age point the same row id as its calendar-age point', () => {
+    render(React.createElement(GrowthDashboard));
+    fireEvent.click(screen.getByRole('button', { name: '40週相当前後のデータを表示' }));
+
+    const points: Array<{ measurementId?: string; value: number; isCorrected?: boolean }> = weightChartPoints();
+    const corrected = points.filter(p => p.isCorrected);
+    expect(corrected.length).toBeGreaterThan(0);
+    corrected.forEach(c => {
+      expect(c.measurementId).toEqual(expect.any(String));
+      expect(points.filter(p => !p.isCorrected && p.measurementId === c.measurementId)).toEqual([
+        expect.objectContaining({ value: c.value }),
+      ]);
+    });
+  });
+
+  it('shows the application version once, in the footer', () => {
+    render(React.createElement(GrowthDashboard));
+
+    const version = screen.getAllByText(`dGC-JP v${APP_VERSION}`);
+    expect(version).toHaveLength(1);
+    expect(version[0].tagName).toBe('FOOTER');
   });
 });

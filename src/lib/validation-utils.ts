@@ -238,6 +238,8 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
       severity: 'warning',
     });
   } else {
+    // Row number of the first row using each non-empty string id; rows are never merged or dropped.
+    const firstRowById = new Map<string, number>();
     measurementInputs.forEach((m: unknown, index: number) => {
       const rowNumber = index + 1;
       if (!m || typeof m !== 'object') {
@@ -251,6 +253,21 @@ export function validateGrowthJSON(data: unknown): DetailedValidationResult {
       }
 
       const meas = m as RawMeasurementInput;
+
+      const id: unknown = meas.id;
+      if (typeof id === 'string' && id !== '') {
+        const firstRow = firstRowById.get(id);
+        if (firstRow === undefined) {
+          firstRowById.set(id, rowNumber);
+        } else {
+          errors.push({
+            field: `measurements[${index}].id`,
+            rowIndex: rowNumber,
+            message: `${rowNumber}行目: 測定データのid（"${id}"）が${firstRow}行目と重複しています。各行に異なるidを指定してください。`,
+            severity: 'error',
+          });
+        }
+      }
 
       // Date validation
       if (!meas.date) {

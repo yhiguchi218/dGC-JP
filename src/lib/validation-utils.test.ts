@@ -299,6 +299,59 @@ describe('JSON Detailed Validation Utils', () => {
     });
   });
 
+  describe('measurement ids are unique within a file', () => {
+    const validate = (measurements: unknown[]) => validateGrowthJSON({ birthDate: '2020/01/01', sex: '男子', measurements });
+
+    it('rejects a duplicated non-empty string id and names the row and the first row using it', () => {
+      const res = validate([
+        { id: 'dup', date: '2021/01/01', height: 80, weight: 10 },
+        { id: 'other', date: '2021/06/01', height: 84 },
+        { id: 'dup', date: '2022/01/01', weight: 12 },
+      ]);
+      expect(res.isValid).toBe(false);
+      expect(res.errors).toEqual([expect.objectContaining({
+        field: 'measurements[2].id',
+        rowIndex: 3,
+        message: expect.stringContaining('3行目: 測定データのid（"dup"）が1行目と重複しています'),
+        severity: 'error',
+      })]);
+    });
+
+    it('reports every repeated row of the same id against its first row', () => {
+      const res = validate([
+        { id: 'x', date: '2021/01/01', height: 80 },
+        { id: 'x', date: '2021/02/01', height: 81 },
+        { id: 'x', date: '2021/03/01', height: 82 },
+      ]);
+      expect(res.errors.map(e => e.message)).toEqual([
+        expect.stringContaining('2行目: 測定データのid（"x"）が1行目と重複しています'),
+        expect.stringContaining('3行目: 測定データのid（"x"）が1行目と重複しています'),
+      ]);
+    });
+
+    it('compares ids exactly (case and surrounding spaces are significant)', () => {
+      const res = validate([
+        { id: 'a', date: '2021/01/01', height: 80 },
+        { id: 'A', date: '2021/01/01', height: 80 },
+        { id: ' a', date: '2021/01/01', height: 80 },
+      ]);
+      expect(res.isValid).toBe(true);
+    });
+
+    it('does not treat omitted, empty, or non-string ids as duplicates, and does not reject the same measurement date', () => {
+      const res = validate([
+        { date: '2021/01/01', height: 80 },
+        { date: '2021/01/01', weight: 10 },
+        { id: '', date: '2021/01/01', height: 81 },
+        { id: '', date: '2021/01/01', height: 82 },
+        { id: 1, date: '2021/01/01', height: 83 },
+        { id: 1, date: '2021/01/01', height: 84 },
+      ]);
+      expect(res.isValid).toBe(true);
+      expect(res.measurementValues).toHaveLength(6);
+    });
+  });
+
   describe('measurement value rules (height and weight)', () => {
     const validate = (measurements: unknown[]) => validateGrowthJSON({ birthDate: '2020/01/01', sex: '男子', measurements });
     const row = (extra: Record<string, unknown>) => ({ date: '2021/01/01', ...extra });

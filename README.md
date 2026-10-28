@@ -13,6 +13,15 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 
 本ツールは、小児科医や保健指導に携わる専門家が、日本人児童の成長データを評価・可視化するために開発されました。入力されたデータに基づき、身長・体重のSDS（標準偏差スコア）、肥満度、身長速度（HV）を計算し、公開された日本人小児の成長基準・関連文献に基づく成長曲線上にプロットします。
 
+## 単一HTML版の使い方（v1.0）
+
+- v1.0では、アプリ全体を1つのHTMLファイル（例: `dGC-JP-v1.0.0.html`）にまとめたものを、GitHub Releasesの添付ファイル（Assets）から入手します。
+- Node.jsや開発サーバーは不要です。ダウンロードしたHTMLファイルをブラウザで開いて使用します。
+- 入力したデータはブラウザに保存されません。終了・再読み込みの前に、必要に応じて「データ保存」でJSONファイルに保存してください（「データ読込」で再開できます）。
+- ブラウザに保存されるのは表示テーマ（ライト／ダーク）の設定だけです。
+- 操作ガイドや参考文献などのリンク先を開くには、ネットワーク接続が必要です。
+- 新しい版を使うときは、新しいHTMLファイルをダウンロードしてください（手元のファイルは自動では更新されません）。
+
 ## 主な機能
 
 - **成長曲線の描画**: 日本人基準は2000年度全国調査に基づき2016年に公表されたLMS成長基準、CLARITY基準は補足表の平均・SDによる基準線を表示。表示するSD線は、身長（日本人基準・CLARITY）が −3, −2.5, −2, −1, 0, +1, +2 SD、日本人基準の年齢別体重が −2, −1, 0, +1, +2 SD、CLARITYの年齢別体重・身長別体重が −3, −2.5, −2, −1, 0, +1, +2 SD。
@@ -48,7 +57,7 @@ Coverage thresholds for `src/lib/**/*.ts`: Lines, Functions, and Statements >= 9
 - **肥満度（身長別）**: Ito Y, Fujieda K, Okuno A. Weight-for-height charts for Japanese children based on the year 2000 Report of School Health Statistics Research. *Clin Pediatr Endocrinol.* 2016;25(2):77-82. Table 2（幼児・学童の性別・身長別標準体重の式）. [J-STAGE](https://www.jstage.jst.go.jp/article/cpe/25/2/25_2016-0001/_article) / [DOI: 10.1297/cpe.25.77](https://doi.org/10.1297/cpe.25.77)
 - **肥満度（年齢別）・やせ区分**: 生魚（澤村）薫、橋本令子、村田光範．学校保健における新しい体格判定基準の検討―新基準と旧基準の比較および新基準による肥満傾向児並びに痩身傾向児の出現頻度にみられる1980年度から2006年度にかけての年次推移について―．小児保健研究．2010;69(1):6-13．表1（p.7）（5〜17歳の性別・年齢別・身長別標準体重の係数a・b、やせ＝肥満度−20％以下、高度のやせ＝肥満度−30％以下）
 - **身長速度SDS（身長速度の標準化評価、HV-SDS）**: Suwa S, Tachibana K, Maesaka H, Tanaka T, Yokoya S. *Clin Pediatr Endocrinol.* 1992;1(1):5-13. [DOI: 10.1297/cpe.1.5](https://doi.org/10.1297/cpe.1.5)（Table 3・4の身長速度 mean/SD）
-- **軟骨無形成症の身長・体重基準（CLARITY・米国）**: Hoover-Fong JE, et al. *Orphanet J Rare Dis.* 2021;16:522. [DOI: 10.1186/s13023-021-02141-4](https://doi.org/10.1186/s13023-021-02141-4)（補足表1（年齢別身長・体重）および補足表2（身長別体重）の平均・SDを利用。論文本文はCC BY 4.0。論文のRights and permissionsには、公開データに対して別途の指定がない限りCC0 1.0が適用されると記載されており、補足表1の掲載欄に個別の制限記載はありません。本アプリはこの公開データへのCC0条項を根拠に数値を利用しています。詳細は [DATA_SOURCES.md](DATA_SOURCES.md) を参照）
+- **軟骨無形成症の身長・体重基準（CLARITY・米国）**: Hoover-Fong JE, et al. *Orphanet J Rare Dis.* 2021;16:522. [DOI: 10.1186/s13023-021-02141-4](https://doi.org/10.1186/s13023-021-02141-4)（補足表1（年齢別身長・体重）および補足表2（身長別体重）の平均・SDを利用。論文本文はCC BY 4.0。論文のRights and permissionsには、公開データに対して別途の指定がない限りCC0 1.0が適用されると記載されており、補足表1・2の掲載欄に個別の制限記載はありません。本アプリはこの公開データへのCC0条項を根拠に数値を利用しています。詳細は [DATA_SOURCES.md](DATA_SOURCES.md) を参照）
 
 ## プライバシーとセキュリティ
 

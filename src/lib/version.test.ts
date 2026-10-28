@@ -8,7 +8,7 @@ import {
 
 describe('version metadata', () => {
   it('exports the expected application and reference versions', () => {
-    expect(APP_VERSION).toBe('0.1.0-dev');
+    expect(APP_VERSION).toBe('1.0.0');
     expect(REFERENCE_VERSION).toBe('Japan 2000 Growth Standard');
     expect(CALCULATION_ENGINE_VERSION).toBe('2026-11');
   });
