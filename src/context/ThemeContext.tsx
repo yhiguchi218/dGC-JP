@@ -12,10 +12,19 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 const THEME_STORAGE_KEY = 'dgc_jp_theme';
 
+const readSavedTheme = (): string | null => {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    // ignore storage read errors (e.g. storage access blocked); fall back to the OS preference
+    return null;
+  }
+};
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) as Theme;
+      const savedTheme = readSavedTheme();
       if (savedTheme === 'light' || savedTheme === 'dark') {
         return savedTheme;
       }

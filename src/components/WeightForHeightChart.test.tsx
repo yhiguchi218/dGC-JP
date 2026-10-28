@@ -183,4 +183,29 @@ describe('WeightForHeightChart PNG export call', () => {
     expect(options.filter(screen.getByTestId('wfh-chart-svg') as unknown as HTMLElement)).toBe(true);
     clickSpy.mockRestore();
   });
+
+  it('tells the user when the image cannot be generated and allows a retry', async () => {
+    const alertMock = vi.fn();
+    vi.stubGlobal('alert', alertMock);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    vi.mocked(toPng).mockClear();
+    vi.mocked(toPng).mockRejectedValueOnce(new Error('render failed'));
+    renderChart([point('a', new Date(2023, 0, 1), 95, 23.33, 1.49843233548101)]);
+    const button = screen.getByRole('button', { name: '身長別体重のグラフをPNG画像としてダウンロードする' });
+
+    fireEvent.click(button);
+    await waitFor(() => expect(alertMock).toHaveBeenCalledTimes(1));
+    expect(alertMock.mock.calls[0][0]).toContain('画像の出力に失敗しました');
+    expect(clickSpy).not.toHaveBeenCalled();
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(within(screen.getByTestId('wfh-data-table')).getByText('1.50SD')).toBeInTheDocument();
+
+    fireEvent.click(button);
+    await waitFor(() => expect(clickSpy).toHaveBeenCalledTimes(1));
+    expect(toPng).toHaveBeenCalledTimes(2);
+    expect(alertMock).toHaveBeenCalledTimes(1);
+    clickSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
 });

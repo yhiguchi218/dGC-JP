@@ -101,6 +101,7 @@ const WeightForHeightChart: React.FC<WeightForHeightChartProps> = ({
       link.click();
     } catch (err) {
       console.error('Export failed', err);
+      alert('画像の出力に失敗しました。入力データはそのままです。もう一度お試しください。');
     } finally {
       setIsExporting(false);
     }

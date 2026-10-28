@@ -36,6 +36,7 @@ import {
 import { evaluateMeasurement, type MeasurementEvaluation } from '../lib/measurement-evaluation';
 import { getWeightForHeightRange } from '../lib/achondroplasia-weight-for-height';
 import { getObesityClassification } from '../lib/obesity-classification';
+import { APP_VERSION } from '../lib/version';
 
 const HEIGHT_RANGE_NOTICE = `身長SDSは基準表の対象範囲外です（満${formatMonthsAsAge(HEIGHT_SDS_MAX_COMPLETED_MONTHS)}まで）。`;
 
@@ -184,21 +185,23 @@ const GrowthDashboard: React.FC = () => {
 
   // Points for D3 Chart
   const heightPoints = useMemo(() => {
-    const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
+    const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number; measurementId?: string }> = [];
     processedData.forEach(d => {
       if (!d.isStandardEvaluationHeld && d.height !== undefined) {
         points.push({
           age: d.age,
           value: d.height,
           zScore: d.heightSDS,
-          isCorrected: false
+          isCorrected: false,
+          measurementId: d.id
         });
         if (d.showCorrected) {
           points.push({
             age: d.correctedAge,
             value: d.height,
             zScore: d.heightSDS,
-            isCorrected: true
+            isCorrected: true,
+            measurementId: d.id
           });
         }
       }
@@ -207,21 +210,23 @@ const GrowthDashboard: React.FC = () => {
   }, [processedData]);
 
   const weightPoints = useMemo(() => {
-    const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number }> = [];
+    const points: Array<{ age: number; value: number; isCorrected?: boolean; isOutlier?: boolean; zScore?: number; measurementId?: string }> = [];
     processedData.forEach(d => {
       if (!d.isStandardEvaluationHeld && d.weight !== undefined) {
         points.push({
           age: d.age,
           value: d.weight,
           zScore: d.weightSDS,
-          isCorrected: false
+          isCorrected: false,
+          measurementId: d.id
         });
         if (d.showCorrected) {
           points.push({
             age: d.correctedAge,
             value: d.weight,
             zScore: d.weightSDS,
-            isCorrected: true
+            isCorrected: true,
+            measurementId: d.id
           });
         }
       }
@@ -912,6 +917,10 @@ const GrowthDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <footer className="text-center text-xs text-gray-500 dark:text-zinc-400 print:hidden">
+        dGC-JP v{APP_VERSION}
+      </footer>
 
       <nav aria-label="画面内ナビゲーション" className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur md:hidden print:hidden dark:border-zinc-700 dark:bg-zinc-900/95">
         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">

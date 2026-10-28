@@ -80,26 +80,28 @@ export const ACHONDROPLASIA_CHART_PRESETS: ChartPreset[] = [
   }
 ];
 
+interface GrowthChartPoint {
+  age: number;
+  value: number;
+  isCorrected?: boolean;
+  isOutlier?: boolean;
+  zScore?: number;
+  /** Identity of the source measurement row; only points of the same row are paired in the alternative table. */
+  measurementId?: string;
+}
+
+/** Same measurement row and same age kind (calendar / corrected); never inferred from age proximity or array position. */
+const isSameMeasurementPoint = (a: GrowthChartPoint, b: GrowthChartPoint) =>
+  a.measurementId !== undefined && a.measurementId === b.measurementId && !!a.isCorrected === !!b.isCorrected;
+
 interface GrowthChartProps {
   /** Defaults to the Japanese reference. */
   growthReference?: GrowthReference;
   sex: '男子' | '女子';
   heightLmsTable: LMSPoint[];
   weightLmsTable: LMSPoint[];
-  heightPoints: Array<{
-    age: number;
-    value: number;
-    isCorrected?: boolean;
-    isOutlier?: boolean;
-    zScore?: number;
-  }>;
-  weightPoints: Array<{
-    age: number;
-    value: number;
-    isCorrected?: boolean;
-    isOutlier?: boolean;
-    zScore?: number;
-  }>;
+  heightPoints: GrowthChartPoint[];
+  weightPoints: GrowthChartPoint[];
   preset: ChartPreset;
 }
 
@@ -159,6 +161,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
       link.click();
     } catch (err) {
       console.error('Export failed', err);
+      alert('画像の出力に失敗しました。入力データはそのままです。もう一度お試しください。');
     } finally {
       setIsExporting(false);
     }
@@ -639,7 +642,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
                 ) : (
                   <>
                     {heightPoints.map((point, idx) => {
-                      const matchingWeight = weightPoints.find(w => Math.abs(w.age - point.age) < 0.001 && w.isCorrected === point.isCorrected);
+                      const matchingWeight = weightPoints.find(w => isSameMeasurementPoint(w, point));
                       return (
                         <tr key={`h-${idx}`} className="hover:bg-gray-50 dark:hover:bg-zinc-800/40 transition-colors">
                           <td className="border-r border-gray-200 dark:border-zinc-700 p-2 font-medium text-center text-gray-800 dark:text-zinc-200">
@@ -651,7 +654,7 @@ const GrowthChart: React.FC<GrowthChartProps> = ({
                         </tr>
                       );
                     })}
-                    {weightPoints.filter(w => !heightPoints.some(h => Math.abs(h.age - w.age) < 0.001 && h.isCorrected === w.isCorrected)).map((point, idx) => (
+                    {weightPoints.filter(w => !heightPoints.some(h => isSameMeasurementPoint(h, w))).map((point, idx) => (
                       <tr key={`w-${idx}`} className="hover:bg-gray-50 dark:hover:bg-zinc-800/40 transition-colors">
                         <td className="border-r border-gray-200 dark:border-zinc-700 p-2 font-medium text-center text-gray-800 dark:text-zinc-200">
                           {point.age.toFixed(4)}歳

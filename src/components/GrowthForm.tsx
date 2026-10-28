@@ -16,11 +16,18 @@ const describeInvalidValue = (label: string, range: string, result: MeasurementV
     ? `${label}は正の値を入力してください（推奨範囲: ${range}）。`
     : `${label}は正の数値で入力してください（例: ${label === '身長' ? '100.5' : '15.2'}）。不正な値の間は評価・保存を保留します。`;
 
-const generateUniqueId = () => {
+const createId = () => {
   if (typeof window !== 'undefined' && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
   }
   return 'id_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+};
+
+/** A new row id that differs from every id in `usedIds`. */
+const generateUniqueId = (usedIds: ReadonlySet<string>) => {
+  let id = createId();
+  while (usedIds.has(id)) id = createId();
+  return id;
 };
 
 export interface MeasurementEntry {
@@ -87,7 +94,7 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData, grow
   });
 
   const handleAddMeasurement = () => {
-    const newId = generateUniqueId();
+    const newId = generateUniqueId(new Set(measurements.map(m => m.id)));
     const newMeasurements = [
       ...measurements,
       { id: newId, date: new Date(), height: undefined, weight: undefined }
@@ -256,11 +263,24 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData, grow
 
         const loadedBirthDate = parsedDates.birthDate;
         const importedMeasurements = importData.measurements as unknown[];
+        // Validation has rejected duplicated string ids; generated ids also avoid every id in the file.
+        const usedIds = new Set<string>();
+        importedMeasurements.forEach(row => {
+          const id = (row as Record<string, unknown>).id;
+          if (typeof id === 'string' && id) usedIds.add(id);
+        });
         const loadedMeasurements: MeasurementEntry[] = importedMeasurements.map((row, index) => {
           const measurement = row as Record<string, unknown>;
           const values = validation.measurementValues[index];
+          let id: string;
+          if (typeof measurement.id === 'string' && measurement.id) {
+            id = measurement.id;
+          } else {
+            id = generateUniqueId(usedIds);
+            usedIds.add(id);
+          }
           return {
-            id: typeof measurement.id === 'string' && measurement.id ? measurement.id : generateUniqueId(),
+            id,
             date: parsedDates.measurements[index] as Date,
             height: values?.height ?? undefined,
             weight: values?.weight ?? undefined,
@@ -293,6 +313,10 @@ const GrowthForm: React.FC<GrowthFormProps> = ({ onDataChange, initialData, grow
         console.error("Failed to parse JSON", err);
         alert(`ファイルの読み込みに失敗しました: ${err instanceof Error ? err.message : '正しい形式のJSONファイルを選択してください。'}`);
       }
+    };
+    reader.onerror = () => {
+      console.error('Failed to read file', reader.error);
+      alert('ファイルを読み取れませんでした。入力中のデータは変更していません。ファイルを確認して、もう一度選択してください。');
     };
     reader.readAsText(file);
     // Reset input
